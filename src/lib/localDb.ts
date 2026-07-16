@@ -62,73 +62,27 @@ const defaultDb: DatabaseSchema = {
   agencies: [
     {
       id: "demo-agency-id",
-      name: "Inmobiliaria Demo",
+      name: "Automotora Demo",
       subdomain: "demo",
       logo_url: "",
-      primary_color: "#2563eb",
-      secondary_color: "#1e3a8a",
+      primary_color: "#10b981",
+      secondary_color: "#065f46",
       created_at: new Date().toISOString()
     }
   ],
-  properties: [
-    { id: "prop-1", agency_id: "demo-agency-id", title: "Hermosa Casa en Carrasco", price: 450000, type: "casa", operation: "venta", status: "disponible", bedrooms: 3, bathrooms: 2, created_at: new Date().toISOString() },
-    { id: "prop-2", agency_id: "demo-agency-id", title: "Apartamento a Estrenar", price: 120000, type: "apartamento", operation: "venta", status: "reservada", bedrooms: 1, bathrooms: 1, created_at: new Date().toISOString() },
-    { id: "prop-3", agency_id: "demo-agency-id", title: "Local Comercial Centro", price: 80000, type: "local", operation: "venta", status: "vendida", bedrooms: 0, bathrooms: 1, created_at: new Date().toISOString() },
-  ],
-  leads: [
-    { id: "lead-1", agency_id: "demo-agency-id", name: "Juan Pérez", property: "Casa en Carrasco", time: "2h", status: "Nuevo" },
-    { id: "lead-2", agency_id: "demo-agency-id", name: "María Gómez", property: "Apto. en Pocitos", time: "5h", status: "Nuevo" },
-    { id: "lead-3", agency_id: "demo-agency-id", name: "Carlos López", property: "Local Centro", time: "1d", status: "Contactado" },
-    { id: "lead-4", agency_id: "demo-agency-id", name: "Ana Martínez", property: "Casa en Carrasco", time: "2d", status: "Visita" },
-    { id: "lead-5", agency_id: "demo-agency-id", name: "Lucía Silva", property: "Terreno Este", time: "3d", status: "Visita" },
-    { id: "lead-6", agency_id: "demo-agency-id", name: "Pedro Rodríguez", property: "Apto. a Estrenar", time: "5d", status: "Negociación" },
-  ],
+  properties: [],
+  leads: [],
   users: [
-    { id: "agent-1", agency_id: "demo-agency-id", name: "Mauricio Negrin", email: "mauricio@inmobiliaria.com", role: "admin", status: "active", created_at: new Date().toISOString() },
-    { id: "agent-2", agency_id: "demo-agency-id", name: "Laura Silva", email: "laura@inmobiliaria.com", role: "manager", status: "active", created_at: new Date().toISOString() },
-    { id: "agent-3", agency_id: "demo-agency-id", name: "Carlos Ruiz", email: "carlos@inmobiliaria.com", role: "agent", status: "inactive", created_at: new Date().toISOString() },
+    { id: "agent-1", agency_id: "demo-agency-id", name: "Mauricio Negrin", email: "mauricio@automotora.com", role: "admin", status: "active", created_at: new Date().toISOString() },
+    { id: "agent-2", agency_id: "demo-agency-id", name: "Laura Silva", email: "laura@automotora.com", role: "manager", status: "active", created_at: new Date().toISOString() },
+    { id: "agent-3", agency_id: "demo-agency-id", name: "Carlos Ruiz", email: "carlos@automotora.com", role: "agent", status: "active", created_at: new Date().toISOString() },
   ],
-  events: [
-    { id: "evt-1", agency_id: "demo-agency-id", title: "Visita Casa Carrasco (Mauricio)", start: new Date(new Date().setHours(10, 0)).toISOString(), end: new Date(new Date().setHours(11, 30)).toISOString(), type: "visita" },
-    { id: "evt-2", agency_id: "demo-agency-id", title: "Firma Contrato Apto Pocitos", start: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString(), end: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString(), type: "reunion" },
-    { id: "evt-3", agency_id: "demo-agency-id", title: "Llamada Propietario", start: new Date(new Date().setDate(new Date().getDate() - 1)).toISOString(), end: new Date(new Date().setDate(new Date().getDate() - 1)).toISOString(), type: "llamada" },
-  ],
-  offers: [
-    { id: "off-1", agency_id: "demo-agency-id", client: "Fernando Giménez", property: "Casa en Carrasco", amount: 430000, date: "Hace 2 horas", status: "pendiente" },
-    { id: "off-2", agency_id: "demo-agency-id", client: "Sofía Arana", property: "Apto. en Pocitos", amount: 115000, date: "Ayer", status: "contraoferta" },
-    { id: "off-3", agency_id: "demo-agency-id", client: "Roberto Silva", property: "Local Centro", amount: 78000, date: "Hace 3 días", status: "aceptada" },
-    { id: "off-4", agency_id: "demo-agency-id", client: "Lucía Méndez", property: "Casa en Carrasco", amount: 400000, date: "Hace 5 días", status: "rechazada" },
-  ],
-  rentals: [
-    { id: "ren-1", agency_id: "demo-agency-id", property: "Apto. en Pocitos", tenant: "Juan Pérez", price: 35000, currency: "UYU", endDate: "2024-12-01", status: "activo" },
-    { id: "ren-2", agency_id: "demo-agency-id", property: "Casa en Carrasco", tenant: "María Gómez", price: 2500, currency: "USD", endDate: "2023-11-15", status: "vencido" },
-    { id: "ren-3", agency_id: "demo-agency-id", property: "Local Centro", tenant: "Carlos López", price: 45000, currency: "UYU", endDate: "2025-06-30", status: "activo" },
-  ],
-  tickets: [
-    { id: "tkt-1", agency_id: "demo-agency-id", title: "Nuevo campo en propiedades", desc: "Necesito agregar un campo 'Cochera techada'.", priority: "Baja", stage: "Pendiente" },
-    { id: "tkt-2", agency_id: "demo-agency-id", title: "Error en buscador", desc: "No filtra correctamente por precio máximo.", priority: "Alta", stage: "Pendiente" },
-    { id: "tkt-3", agency_id: "demo-agency-id", title: "Reporte por sucursal", desc: "Necesitamos separar métricas por oficina.", priority: "Media", stage: "En Análisis" },
-    { id: "tkt-4", agency_id: "demo-agency-id", title: "Integración con WhatsApp", desc: "Botón de compartir funcionando.", priority: "Media", stage: "Entregado" },
-  ],
+  events: [],
+  offers: [],
+  rentals: [],
+  tickets: [],
   conversations: [],
-  lead_interactions: [
-    {
-      id: "int-1",
-      lead_id: "lead-1",
-      agent_name: "Mauricio Negrin",
-      type: "llamada",
-      content: "Llamada telefónica inicial: El cliente solicita coordinar visita para el fin de semana.",
-      created_at: new Date(new Date().setDate(new Date().getDate() - 1)).toISOString()
-    },
-    {
-      id: "int-2",
-      lead_id: "lead-1",
-      agent_name: "Mauricio Negrin",
-      type: "email",
-      content: "Envío de ficha técnica de la propiedad por correo electrónico.",
-      created_at: new Date(new Date().setHours(new Date().getHours() - 3)).toISOString()
-    }
-  ],
+  lead_interactions: [],
   vehicles: [
     {
       id: "veh-1",
