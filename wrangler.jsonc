@@ -6,6 +6,10 @@
   "compatibility_flags": [
     "nodejs_compat"
   ],
+  "vars": {
+    "MERCADOLIBRE_APP_ID": "1597556409269940",
+    "NEXT_PUBLIC_APP_URL": "https://prueba.n-sistemas.com"
+  },
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
