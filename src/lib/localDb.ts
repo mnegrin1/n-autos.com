@@ -230,108 +230,129 @@ const defaultDb: DatabaseSchema = {
   ]
 };
 
+let cachedDb: DatabaseSchema | null = null;
+
 export function getDb(): DatabaseSchema {
-  if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify(defaultDb, null, 2), 'utf-8');
-    return defaultDb;
+  if (cachedDb) {
+    return cachedDb;
   }
+
+  let dbData: DatabaseSchema = defaultDb;
+
   try {
-    const content = fs.readFileSync(DB_FILE, 'utf-8');
-    const parsed = JSON.parse(content);
-    // Migración: inicializar campos que pueden no existir en el JSON persisted
-    if (!parsed.conversations) parsed.conversations = [];
-    if (!parsed.lead_interactions) parsed.lead_interactions = [];
-    if (!parsed.developments) parsed.developments = [];
-    if (!parsed.lots) parsed.lots = [];
-    if (!parsed.notifications) parsed.notifications = [];
-    if (!parsed.payments) parsed.payments = [];
-    if (!parsed.vehicles) parsed.vehicles = [];
-    if (!parsed.auto_leads) parsed.auto_leads = [];
-    
-    // Migración para integraciones y mensajería
-    if (!parsed.integrations) {
-      parsed.integrations = {
-        mercadolibre: { connected: false, username: "", token: "" },
-        facebook: { connected: false, pageName: "", token: "" },
-        instagram: { connected: false, handle: "" },
-        whatsapp: { connected: false, phoneNumber: "" }
-      };
+    if (fs.existsSync(DB_FILE)) {
+      const content = fs.readFileSync(DB_FILE, 'utf-8');
+      const parsed = JSON.parse(content);
+      dbData = parsed;
+    } else {
+      try {
+        fs.writeFileSync(DB_FILE, JSON.stringify(defaultDb, null, 2), 'utf-8');
+      } catch (e) {
+        console.warn("No se pudo escribir database.json inicial (entorno serverless/lectura):", e);
+      }
     }
-    if (!parsed.vehicle_publications) {
-      parsed.vehicle_publications = [];
-    }
-    if (!parsed.inbox_conversations || parsed.inbox_conversations.length === 0) {
-      parsed.inbox_conversations = [
-        {
-          id: "conv-1",
-          lead_id: "alead-1",
-          lead_name: "Daniela Rodríguez",
-          lead_avatar: "DR",
-          channel: "whatsapp",
-          last_message: "Hola, me gustaría coordinar un test drive para el Chevrolet Cruze esta semana.",
-          last_message_time: "10:15",
-          unread: true,
-          vehicle_id: "veh-1",
-          messages: [
-            { id: "m1", sender: "lead", text: "Buenas tardes, vi el Chevrolet Cruze 2022 en su web.", time: "10:12", status: "read" },
-            { id: "m2", sender: "agent", text: "Hola Daniela! Un gusto saludarte. Sí, lo tenemos disponible en nuestro showroom. ¿Te gustaría coordinar una visita o conocer detalles de financiación?", time: "10:14", status: "read" },
-            { id: "m3", sender: "lead", text: "Hola, me gustaría coordinar un test drive para el Chevrolet Cruze esta semana.", time: "10:15", status: "delivered" }
-          ]
-        },
-        {
-          id: "conv-2",
-          lead_id: "alead-2",
-          lead_name: "Juan Manuel Ortiz",
-          lead_avatar: "JO",
-          channel: "mercadolibre",
-          last_message: "Perfecto, pásame los requisitos para el crédito bancario.",
-          last_message_time: "Ayer",
-          unread: false,
-          vehicle_id: "veh-2",
-          messages: [
-            { id: "m4", sender: "lead", text: "Buenas, sigue disponible la Hilux? Aceptan permuta?", time: "Ayer 15:30", status: "read" },
-            { id: "m5", sender: "agent", text: "Hola Juan! Sí, la Hilux SRX está disponible. Tomamos permutas llave por llave previa tasación en nuestro taller. ¿De qué año y modelo es tu vehículo?", time: "Ayer 15:45", status: "read" },
-            { id: "m6", sender: "lead", text: "Es una Ford Ranger 2017 manual con 120mil kms. Además quería financiar el saldo.", time: "Ayer 15:48", status: "read" },
-            { id: "m7", sender: "agent", text: "Excelente, la Ranger es muy comercial. Podemos tomarla y financiar el saldo en hasta 36 cuotas en dólares o UI. Te puedo enviar la cotización hoy mismo.", time: "Ayer 15:52", status: "read" },
-            { id: "m8", sender: "lead", text: "Perfecto, pásame los requisitos para el crédito bancario.", time: "Ayer 15:55", status: "read" }
-          ]
-        },
-        {
-          id: "conv-3",
-          lead_name: "Carlos Mendoza",
-          lead_avatar: "CM",
-          channel: "facebook",
-          last_message: "Hola! ¿Qué precio tiene el Ford Mustang?",
-          last_message_time: "Hace 2 días",
-          unread: false,
-          vehicle_id: "veh-3",
-          messages: [
-            { id: "m9", sender: "lead", text: "Hola! ¿Qué precio tiene el Ford Mustang?", time: "Hace 2 días 11:20", status: "read" }
-          ]
-        },
-        {
-          id: "conv-4",
-          lead_name: "Sofía Vergara",
-          lead_avatar: "SV",
-          channel: "instagram",
-          last_message: "Me encanta el color rojo. ¿Se puede ver mañana por la tarde?",
-          last_message_time: "Hace 3 días",
-          unread: false,
-          vehicle_id: "veh-3",
-          messages: [
-            { id: "m10", sender: "lead", text: "Hola, me encanta la foto del Mustang rojo que subieron. ¿Sigue disponible?", time: "Hace 3 días 14:02", status: "read" },
-            { id: "m11", sender: "agent", text: "Hola Sofía! Sí, está disponible y en exhibición en nuestro showroom principal.", time: "Hace 3 días 14:15", status: "read" },
-            { id: "m12", sender: "lead", text: "Me encanta el color rojo. ¿Se puede ver mañana por la tarde?", time: "Hace 3 días 14:20", status: "read" }
-          ]
-        }
-      ];
-    }
-    return parsed;
   } catch (e) {
-    return defaultDb;
+    console.error("Error al leer database.json, usando fallback:", e);
+    dbData = defaultDb;
   }
+
+  // Migración: inicializar campos que pueden no existir en el JSON persisted
+  if (!dbData.conversations) dbData.conversations = [];
+  if (!dbData.lead_interactions) dbData.lead_interactions = [];
+  if (!dbData.developments) dbData.developments = [];
+  if (!dbData.lots) dbData.lots = [];
+  if (!dbData.notifications) dbData.notifications = [];
+  if (!dbData.payments) dbData.payments = [];
+  if (!dbData.vehicles) dbData.vehicles = [];
+  if (!dbData.auto_leads) dbData.auto_leads = [];
+  
+  // Migración para integraciones y mensajería
+  if (!dbData.integrations) {
+    dbData.integrations = {
+      mercadolibre: { connected: false, username: "", token: "" },
+      facebook: { connected: false, pageName: "", token: "" },
+      instagram: { connected: false, handle: "" },
+      whatsapp: { connected: false, phoneNumber: "" }
+    };
+  }
+  if (!dbData.vehicle_publications) {
+    dbData.vehicle_publications = [];
+  }
+  if (!dbData.inbox_conversations || dbData.inbox_conversations.length === 0) {
+    dbData.inbox_conversations = [
+      {
+        id: "conv-1",
+        lead_id: "alead-1",
+        lead_name: "Daniela Rodríguez",
+        lead_avatar: "DR",
+        channel: "whatsapp",
+        last_message: "Hola, me gustaría coordinar un test drive para el Chevrolet Cruze esta semana.",
+        last_message_time: "10:15",
+        unread: true,
+        vehicle_id: "veh-1",
+        messages: [
+          { id: "m1", sender: "lead", text: "Buenas tardes, vi el Chevrolet Cruze 2022 en su web.", time: "10:12", status: "read" },
+          { id: "m2", sender: "agent", text: "Hola Daniela! Un gusto saludarte. Sí, lo tenemos disponible en nuestro showroom. ¿Te gustaría coordinar una visita o conocer detalles de financiación?", time: "10:14", status: "read" },
+          { id: "m3", sender: "lead", text: "Hola, me gustaría coordinar un test drive para el Chevrolet Cruze esta semana.", time: "10:15", status: "delivered" }
+        ]
+      },
+      {
+        id: "conv-2",
+        lead_id: "alead-2",
+        lead_name: "Juan Manuel Ortiz",
+        lead_avatar: "JO",
+        channel: "mercadolibre",
+        last_message: "Perfecto, pásame los requisitos para el crédito bancario.",
+        last_message_time: "Ayer",
+        unread: false,
+        vehicle_id: "veh-2",
+        messages: [
+          { id: "m4", sender: "lead", text: "Buenas, sigue disponible la Hilux? Aceptan permuta?", time: "Ayer 15:30", status: "read" },
+          { id: "m5", sender: "agent", text: "Hola Juan! Sí, la Hilux SRX está disponible. Tomamos permutas llave por llave previa tasación en nuestro taller. ¿De qué año y modelo es tu vehículo?", time: "Ayer 15:45", status: "read" },
+          { id: "m6", sender: "lead", text: "Es una Ford Ranger 2017 manual con 120mil kms. Además quería financiar el saldo.", time: "Ayer 15:48", status: "read" },
+          { id: "m7", sender: "agent", text: "Excelente, la Ranger es muy comercial. Podemos tomarla y financiar el saldo en hasta 36 cuotas en dólares o UI. Te puedo enviar la cotización hoy mismo.", time: "Ayer 15:52", status: "read" },
+          { id: "m8", sender: "lead", text: "Perfecto, pásame los requisitos para el crédito bancario.", time: "Ayer 15:55", status: "read" }
+        ]
+      },
+      {
+        id: "conv-3",
+        lead_name: "Carlos Mendoza",
+        lead_avatar: "CM",
+        channel: "facebook",
+        last_message: "Hola! ¿Qué precio tiene el Ford Mustang?",
+        last_message_time: "Hace 2 días",
+        unread: false,
+        vehicle_id: "veh-3",
+        messages: [
+          { id: "m9", sender: "lead", text: "Hola! ¿Qué precio tiene el Ford Mustang?", time: "Hace 2 días 11:20", status: "read" }
+        ]
+      },
+      {
+        id: "conv-4",
+        lead_name: "Sofía Vergara",
+        lead_avatar: "SV",
+        channel: "instagram",
+        last_message: "Me encanta el color rojo. ¿Se puede ver mañana por la tarde?",
+        last_message_time: "Hace 3 días",
+        unread: false,
+        vehicle_id: "veh-3",
+        messages: [
+          { id: "m10", sender: "lead", text: "Hola, me encanta la foto del Mustang rojo que subieron. ¿Sigue disponible?", time: "Hace 3 días 14:02", status: "read" },
+          { id: "m11", sender: "agent", text: "Hola Sofía! Sí, está disponible y en exhibición en nuestro showroom principal.", time: "Hace 3 días 14:15", status: "read" },
+          { id: "m12", sender: "lead", text: "Me encanta el color rojo. ¿Se puede ver mañana por la tarde?", time: "Hace 3 días 14:20", status: "read" }
+        ]
+      }
+    ];
+  }
+  cachedDb = dbData;
+  return cachedDb;
 }
 
 export function saveDb(data: DatabaseSchema) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
+  cachedDb = data;
+  try {
+    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf-8');
+  } catch (e) {
+    console.warn("No se pudo escribir database.json en guardado (entorno serverless/lectura):", e);
+  }
 }
