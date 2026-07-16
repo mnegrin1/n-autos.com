@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getDb } from "@/lib/localDb";
 import styles from "./dashboard.module.css";
 import Link from "next/link";

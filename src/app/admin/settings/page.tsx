@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getAgencyBySlug } from "@/actions/agencyActions";
 import SettingsForm from "./SettingsForm";
 

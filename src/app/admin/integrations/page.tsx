@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getVehicles, getIntegrations, getVehiclePublications } from "@/actions/autoActions";
 import IntegrationsClient from "./IntegrationsClient";
 

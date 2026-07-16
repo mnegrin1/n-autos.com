@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getInboxConversations, getVehicles, getIntegrations, getAutoLeads } from "@/actions/autoActions";
 import InboxClient from "./InboxClient";
 
