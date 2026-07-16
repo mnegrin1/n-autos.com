@@ -1,0 +1,240 @@
+.uploadContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.dropZone {
+  border: 2px dashed var(--border-color);
+  background-color: var(--surface-color);
+  border-radius: 12px;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.dropZone:hover, .dropZone.active {
+  border-color: var(--primary);
+  background-color: var(--surface-hover);
+}
+
+.dropZoneContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.icon {
+  font-size: 2.5rem;
+}
+
+.dropZoneContent p {
+  font-size: 0.9rem;
+  color: var(--text-color);
+  opacity: 0.7;
+  margin: 0;
+}
+
+.browseBtn {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: underline;
+  margin-top: 0.25rem;
+}
+
+/* ── YouTube inline input row ── */
+.youtubeInputRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0.4rem 0.6rem;
+  transition: border-color 0.2s;
+}
+
+.youtubeInputRow:focus-within {
+  border-color: var(--primary);
+}
+
+.youtubeIconWrapper {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.youtubeInput {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.85rem;
+  color: var(--text-color);
+  font-family: inherit;
+  padding: 0.35rem 0;
+}
+
+.youtubeInput::placeholder {
+  color: var(--text-color);
+  opacity: 0.4;
+}
+
+.youtubeAddBtn {
+  flex-shrink: 0;
+  background-color: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity 0.2s;
+}
+
+.youtubeAddBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.youtubeAddBtn:not(:disabled):hover {
+  opacity: 0.85;
+}
+
+/* ── Previews Grid ── */
+.previewsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.previewCard {
+  position: relative;
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  cursor: grab;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.previewCard:active {
+  cursor: grabbing;
+}
+
+.previewCard.dragging {
+  opacity: 0.35;
+  transform: scale(0.95);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px var(--primary-light);
+}
+
+.dragHandle {
+  text-align: center;
+  color: var(--text-color);
+  opacity: 0.3;
+  font-size: 1.1rem;
+  line-height: 1;
+  user-select: none;
+}
+
+.mediaWrapper {
+  aspect-ratio: 4/3;
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.mediaPreview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ── YouTube / Video play badge ── */
+.ytBadge {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: 2px;
+  pointer-events: none;
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.75rem;
+  color: var(--text-color);
+}
+
+.fileName {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileSize {
+  opacity: 0.6;
+}
+
+/* ── Remove button: visible on hover ── */
+.removeBtn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background-color: var(--danger);
+  color: white;
+  border: none;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.1s ease, opacity 0.15s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.previewCard:hover .removeBtn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.removeBtn:hover {
+  transform: scale(1.15);
+}

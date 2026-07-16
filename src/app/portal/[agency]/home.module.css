@@ -1,0 +1,333 @@
+.homeContainer {
+  display: flex;
+  flex-direction: column;
+}
+
+.heroSection {
+  min-height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(to right bottom, var(--surface-hover), var(--bg-color));
+  padding: 4rem 2rem;
+  text-align: center;
+}
+
+.heroContent {
+  max-width: 800px;
+  width: 100%;
+}
+
+.heroTitle {
+  font-size: 3.5rem;
+  font-weight: 800;
+  line-height: 1.1;
+  margin-bottom: 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+.heroSubtitle {
+  font-size: 1.25rem;
+  color: var(--text-color);
+  opacity: 0.8;
+  margin-bottom: 3rem;
+}
+
+.searchContainer {
+  max-width: 850px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.searchTabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: -1px;
+  position: relative;
+  z-index: 10;
+}
+
+.tabButton {
+  background-color: rgba(25, 28, 32, 0.85);
+  color: rgba(255, 255, 255, 0.8);
+  border: none;
+  padding: 0.8rem 2rem;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(8px);
+  border: 1px solid transparent;
+  border-bottom: none;
+}
+
+.tabButton:hover {
+  background-color: var(--secondary);
+  color: white;
+}
+
+.activeTab {
+  background-color: white;
+  color: #191c20;
+  border-color: var(--border-color);
+}
+
+:global(.theme-dark-dim) .activeTab,
+:global(.theme-dark-black) .activeTab {
+  background-color: var(--surface-color);
+  color: white;
+  border-color: var(--border-color);
+}
+
+.searchBox {
+  background-color: white;
+  padding: 0.8rem;
+  border-top-left-radius: 0;
+  border-top-right-radius: 12px;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+  border: 1px solid var(--border-color);
+  display: flex;
+  gap: 0.8rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  flex-wrap: wrap;
+  align-items: center;
+  position: relative;
+  z-index: 5;
+}
+
+:global(.theme-dark-dim) .searchBox,
+:global(.theme-dark-black) .searchBox {
+  background-color: var(--surface-color);
+}
+
+.inputGroup {
+  position: relative;
+  flex: 2;
+  min-width: 220px;
+  display: flex;
+  align-items: center;
+}
+
+.inputGroup:nth-child(2) {
+  flex: 1.5;
+  min-width: 180px;
+}
+
+.inputIcon {
+  position: absolute;
+  left: 1.2rem;
+  font-size: 1.1rem;
+  color: #888;
+  pointer-events: none;
+}
+
+.searchInput,
+.searchSelect {
+  width: 100%;
+  padding: 1rem 1rem 1rem 2.8rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background-color: #f8fafc;
+  color: #1e293b;
+  outline: none;
+  transition: all 0.2s ease;
+  height: 54px;
+}
+
+:global(.theme-dark-dim) .searchInput,
+:global(.theme-dark-dim) .searchSelect,
+:global(.theme-dark-black) .searchInput,
+:global(.theme-dark-black) .searchSelect {
+  background-color: var(--bg-color);
+  border-color: var(--border-color);
+  color: white;
+}
+
+.searchInput:focus,
+.searchSelect:focus {
+  border-color: var(--secondary);
+  background-color: white;
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.searchButton {
+  background-color: var(--secondary);
+  color: white;
+  border: none;
+  padding: 0 2rem;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px var(--primary-light);
+  min-width: 130px;
+}
+
+.searchButton:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.searchButton:active {
+  transform: translateY(0);
+}
+
+.featuredSection {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 6rem 2rem;
+  width: 100%;
+}
+
+.featuredHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 3rem;
+}
+
+.featuredHeader h2 {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.viewAll {
+  color: var(--secondary);
+  font-weight: 600;
+  transition: opacity 0.2s ease;
+}
+
+.viewAll:hover {
+  opacity: 0.8;
+}
+
+.propertyGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 2rem;
+}
+
+.propertyCard {
+  border-radius: 16px;
+  overflow: hidden;
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: var(--shadow-sm);
+  display: block;
+}
+
+.propertyCard:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-lg);
+}
+
+.imageWrapper {
+  position: relative;
+  height: 220px;
+  width: 100%;
+}
+
+.propertyImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.propertyTypeBadge {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  background-color: rgba(255, 255, 255, 0.9);
+  color: #111;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  backdrop-filter: blur(4px);
+}
+
+.propertyInfo {
+  padding: 1.5rem;
+}
+
+.propertyTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.propertyLocation {
+  color: var(--text-color);
+  opacity: 0.7;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.propertyFeatures {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-color);
+  opacity: 0.8;
+}
+
+.propertyPrice {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--secondary);
+}
+
+.aboutSection {
+  background-color: var(--surface-color);
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  padding: 5rem 2rem;
+  margin-top: 4rem;
+  width: 100%;
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.aboutContent {
+  max-width: 800px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.aboutContent h2 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  color: var(--secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.aboutHighlight {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+  color: var(--text-color);
+}
+
+.aboutText {
+  font-size: 1.05rem;
+  opacity: 0.8;
+  line-height: 1.7;
+  color: var(--text-color);
+}

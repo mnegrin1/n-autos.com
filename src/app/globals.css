@@ -1,0 +1,210 @@
+:root {
+  /* Colors */
+  --bg-color: #ffffff;
+  --text-color: #111827;
+  --surface-color: #f9fafb;
+  --surface-hover: #f3f4f6;
+  --border-color: #e5e7eb;
+  
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-light: #eff6ff;
+
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  
+  /* Typography */
+  --font-family: var(--font-inter), system-ui, sans-serif;
+  
+  /* Shadows & Glass */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.5);
+  --glass-blur: blur(12px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-color: #0f1115;
+    --text-color: #f3f4f6;
+    --surface-color: #1f2229;
+    --surface-hover: #2a2d35;
+    --border-color: #374151;
+    
+    --primary: #3b82f6;
+    --primary-hover: #60a5fa;
+    --primary-light: rgba(59, 130, 246, 0.1);
+    
+    --glass-bg: rgba(31, 34, 41, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* Temas Custom Habilitados por Usuario */
+.theme-light {
+  --bg-color: #ffffff;
+  --text-color: #111827;
+  --surface-color: #f9fafb;
+  --surface-hover: #f3f4f6;
+  --border-color: #e5e7eb;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-light: #eff6ff;
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.5);
+}
+
+.theme-dark-dim { /* Azul Oscuro Twitter */
+  --bg-color: #15202b;
+  --text-color: #f3f4f6;
+  --surface-color: #192734;
+  --surface-hover: #22303c;
+  --border-color: #38444d;
+  --primary: #1d9bf0; /* Celeste Twitter */
+  --primary-hover: #1a8cd8;
+  --primary-light: rgba(29, 155, 240, 0.1);
+  --glass-bg: rgba(25, 39, 52, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+.theme-dark-black { /* Negro Twitter */
+  --bg-color: #000000;
+  --text-color: #e7e9ea;
+  --surface-color: #16181c;
+  --surface-hover: #202327;
+  --border-color: #2f3336;
+  --primary: #1d9bf0; /* Celeste Twitter */
+  --primary-hover: #1a8cd8;
+  --primary-light: rgba(29, 155, 240, 0.1);
+  --glass-bg: rgba(22, 24, 28, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+html, body {
+  height: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: var(--font-family);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* Utils */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+}
+
+.card {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+/* Button Styles: Flat by default, lift-on-hover with shadow */
+.btn-primary,
+.btn-secondary,
+.btn-danger {
+  background-color: transparent;
+  border: 1px solid transparent;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  box-shadow: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: inherit;
+  text-decoration: none;
+}
+
+/* Primary Button */
+.btn-primary {
+  color: var(--primary);
+}
+
+.btn-primary:hover {
+  background-color: var(--surface-color);
+  border-color: var(--border-color);
+  color: var(--primary-hover);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+/* Secondary Button */
+.btn-secondary {
+  color: var(--text-color);
+  opacity: 0.85;
+}
+
+.btn-secondary:hover {
+  background-color: var(--surface-color);
+  border-color: var(--border-color);
+  color: var(--text-color);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+  opacity: 1;
+}
+
+.btn-secondary:active {
+  transform: scale(0.98);
+}
+
+/* Danger Button */
+.btn-danger {
+  color: var(--danger);
+}
+
+.btn-danger:hover {
+  background-color: rgba(239, 68, 68, 0.04);
+  border-color: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+  box-shadow: 0 4px 10px rgba(239, 68, 68, 0.08), 0 1px 3px rgba(239, 68, 68, 0.04);
+}
+
+.btn-danger:active {
+  transform: scale(0.98);
+}
+
