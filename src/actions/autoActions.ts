@@ -420,7 +420,7 @@ export async function getAutoStats(agencyId: string) {
 
 export async function getIntegrations() {
   const baseIntegrations = {
-    mercadolibre: { connected: false, username: "", token: "" },
+    mercadolibre: { connected: false, username: "", token: "", refresh_token: "", expires_at: 0, mode: "production" },
     facebook: { connected: false, pageName: "", token: "" },
     instagram: { connected: false, handle: "" },
     whatsapp: { connected: false, phoneNumber: "" }
