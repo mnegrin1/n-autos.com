@@ -20,14 +20,16 @@ export async function login(email: string, password?: string) {
     return { success: false, error: "La contraseña es incorrecta." };
   }
 
-  // Generar sesión serializada en base64
+  // Generar sesión serializada en base64 en forma compatible con UTF-8
   const sessionData = {
     id: user.id,
     email: user.email,
     name: user.name,
     role: user.role,
   };
-  const token = Buffer.from(JSON.stringify(sessionData)).toString("base64");
+  const bytes = new TextEncoder().encode(JSON.stringify(sessionData));
+  const binString = Array.from(bytes, (byte) => String.fromCharCode(byte)).join("");
+  const token = btoa(binString);
   
   const cookieStore = await cookies();
   cookieStore.set("admin-session", token, {
@@ -52,7 +54,9 @@ export async function getCurrentUser() {
     const token = cookieStore.get("admin-session")?.value;
     if (!token) return null;
 
-    const decoded = JSON.parse(Buffer.from(token, "base64").toString("utf-8"));
+    const binString = atob(token);
+    const bytes = Uint8Array.from(binString, (m) => m.charCodeAt(0));
+    const decoded = JSON.parse(new TextDecoder().decode(bytes));
     return decoded;
   } catch (e) {
     return null;

@@ -13,7 +13,7 @@ export async function GET(request: Request) {
 
   // Si no se encuentra el código de autorización
   if (!code) {
-    return NextResponse.redirect(new URL("/auto/admin/integrations?status=error&error=no_code", request.url));
+    return NextResponse.redirect(new URL("/admin/integrations?status=error&error=no_code", request.url));
   }
 
   try {
@@ -79,11 +79,11 @@ export async function GET(request: Request) {
     }
 
     // 3. Redirigir con éxito
-    return NextResponse.redirect(new URL("/auto/admin/integrations?status=success", request.url));
+    return NextResponse.redirect(new URL("/admin/integrations?status=success", request.url));
   } catch (error: any) {
     console.error("Error en callback de autenticación:", error);
     return NextResponse.redirect(
-      new URL(`/auto/admin/integrations?status=error&error=${encodeURIComponent(error.message || "auth_failed")}`, request.url)
+      new URL(`/admin/integrations?status=error&error=${encodeURIComponent(error.message || "auth_failed")}`, request.url)
     );
   }
 }

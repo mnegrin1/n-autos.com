@@ -92,9 +92,9 @@ const defaultDb: DatabaseSchema = {
     { id: "lead-6", agency_id: "demo-agency-id", name: "Pedro Rodríguez", property: "Apto. a Estrenar", time: "5d", status: "Negociación" },
   ],
   users: [
-    { id: "agent-1", agency_id: "demo-agency-id", name: "Mauricio Negrin", email: "mauricio@inmobiliaria.com", role: "admin", status: "active", created_at: new Date().toISOString() },
-    { id: "agent-2", agency_id: "demo-agency-id", name: "Laura Silva", email: "laura@inmobiliaria.com", role: "manager", status: "active", created_at: new Date().toISOString() },
-    { id: "agent-3", agency_id: "demo-agency-id", name: "Carlos Ruiz", email: "carlos@inmobiliaria.com", role: "agent", status: "inactive", created_at: new Date().toISOString() },
+    { id: "agent-1", agency_id: "demo-agency-id", name: "Mauricio Negrin", email: "mauricio@automotora.com", role: "admin", status: "active", created_at: new Date().toISOString() },
+    { id: "agent-2", agency_id: "demo-agency-id", name: "Laura Silva", email: "laura@automotora.com", role: "manager", status: "active", created_at: new Date().toISOString() },
+    { id: "agent-3", agency_id: "demo-agency-id", name: "Carlos Ruiz", email: "carlos@automotora.com", role: "agent", status: "inactive", created_at: new Date().toISOString() },
   ],
   events: [
     { id: "evt-1", agency_id: "demo-agency-id", title: "Visita Casa Carrasco (Mauricio)", start: new Date(new Date().setHours(10, 0)).toISOString(), end: new Date(new Date().setHours(11, 30)).toISOString(), type: "visita" },
@@ -246,12 +246,17 @@ export function getDb(): DatabaseSchema {
     return memoryDb;
   }
 
-  if (!fsModule.existsSync(dbFilePath)) {
-    fsModule.writeFileSync(dbFilePath, JSON.stringify(defaultDb, null, 2), 'utf-8');
-    memoryDb = JSON.parse(JSON.stringify(defaultDb));
-    return memoryDb;
-  }
   try {
+    if (!fsModule.existsSync(dbFilePath)) {
+      try {
+        fsModule.writeFileSync(dbFilePath, JSON.stringify(defaultDb, null, 2), 'utf-8');
+      } catch (writeErr) {
+        console.warn("Local filesystem is not writable, using memory fallback.");
+      }
+      memoryDb = JSON.parse(JSON.stringify(defaultDb));
+      return memoryDb;
+    }
+
     const content = fsModule.readFileSync(dbFilePath, 'utf-8');
     const parsed = JSON.parse(content);
     // Migración: inicializar campos que pueden no existir en el JSON persisted

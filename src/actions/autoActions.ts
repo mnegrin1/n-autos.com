@@ -157,9 +157,9 @@ export async function createVehicle(formData: FormData) {
   db.vehicles.unshift(newVehicle);
   saveDb(db);
 
-  revalidatePath("/auto/admin");
-  revalidatePath("/auto/admin/vehicles");
-  revalidatePath("/auto/portal/demo", "layout");
+  revalidatePath("/admin");
+  revalidatePath("/admin/vehicles");
+  revalidatePath("/portal/demo", "layout");
 
   return { success: true, data: newVehicle };
 }
@@ -272,10 +272,10 @@ export async function updateVehicle(vehicleId: string, formData: FormData) {
 
   saveDb(db);
 
-  revalidatePath("/auto/admin");
-  revalidatePath("/auto/admin/vehicles");
-  revalidatePath(`/auto/portal/demo/${vehicleId}`);
-  revalidatePath("/auto/portal/demo", "layout");
+  revalidatePath("/admin");
+  revalidatePath("/admin/vehicles");
+  revalidatePath(`/portal/demo/${vehicleId}`);
+  revalidatePath("/portal/demo", "layout");
 
   return { success: true, data: db.vehicles[index] };
 }
@@ -292,9 +292,9 @@ export async function deleteVehicle(vehicleId: string) {
   db.vehicles.splice(index, 1);
   saveDb(db);
 
-  revalidatePath("/auto/admin");
-  revalidatePath("/auto/admin/vehicles");
-  revalidatePath("/auto/portal/demo", "layout");
+  revalidatePath("/admin");
+  revalidatePath("/admin/vehicles");
+  revalidatePath("/portal/demo", "layout");
 
   return { success: true };
 }
@@ -334,8 +334,8 @@ export async function createAutoLead(lead: {
   db.auto_leads.push(newLead);
   saveDb(db);
 
-  revalidatePath("/auto/admin");
-  revalidatePath("/auto/admin/crm");
+  revalidatePath("/admin");
+  revalidatePath("/admin/crm");
 
   return { success: true, data: newLead };
 }
@@ -352,8 +352,8 @@ export async function updateAutoLeadStatus(leadId: string, status: string) {
   db.auto_leads[index].status = status;
   saveDb(db);
 
-  revalidatePath("/auto/admin");
-  revalidatePath("/auto/admin/crm");
+  revalidatePath("/admin");
+  revalidatePath("/admin/crm");
 
   return { success: true, data: db.auto_leads[index] };
 }
@@ -370,8 +370,8 @@ export async function deleteAutoLead(leadId: string) {
   db.auto_leads.splice(index, 1);
   saveDb(db);
 
-  revalidatePath("/auto/admin");
-  revalidatePath("/auto/admin/crm");
+  revalidatePath("/admin");
+  revalidatePath("/admin/crm");
 
   return { success: true };
 }
@@ -508,8 +508,8 @@ export async function updateIntegration(
     console.error(`Error al actualizar integración ${channel} en Supabase:`, error);
   }
 
-  revalidatePath("/auto/admin/integrations");
-  revalidatePath("/auto/admin/inbox");
+  revalidatePath("/admin/integrations");
+  revalidatePath("/admin/inbox");
 
   const updatedIntegrations = await getIntegrations();
   return { success: !error, integrations: updatedIntegrations };
@@ -599,7 +599,7 @@ export async function publishVehicle(
       .eq("vehicle_id", vehicleId)
       .eq("channel", channel);
 
-    revalidatePath("/auto/admin/integrations");
+    revalidatePath("/admin/integrations");
     return { success: true, data: { ...existing, status: 'published' } };
   }
 
@@ -678,7 +678,7 @@ export async function publishVehicle(
       };
 
       await (supabase as any).from("auto_vehicle_publications").insert(newPub);
-      revalidatePath("/auto/admin/integrations");
+      revalidatePath("/admin/integrations");
       return { success: true, data: newPub };
     } catch (err: any) {
       console.error("Error al publicar en ML producción:", err);
@@ -703,7 +703,7 @@ export async function publishVehicle(
   };
 
   await (supabase as any).from("auto_vehicle_publications").insert(newPub);
-  revalidatePath("/auto/admin/integrations");
+  revalidatePath("/admin/integrations");
   return { success: true, data: newPub };
 }
 
@@ -714,7 +714,7 @@ export async function unpublishVehicle(vehicleId: string, channel: 'mercadolibre
     .eq("vehicle_id", vehicleId)
     .eq("channel", channel);
 
-  revalidatePath("/auto/admin/integrations");
+  revalidatePath("/admin/integrations");
   return { success: true };
 }
 
@@ -786,7 +786,7 @@ export async function syncMercadoLibreListings() {
         if (insertError) throw insertError;
       }
 
-      revalidatePath("/auto/admin/integrations");
+      revalidatePath("/admin/integrations");
       return { success: true, count: syncedPubs.length };
     } catch (err: any) {
       console.error("Fallo al sincronizar publicaciones de MercadoLibre:", err);
@@ -830,7 +830,7 @@ export async function syncMercadoLibreListings() {
     console.error("Error al insertar publicaciones mock en Supabase:", insertError);
   }
 
-  revalidatePath("/auto/admin/integrations");
+  revalidatePath("/admin/integrations");
   return { success: !insertError, count: syncMockPubs.length };
 }
 
@@ -869,7 +869,7 @@ export async function sendInboxMessage(conversationId: string, text: string) {
   conversation.unread = false;
 
   saveDb(db);
-  revalidatePath("/auto/admin/inbox");
+  revalidatePath("/admin/inbox");
   return { success: true, conversation };
 }
 
@@ -913,7 +913,7 @@ export async function simulateLeadReply(conversationId: string, agentMessageText
   conversation.unread = true;
 
   saveDb(db);
-  revalidatePath("/auto/admin/inbox");
+  revalidatePath("/admin/inbox");
   return { success: true, conversation };
 }
 
@@ -925,7 +925,7 @@ export async function markConversationRead(conversationId: string) {
   if (conversation) {
     conversation.unread = false;
     saveDb(db);
-    revalidatePath("/auto/admin/inbox");
+    revalidatePath("/admin/inbox");
   }
   return { success: true };
 }
@@ -938,7 +938,7 @@ export async function updateConversationNotes(conversationId: string, notes: str
   if (conversation) {
     conversation.notes = notes;
     saveDb(db);
-    revalidatePath("/auto/admin/inbox");
+    revalidatePath("/admin/inbox");
   }
   return { success: true };
 }
