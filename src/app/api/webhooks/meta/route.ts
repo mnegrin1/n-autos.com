@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   const challenge = searchParams.get("hub.challenge");
 
   // Este token lo configuras tú en la consola de Meta Developers
-  const verifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN || "CRM_AUTO_META_TOKEN_12345";
+  const verifyToken = process.env.META_VERIFY_TOKEN || "CRM_AUTO_META_TOKEN_12345";
 
   if (mode && token) {
     if (mode === "subscribe" && token === verifyToken) {

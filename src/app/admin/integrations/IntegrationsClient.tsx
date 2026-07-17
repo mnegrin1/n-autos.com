@@ -29,8 +29,8 @@ interface Vehicle {
 
 interface Integrations {
   mercadolibre: { connected: boolean; username?: string; token?: string; mode?: 'production' | 'simulation' };
-  facebook: { connected: boolean; pageName?: string; token?: string };
-  instagram: { connected: boolean; handle?: string };
+  facebook: { connected: boolean; pageName?: string; token?: string; refresh_token?: string };
+  instagram: { connected: boolean; handle?: string; token?: string; refresh_token?: string };
   whatsapp: { connected: boolean; phoneNumber?: string };
 }
 
@@ -53,15 +53,7 @@ interface IntegrationsClientProps {
   appUrl?: string;
 }
 
-const MOCK_FB_POSTS = [
-  { id: 'fb1', brand: 'Volkswagen', model: 'Golf', year: 2018, kms: 65000, price: 18500, description: 'Excelente estado, service oficial.', images: ['https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=800&q=80'], external_url: 'https://facebook.com/post/1', date: new Date().toISOString() },
-  { id: 'fb2', brand: 'Ford', model: 'Focus', year: 2017, kms: 82000, price: 16000, description: 'Único dueño, tapizado de cuero.', images: ['https://images.unsplash.com/photo-1550508643-41bbd985a9df?auto=format&fit=crop&w=800&q=80'], external_url: 'https://facebook.com/post/2', date: new Date().toISOString() }
-];
-
-const MOCK_IG_POSTS = [
-  { id: 'ig1', brand: 'Jeep', model: 'Renegade', year: 2021, kms: 30000, price: 25000, description: 'Como nueva, lista para transferir.', images: ['https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80'], external_url: 'https://instagram.com/p/1', date: new Date().toISOString() },
-  { id: 'ig2', brand: 'Audi', model: 'A3', year: 2019, kms: 45000, price: 29000, description: 'Service recién hecho, cubiertas nuevas.', images: ['https://images.unsplash.com/photo-1542282088-fe8426682b8f?auto=format&fit=crop&w=800&q=80'], external_url: 'https://instagram.com/p/2', date: new Date().toISOString() }
-];
+// Los mocks fueron eliminados. Se usará la API real.
 
 export default function IntegrationsClient({
   initialVehicles,
@@ -85,17 +77,20 @@ export default function IntegrationsClient({
     phoneNumber: ""
   });
 
-  // Modal de Importación
+  // Modal de Importación y Carga de Posts
   const [showImportModal, setShowImportModal] = useState<'facebook' | 'instagram' | null>(null);
-
+  const [socialPosts, setSocialPosts] = useState<any[]>([]);
+  const [isLoadingPosts, setIsLoadingPosts] = useState(false);
   const handleOpenConnect = (channel: string) => {
+    if (channel === 'facebook' || channel === 'instagram') {
+      window.location.href = '/api/auth/meta';
+      return;
+    }
     setShowConnectModal(channel);
     if (channel === 'mercadolibre') {
       setConnectData(prev => ({ ...prev, username: integrations.mercadolibre.username || "", token: integrations.mercadolibre.token || "" }));
-    } else if (channel === 'facebook') {
-      setConnectData(prev => ({ ...prev, pageName: integrations.facebook.pageName || "", token: integrations.facebook.token || "" }));
-    } else if (channel === 'instagram') {
-      setConnectData(prev => ({ ...prev, handle: integrations.instagram.handle || "" }));
+    } else if (channel === 'whatsapp') {
+      setConnectData(prev => ({ ...prev, phoneNumber: integrations.whatsapp.phoneNumber || "" }));
     }
   };
 
@@ -236,9 +231,23 @@ export default function IntegrationsClient({
           
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <button 
-              onClick={() => {
+              onClick={async () => {
                 if (!integrations.facebook.connected) return alert("Conecta Facebook primero.");
                 setShowImportModal('facebook');
+                setIsLoadingPosts(true);
+                setSocialPosts([]);
+                try {
+                  const res = await fetch('/api/meta/posts?channel=facebook');
+                  const data = await res.json();
+                  if (data.success) {
+                    setSocialPosts(data.posts);
+                  } else {
+                    alert("Error cargando posts: " + data.error);
+                  }
+                } catch (e) {
+                  alert("Error cargando posts.");
+                }
+                setIsLoadingPosts(false);
               }}
               className={styles.btnPublish}
               style={{ background: '#1877F2', borderColor: '#1877F2', opacity: integrations.facebook.connected ? 1 : 0.5 }}
@@ -246,9 +255,23 @@ export default function IntegrationsClient({
               <Download size={14} /> Importar de FB
             </button>
             <button 
-              onClick={() => {
+              onClick={async () => {
                 if (!integrations.instagram.connected) return alert("Conecta Instagram primero.");
                 setShowImportModal('instagram');
+                setIsLoadingPosts(true);
+                setSocialPosts([]);
+                try {
+                  const res = await fetch('/api/meta/posts?channel=instagram');
+                  const data = await res.json();
+                  if (data.success) {
+                    setSocialPosts(data.posts);
+                  } else {
+                    alert("Error cargando posts: " + data.error);
+                  }
+                } catch (e) {
+                  alert("Error cargando posts.");
+                }
+                setIsLoadingPosts(false);
               }}
               className={styles.btnPublish}
               style={{ background: '#E1306C', borderColor: '#E1306C', opacity: integrations.instagram.connected ? 1 : 0.5 }}
@@ -358,37 +381,14 @@ export default function IntegrationsClient({
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
-              {showConnectModal === 'facebook' && (
-                <>
-                  <div className={styles.formGroup}>
-                    <label>Nombre de la Fanpage de Facebook</label>
-                    <input 
-                      type="text" 
-                      placeholder="Ej: Automotora Premium S.A."
-                      value={connectData.pageName}
-                      onChange={(e) => setConnectData(prev => ({ ...prev, pageName: e.target.value }))}
-                    />
-                  </div>
-                  <div className={styles.formGroup}>
-                    <label>Token de Página de Larga Duración</label>
-                    <input 
-                      type="password" 
-                      placeholder="EAAGb3B21c..."
-                      value={connectData.token}
-                      onChange={(e) => setConnectData(prev => ({ ...prev, token: e.target.value }))}
-                    />
-                  </div>
-                </>
-              )}
-
-              {showConnectModal === 'instagram' && (
+              {showConnectModal === 'whatsapp' && (
                 <div className={styles.formGroup}>
-                  <label>Nombre de Usuario de Instagram (Handle)</label>
+                  <label>Número de WhatsApp</label>
                   <input 
                     type="text" 
-                    placeholder="Ej: @automotorapremium"
-                    value={connectData.handle}
-                    onChange={(e) => setConnectData(prev => ({ ...prev, handle: e.target.value }))}
+                    placeholder="Ej: +59899123456"
+                    value={connectData.phoneNumber}
+                    onChange={(e) => setConnectData(prev => ({ ...prev, phoneNumber: e.target.value }))}
                   />
                 </div>
               )}
@@ -416,27 +416,44 @@ export default function IntegrationsClient({
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem', maxHeight: '400px', overflowY: 'auto' }}>
-              {(showImportModal === 'facebook' ? MOCK_FB_POSTS : MOCK_IG_POSTS).map(post => {
-                const isImported = publications.some(p => p.id === `pub-${showImportModal}-${post.id}`);
-                return (
-                  <div key={post.id} style={{ display: 'flex', gap: '1rem', padding: '1rem', border: '1px solid var(--border-color)', borderRadius: '8px', alignItems: 'center' }}>
-                    <img src={post.images[0]} alt="" style={{ width: '80px', height: '60px', borderRadius: '4px', objectFit: 'cover' }} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600 }}>{post.brand} {post.model} {post.year}</div>
-                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{post.kms} kms • USD {post.price.toLocaleString()}</div>
-                      <div style={{ fontSize: '0.75rem', marginTop: '4px' }}>{new Date(post.date).toLocaleDateString()}</div>
+              {isLoadingPosts ? (
+                <div style={{ padding: '2rem', textAlign: 'center', opacity: 0.5 }}>
+                  <Loader2 className={styles.spin} size={24} style={{ margin: '0 auto' }} />
+                  <p>Cargando publicaciones reales...</p>
+                </div>
+              ) : socialPosts.length === 0 ? (
+                <div style={{ padding: '2rem', textAlign: 'center', opacity: 0.5 }}>
+                  No se encontraron publicaciones.
+                </div>
+              ) : (
+                socialPosts.map(post => {
+                  const isImported = publications.some(p => p.id === `pub-${showImportModal}-${post.id}`);
+                  return (
+                    <div key={post.id} style={{ display: 'flex', gap: '1rem', padding: '1rem', border: '1px solid var(--border-color)', borderRadius: '8px', alignItems: 'center' }}>
+                      {post.images && post.images.length > 0 ? (
+                        <img src={post.images[0]} alt="" style={{ width: '80px', height: '80px', borderRadius: '4px', objectFit: 'cover' }} />
+                      ) : (
+                        <div style={{ width: '80px', height: '80px', borderRadius: '4px', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem' }}>Sin imagen</div>
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '4px' }}>{new Date(post.date).toLocaleString()}</div>
+                        <div style={{ fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {post.description || "Sin descripción"}
+                        </div>
+                        <a href={post.external_url} target="_blank" rel="noreferrer" style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: '4px', display: 'inline-block' }}>Ver post original</a>
+                      </div>
+                      <button 
+                        onClick={() => handleImportSocial(showImportModal, post)}
+                        disabled={isImported || isPending}
+                        className={styles.btnPublish}
+                        style={{ padding: '6px 12px', fontSize: '0.8rem', background: isImported ? 'var(--bg-secondary)' : 'var(--primary)', color: isImported ? 'var(--text-muted)' : 'white', borderColor: isImported ? 'var(--border-color)' : 'var(--primary)' }}
+                      >
+                        {isPending ? <Loader2 size={12} className={styles.spin} /> : (isImported ? "Importado" : "Importar")}
+                      </button>
                     </div>
-                    <button 
-                      onClick={() => handleImportSocial(showImportModal, post)}
-                      disabled={isImported || isPending}
-                      className={styles.btnPublish}
-                      style={{ padding: '6px 12px', fontSize: '0.8rem', background: isImported ? 'var(--bg-secondary)' : 'var(--primary)', color: isImported ? 'var(--text-muted)' : 'white', borderColor: isImported ? 'var(--border-color)' : 'var(--primary)' }}
-                    >
-                      {isPending ? <Loader2 size={12} className={styles.spin} /> : (isImported ? "Importado" : "Importar")}
-                    </button>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
 
             <div className={styles.modalActions} style={{ justifyContent: 'flex-end' }}>

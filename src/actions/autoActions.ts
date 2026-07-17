@@ -419,8 +419,8 @@ export async function getAutoStats(agencyId: string) {
 export async function getIntegrations() {
   const baseIntegrations = {
     mercadolibre: { connected: false, username: "", token: "", refresh_token: "", expires_at: 0, mode: "production" as "production" | "simulation" },
-    facebook: { connected: false, pageName: "", token: "" },
-    instagram: { connected: false, handle: "" },
+    facebook: { connected: false, pageName: "", token: "", refresh_token: "" },
+    instagram: { connected: false, handle: "", token: "", refresh_token: "" },
     whatsapp: { connected: false, phoneNumber: "" }
   };
 
@@ -443,8 +443,10 @@ export async function getIntegrations() {
             (result.mercadolibre as any).mode = row.mode;
           } else if (ch === 'facebook') {
             (result.facebook as any).pageName = row.username;
+            (result.facebook as any).refresh_token = row.refresh_token;
           } else if (ch === 'instagram') {
             (result.instagram as any).handle = row.username;
+            (result.instagram as any).refresh_token = row.refresh_token;
           } else if (ch === 'whatsapp') {
             (result.whatsapp as any).phoneNumber = row.username;
           }
@@ -696,8 +698,134 @@ export async function publishVehicle(
     }
   }
 
-  // MOCK / SIMULADOR FALLBACK - RECHAZADO EN MODO ONLINE 100%
-  return { success: false, error: "Conexión a " + channel + " no configurada en modo producción. Se requiere la integración online completa." };
+  // Si el canal es Facebook
+  if (channel === 'facebook' && integrations.facebook?.connected) {
+    const token = integrations.facebook.token;
+    const pageId = integrations.facebook.refresh_token; 
+    
+    if (!token || !pageId) return { success: false, error: "Token de Facebook no disponible o sesión expirada." };
+
+    try {
+      const message = `🚘 Nuevo Ingreso: ${vehicle.brand} ${vehicle.model} ${vehicle.year}\n💰 Precio: ${vehicle.currency || 'USD'} ${vehicle.price.toLocaleString()}\n📏 Kms: ${vehicle.kms.toLocaleString()}\n\n${vehicle.description || ""}`;
+      const pictureUrl = (vehicle.images && vehicle.images.length > 0) ? vehicle.images[0] : null;
+
+      let absoluteUrl = pictureUrl;
+      if (absoluteUrl && !absoluteUrl.startsWith("http")) {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+        absoluteUrl = `${appUrl.endsWith("/") ? appUrl.slice(0, -1) : appUrl}${absoluteUrl.startsWith("/") ? absoluteUrl : `/${absoluteUrl}`}`;
+      }
+
+      const postPayload: any = {
+        message,
+        access_token: token
+      };
+      
+      let endpoint = `https://graph.facebook.com/v19.0/${pageId}/feed`;
+      
+      if (absoluteUrl) {
+        endpoint = `https://graph.facebook.com/v19.0/${pageId}/photos`;
+        postPayload.url = absoluteUrl;
+      }
+
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(postPayload)
+      });
+      const data = await res.json();
+      
+      if (data.error) throw new Error(data.error.message);
+
+      const postId = data.post_id || data.id;
+      const newPub = {
+        id: `pub-fb-${postId}`,
+        vehicle_id: vehicleId,
+        channel: 'facebook',
+        status: 'published',
+        external_url: `https://facebook.com/${postId}`,
+        views: 0,
+        questions_count: 0,
+        published_at: new Date().toISOString()
+      };
+
+      await (supabase.from("auto_vehicle_publications") as any).insert([newPub]);
+      revalidatePath("/admin/integrations");
+      return { success: true, data: newPub };
+    } catch (err: any) {
+      console.error("Error al publicar en Facebook:", err);
+      return { success: false, error: "Fallo al comunicar con la API de Facebook: " + err.message };
+    }
+  }
+
+  // Si el canal es Instagram
+  if (channel === 'instagram' && integrations.instagram?.connected) {
+    const token = integrations.instagram.token; // Page Access Token
+    const igId = integrations.instagram.refresh_token; 
+    
+    if (!token || !igId) return { success: false, error: "Token de Instagram no disponible." };
+
+    try {
+      const caption = `🚘 ${vehicle.brand} ${vehicle.model} ${vehicle.year}\n💰 ${vehicle.currency || 'USD'} ${vehicle.price.toLocaleString()}\n📏 Kms: ${vehicle.kms.toLocaleString()}\n\n${vehicle.description || ""}`;
+      const pictureUrl = (vehicle.images && vehicle.images.length > 0) ? vehicle.images[0] : null;
+
+      if (!pictureUrl) {
+        return { success: false, error: "Instagram requiere al menos una imagen para publicar." };
+      }
+
+      let absoluteUrl = pictureUrl;
+      if (!absoluteUrl.startsWith("http")) {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+        absoluteUrl = `${appUrl.endsWith("/") ? appUrl.slice(0, -1) : appUrl}${absoluteUrl.startsWith("/") ? absoluteUrl : `/${absoluteUrl}`}`;
+      }
+
+      // Paso 1: Crear el contenedor de medios
+      const createContainerRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image_url: absoluteUrl,
+          caption: caption,
+          access_token: token
+        })
+      });
+      const containerData = await createContainerRes.json();
+      if (containerData.error) throw new Error("Crear contenedor: " + containerData.error.message);
+
+      const creationId = containerData.id;
+
+      // Paso 2: Publicar el contenedor
+      const publishRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media_publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          creation_id: creationId,
+          access_token: token
+        })
+      });
+      const publishData = await publishRes.json();
+      if (publishData.error) throw new Error("Publicar contenedor: " + publishData.error.message);
+
+      const newPub = {
+        id: `pub-ig-${publishData.id}`,
+        vehicle_id: vehicleId,
+        channel: 'instagram',
+        status: 'published',
+        external_url: `https://instagram.com/p/${publishData.id}`, // En un entorno real se buscaría el permalink con un GET adicional
+        views: 0,
+        questions_count: 0,
+        published_at: new Date().toISOString()
+      };
+
+      await (supabase.from("auto_vehicle_publications") as any).insert([newPub]);
+      revalidatePath("/admin/integrations");
+      return { success: true, data: newPub };
+    } catch (err: any) {
+      console.error("Error al publicar en Instagram:", err);
+      return { success: false, error: "Fallo al comunicar con la API de Instagram: " + err.message };
+    }
+  }
+
+  return { success: false, error: "Conexión a " + channel + " no configurada correctamente." };
 }
 
 export async function unpublishVehicle(vehicleId: string, channel: 'mercadolibre' | 'facebook' | 'instagram') {
