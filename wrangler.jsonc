@@ -1,29 +1,13 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "main": ".open-next/worker.js",
   "name": "n-autoscom",
-  "compatibility_date": "2026-07-16",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2024-09-23",
   "compatibility_flags": [
     "nodejs_compat"
   ],
-  "vars": {
-    "MERCADOLIBRE_APP_ID": "1597556409269940",
-    "NEXT_PUBLIC_APP_URL": "https://prueba.n-sistemas.com"
-  },
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
-  },
-  "services": [
-    {
-      "binding": "WORKER_SELF_REFERENCE",
-      "service": "n-autoscom"
-    }
-  ],
-  "images": {
-    "binding": "IMAGES"
-  },
-  "observability": {
-    "enabled": true
   }
 }
