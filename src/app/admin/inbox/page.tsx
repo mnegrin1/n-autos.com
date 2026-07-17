@@ -1,4 +1,3 @@
-export const runtime = "edge";
 
 import { getInboxConversations, getVehicles, getIntegrations, getAutoLeads } from "@/actions/autoActions";
 import InboxClient from "./InboxClient";

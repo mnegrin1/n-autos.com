@@ -3,7 +3,7 @@ let pathModule: any = null;
 let dbFilePath: string = "";
 let memoryDb: any = null;
 
-if (typeof window === 'undefined' && process.env.NEXT_RUNTIME !== 'edge') {
+if (typeof window === 'undefined' && process.env.NEXT_RUNTIME !== 'edge' && typeof process !== 'undefined' && typeof process.cwd === 'function') {
   try {
     fsModule = require('fs');
     pathModule = require('path');

@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import CRMClient from "./CRMClient";
 import { getAutoLeads } from "@/actions/autoActions";
 import { getAgents } from "@/actions/otherActions"; // reuse agents list

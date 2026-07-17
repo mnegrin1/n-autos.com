@@ -1,4 +1,3 @@
-export const runtime = "edge";
 import { getVehicleById } from "@/actions/autoActions";
 import { getAgencyBySlug } from "@/actions/agencyActions";
 import VehicleDetailClient from "./VehicleDetailClient";

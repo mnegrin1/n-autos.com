@@ -1,4 +1,3 @@
-export const runtime = "edge";
 
 import { getVehicles, getIntegrations, getVehiclePublications } from "@/actions/autoActions";
 import IntegrationsClient from "./IntegrationsClient";
