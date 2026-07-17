@@ -182,22 +182,24 @@ export default function InboxClient({
         // Actualizar datos reales del servidor
         setConversations(prev => prev.map(c => c.id === selectedConvId ? { ...c, ...res.conversation } : c));
         
-        // 3. Simular escritura y respuesta del cliente después de 1.5s
-        setLeadTyping(true);
-        setTimeout(async () => {
-          const replyRes = await simulateLeadReply(selectedConvId, messageText);
-          setLeadTyping(false);
-          if (replyRes.success && replyRes.conversation) {
-            setConversations(prev => prev.map(c => c.id === selectedConvId ? { ...c, ...replyRes.conversation } : c));
-            
-            // Sonido de notificación simulado
-            try {
-              const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-500.wav");
-              audio.volume = 0.15;
-              audio.play();
-            } catch (e) {}
-          }
-        }, 1800);
+        // 3. Simular escritura y respuesta del cliente después de 1.5s si no es un chat real de MercadoLibre
+        if (!selectedConvId.startsWith("ml-question-")) {
+          setLeadTyping(true);
+          setTimeout(async () => {
+            const replyRes = await simulateLeadReply(selectedConvId, messageText);
+            setLeadTyping(false);
+            if (replyRes.success && replyRes.conversation) {
+              setConversations(prev => prev.map(c => c.id === selectedConvId ? { ...c, ...replyRes.conversation } : c));
+              
+              // Sonido de notificación simulado
+              try {
+                const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-500.wav");
+                audio.volume = 0.15;
+                audio.play();
+              } catch (e) {}
+            }
+          }, 1800);
+        }
       }
     });
   };

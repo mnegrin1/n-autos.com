@@ -624,6 +624,8 @@ export async function publishVehicle(
     }
 
     try {
+      const descriptionText = vehicle.description || "Concesionario Oficial Automotora";
+
       const payload = {
         title: `${vehicle.brand} ${vehicle.model} ${vehicle.year}`,
         category_id: "MLU1744",
@@ -633,20 +635,26 @@ export async function publishVehicle(
         buying_mode: "classified",
         listing_type_id: "silver",
         condition: "used",
-        description: {
-          plain_text: vehicle.description || "Concesionario Oficial Automotora"
-        },
         pictures: vehicle.images.map((imgUrl: string) => {
-          const absoluteUrl = imgUrl.startsWith("http") 
-            ? imgUrl 
-            : `https://images.unsplash.com/photo-1552519507-da3b142c6e3d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80`;
+          let absoluteUrl = imgUrl;
+          if (!imgUrl.startsWith("http")) {
+            const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+            const cleanAppUrl = appUrl.endsWith("/") ? appUrl.slice(0, -1) : appUrl;
+            const cleanImgUrl = imgUrl.startsWith("/") ? imgUrl : `/${imgUrl}`;
+            absoluteUrl = `${cleanAppUrl}${cleanImgUrl}`;
+          }
           return { source: absoluteUrl };
         }),
         attributes: [
           { id: "BRAND", value_name: vehicle.brand },
           { id: "MODEL", value_name: vehicle.model },
           { id: "VEHICLE_YEAR", value_name: vehicle.year.toString() },
-          { id: "KILOMETERS", value_name: `${vehicle.kms} km` }
+          { id: "KILOMETERS", value_name: vehicle.kms.toString() },
+          ...(vehicle.doors ? [{ id: "DOORS", value_name: vehicle.doors.toString() }] : []),
+          ...(vehicle.fuel ? [{ id: "FUEL_TYPE", value_name: vehicle.fuel.charAt(0).toUpperCase() + vehicle.fuel.slice(1) }] : []),
+          ...(vehicle.transmission ? [{ id: "TRANSMISSION", value_name: vehicle.transmission.charAt(0).toUpperCase() + vehicle.transmission.slice(1) }] : []),
+          ...(vehicle.color ? [{ id: "COLOR", value_name: vehicle.color }] : []),
+          ...(vehicle.engine ? [{ id: "ENGINE", value_name: vehicle.engine }] : [])
         ]
       };
 
@@ -664,6 +672,28 @@ export async function publishVehicle(
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.message || "Fallo en API de MercadoLibre al crear publicación");
+      }
+
+      // Guardar la descripción en una llamada separada como especifica la API
+      try {
+        console.log(`Guardando descripción para el item ${data.id}...`);
+        const descResponse = await fetch(`https://api.mercadolibre.com/items/${data.id}/description`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify({
+            plain_text: descriptionText
+          })
+        });
+        if (!descResponse.ok) {
+          const descError = await descResponse.json();
+          console.error("Fallo al guardar la descripción en MercadoLibre:", descError);
+        }
+      } catch (descErr) {
+        console.error("Error al enviar descripción:", descErr);
       }
 
       const newPub = {
@@ -840,10 +870,185 @@ export async function syncMercadoLibreListings() {
 
 export async function getInboxConversations() {
   const db = getDb();
-  return db.inbox_conversations || [];
+  let conversations = [...(db.inbox_conversations || [])];
+
+  try {
+    const { data: mlRows } = await (supabase as any)
+      .from("auto_integrations")
+      .select("*")
+      .eq("channel", "mercadolibre");
+    const ml = mlRows?.[0];
+
+    if (ml && ml.connected && ml.mode === "production") {
+      const token = await refreshMLToken();
+      if (token) {
+        // 1. Obtener el ID del vendedor
+        const meRes = await fetch("https://api.mercadolibre.com/users/me", {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          if (meData && meData.id) {
+            const sellerId = meData.id;
+
+            // 2. Traer las preguntas asociadas al vendedor
+            const qRes = await fetch(`https://api.mercadolibre.com/questions/search?seller_id=${sellerId}&limit=20`, {
+              headers: { "Authorization": `Bearer ${token}` }
+            });
+            
+            if (qRes.ok) {
+              const qData = await qRes.json();
+              const mlQuestions = qData.questions || [];
+
+              // 3. Obtener las publicaciones para asociar item_id -> vehicle_id
+              const { data: pubs } = await (supabase as any)
+                .from("auto_vehicle_publications")
+                .select("vehicle_id, id")
+                .eq("channel", "mercadolibre");
+
+              const itemToVehicleMap: Record<string, string> = {};
+              if (pubs) {
+                for (const pub of pubs) {
+                  const itemId = pub.id.replace("pub-", "");
+                  itemToVehicleMap[itemId] = pub.vehicle_id;
+                }
+              }
+
+              // Filtrar conversaciones mock del canal MercadoLibre para usar solo las reales
+              conversations = conversations.filter(c => c.channel !== "mercadolibre");
+
+              // 4. Mapear cada pregunta
+              for (const q of mlQuestions) {
+                const vehicleId = itemToVehicleMap[q.item_id] || "veh-1";
+                
+                const messages: {
+                  id: string;
+                  sender: 'lead' | 'agent';
+                  text: string;
+                  time: string;
+                  status?: 'sent' | 'delivered' | 'read';
+                }[] = [
+                  {
+                    id: `ml-msg-q-${q.id}`,
+                    sender: 'lead' as const,
+                    text: q.text,
+                    time: new Date(q.date_created).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    status: 'read' as const
+                  }
+                ];
+
+                if (q.answer) {
+                  messages.push({
+                    id: `ml-msg-a-${q.id}`,
+                    sender: 'agent' as const,
+                    text: q.answer.text,
+                    time: new Date(q.answer.date_created).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    status: 'read' as const
+                  });
+                }
+
+                const lastMessage = q.answer ? q.answer.text : q.text;
+                const lastTime = q.answer ? q.answer.date_created : q.date_created;
+
+                conversations.push({
+                  id: `ml-question-${q.id}`,
+                  lead_id: `ml-buyer-${q.from?.id || 'anon'}`,
+                  lead_name: q.from?.nickname || `Usuario ML (${q.from?.id || '?'})`,
+                  lead_avatar: "ML",
+                  channel: 'mercadolibre' as const,
+                  last_message: lastMessage,
+                  last_message_time: new Date(lastTime).toLocaleDateString([], { day: '2-digit', month: '2-digit' }) + " " + new Date(lastTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  unread: q.status === "UNANSWERED",
+                  vehicle_id: vehicleId,
+                  messages,
+                  notes: ""
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Error al sincronizar conversaciones reales con MercadoLibre:", err);
+  }
+
+  return conversations;
 }
 
 export async function sendInboxMessage(conversationId: string, text: string) {
+  if (conversationId.startsWith("ml-question-")) {
+    const questionId = conversationId.replace("ml-question-", "");
+    
+    const { data: mlRows } = await (supabase as any)
+      .from("auto_integrations")
+      .select("*")
+      .eq("channel", "mercadolibre");
+    const ml = mlRows?.[0];
+
+    if (!ml || !ml.connected || ml.mode !== "production") {
+      return { success: false, error: "MercadoLibre no está conectado en modo real" };
+    }
+
+    const token = await refreshMLToken();
+    if (!token) {
+      return { success: false, error: "No se pudo renovar token de MercadoLibre" };
+    }
+
+    try {
+      console.log(`Respondiendo pregunta real en MercadoLibre ID: ${questionId}...`);
+      const response = await fetch("https://api.mercadolibre.com/answers", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({
+          question_id: Number(questionId),
+          text: text
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || "Fallo en API de MercadoLibre al enviar respuesta");
+      }
+
+      revalidatePath("/admin/inbox");
+
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return {
+        success: true,
+        conversation: {
+          id: conversationId,
+          last_message: text,
+          last_message_time: timeStr,
+          unread: false,
+          messages: [
+            {
+              id: `ml-msg-q-${questionId}`,
+              sender: 'lead' as const,
+              text: "Pregunta original",
+              time: timeStr
+            },
+            {
+              id: `ml-msg-a-${questionId}`,
+              sender: 'agent' as const,
+              text: text,
+              time: timeStr,
+              status: 'read' as const
+            }
+          ]
+        }
+      };
+    } catch (err: any) {
+      console.error("Error al responder pregunta de MercadoLibre:", err);
+      return { success: false, error: err.message || "Fallo al enviar respuesta a MercadoLibre" };
+    }
+  }
+
   const db = getDb();
   if (!db.inbox_conversations) db.inbox_conversations = [];
 

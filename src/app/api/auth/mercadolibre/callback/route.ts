@@ -52,6 +52,20 @@ export async function GET(request: Request) {
       refreshToken = data.refresh_token;
       expiresAt = Date.now() + (data.expires_in * 1000);
       username = `Vendedor ML (ID: ${data.user_id})`;
+
+      try {
+        const userRes = await fetch("https://api.mercadolibre.com/users/me", {
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        if (userRes.ok) {
+          const userData = await userRes.json();
+          username = userData.nickname || userData.first_name || username;
+        }
+      } catch (err) {
+        console.error("Error al obtener nickname de MercadoLibre:", err);
+      }
     } else {
       console.log("Conexión en modo simulación local. Generando tokens mock...");
     }
