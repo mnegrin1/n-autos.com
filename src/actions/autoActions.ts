@@ -555,8 +555,6 @@ export async function publishVehicle(
     revalidatePath("/admin/integrations");
     return { success: true, data: db.vehicle_publications[existingIndex] };
   }
-
-  const db = getDb();
   const vehicle = db.vehicles?.find((v: any) => v.id === vehicleId);
   if (!vehicle) {
     return { success: false, error: "Vehículo no encontrado en inventario" };
@@ -729,8 +727,6 @@ export async function syncMercadoLibreListings() {
 
       const itemIds = searchData.results || [];
       const syncedPubs = [];
-
-      const db = getDb();
 
       for (const itemId of itemIds) {
         const itemRes = await fetch(`https://api.mercadolibre.com/items/${itemId}`);
