@@ -419,49 +419,16 @@ export async function getAutoStats(agencyId: string) {
 // ==========================================
 
 export async function getIntegrations() {
-  const { data: rows, error } = await (supabase as any)
-    .from("auto_integrations")
-    .select("*");
-
-  const integrations: any = {
-    mercadolibre: { connected: false, username: "", token: "" },
-    facebook: { connected: false, pageName: "", token: "" },
-    instagram: { connected: false, handle: "" },
-    whatsapp: { connected: false, phoneNumber: "" }
-  };
-
-  if (!error && rows) {
-    for (const row of rows) {
-      if (row.channel === 'mercadolibre') {
-        integrations.mercadolibre = {
-          connected: row.connected,
-          username: row.username || "",
-          token: row.token || "",
-          refreshToken: row.refresh_token || "",
-          expiresAt: row.expires_at || 0,
-          mode: row.mode || "simulation"
-        };
-      } else if (row.channel === 'facebook') {
-        integrations.facebook = {
-          connected: row.connected,
-          pageName: row.username || "",
-          token: row.token || ""
-        };
-      } else if (row.channel === 'instagram') {
-        integrations.instagram = {
-          connected: row.connected,
-          handle: row.username || ""
-        };
-      } else if (row.channel === 'whatsapp') {
-        integrations.whatsapp = {
-          connected: row.connected,
-          phoneNumber: row.username || ""
-        };
-      }
-    }
+  const db = getDb();
+  if (!db.integrations) {
+    return {
+      mercadolibre: { connected: false, username: "", token: "" },
+      facebook: { connected: false, pageName: "", token: "" },
+      instagram: { connected: false, handle: "" },
+      whatsapp: { connected: false, phoneNumber: "" }
+    };
   }
-
-  return integrations;
+  return db.integrations;
 }
 
 export async function updateIntegration(
@@ -488,48 +455,43 @@ export async function updateIntegration(
     username = connected ? (data?.phoneNumber || "+598 99 123 456") : "";
   }
 
-  const { error } = await (supabase as any)
-    .from("auto_integrations")
-    .upsert({
-      agency_id: "demo-agency-id",
-      channel,
-      connected,
-      username,
-      token,
-      refresh_token: refreshToken,
-      expires_at: expiresAt,
-      mode,
-      updated_at: new Date().toISOString()
-    }, {
-      onConflict: "channel"
-    });
-
-  if (error) {
-    console.error(`Error al actualizar integración ${channel} en Supabase:`, error);
+  const db = getDb();
+  if (!db.integrations) {
+    db.integrations = {
+      mercadolibre: { connected: false },
+      facebook: { connected: false },
+      instagram: { connected: false },
+      whatsapp: { connected: false }
+    };
   }
+  
+  (db.integrations as any)[channel] = {
+    connected,
+    username,
+    token,
+    refresh_token: refreshToken,
+    expires_at: expiresAt,
+    mode
+  };
+  saveDb(db);
 
   revalidatePath("/admin/integrations");
   revalidatePath("/admin/inbox");
 
   const updatedIntegrations = await getIntegrations();
-  return { success: !error, integrations: updatedIntegrations };
+  return { success: true, integrations: updatedIntegrations };
 }
 
 export async function getVehiclePublications() {
-  const { data, error } = await (supabase as any)
-    .from("auto_vehicle_publications")
-    .select("*");
-  return error || !data ? [] : data;
+  const db = getDb();
+  return db.vehicle_publications || [];
 }
 
 // Helper to refresh MercadoLibre Access Token
 export async function refreshMLToken() {
-  const { data: rows } = await (supabase as any)
-    .from("auto_integrations")
-    .select("*")
-    .eq("channel", "mercadolibre");
+  const db = getDb();
+  const ml = db.integrations?.mercadolibre;
 
-  const ml = rows?.[0];
   if (!ml || !ml.connected) return null;
 
   const appId = process.env.MERCADOLIBRE_APP_ID;
@@ -563,15 +525,10 @@ export async function refreshMLToken() {
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || "Error al refrescar token");
 
-    await (supabase as any)
-      .from("auto_integrations")
-      .update({
-        token: data.access_token,
-        refresh_token: data.refresh_token,
-        expires_at: Date.now() + (data.expires_in * 1000),
-        updated_at: new Date().toISOString()
-      })
-      .eq("channel", "mercadolibre");
+    db.integrations!.mercadolibre.token = data.access_token;
+    db.integrations!.mercadolibre.refresh_token = data.refresh_token;
+    db.integrations!.mercadolibre.expires_at = Date.now() + (data.expires_in * 1000);
+    saveDb(db);
 
     return data.access_token;
   } catch (err) {
@@ -584,23 +541,19 @@ export async function publishVehicle(
   vehicleId: string,
   channel: 'mercadolibre' | 'facebook' | 'instagram'
 ) {
-  // 1. Verificar si ya existe en Supabase
-  const { data: existing } = await (supabase as any)
-    .from("auto_vehicle_publications")
-    .select("*")
-    .eq("vehicle_id", vehicleId)
-    .eq("channel", channel)
-    .maybeSingle();
+  const db = getDb();
+  if (!db.vehicle_publications) db.vehicle_publications = [];
 
-  if (existing) {
-    await (supabase as any)
-      .from("auto_vehicle_publications")
-      .update({ status: 'published' })
-      .eq("vehicle_id", vehicleId)
-      .eq("channel", channel);
+  // 1. Verificar si ya existe en localDb
+  const existingIndex = db.vehicle_publications.findIndex(
+    (p: any) => p.vehicle_id === vehicleId && p.channel === channel
+  );
 
+  if (existingIndex !== -1) {
+    db.vehicle_publications[existingIndex].status = 'published';
+    saveDb(db);
     revalidatePath("/admin/integrations");
-    return { success: true, data: { ...existing, status: 'published' } };
+    return { success: true, data: db.vehicle_publications[existingIndex] };
   }
 
   const db = getDb();
@@ -609,12 +562,7 @@ export async function publishVehicle(
     return { success: false, error: "Vehículo no encontrado en inventario" };
   }
 
-  // Consultar configuración de la integración de MercadoLibre en Supabase
-  const { data: mlRows } = await (supabase as any)
-    .from("auto_integrations")
-    .select("*")
-    .eq("channel", "mercadolibre");
-  const ml = mlRows?.[0];
+  const ml = db.integrations?.mercadolibre;
 
   // Si el canal es MercadoLibre y es en modo producción
   if (channel === 'mercadolibre' && ml?.connected && ml.mode === 'production') {
@@ -707,7 +655,8 @@ export async function publishVehicle(
         published_at: new Date().toISOString()
       };
 
-      await (supabase as any).from("auto_vehicle_publications").insert(newPub);
+      db.vehicle_publications.push(newPub);
+      saveDb(db);
       revalidatePath("/admin/integrations");
       return { success: true, data: newPub };
     } catch (err: any) {
@@ -716,7 +665,7 @@ export async function publishVehicle(
     }
   }
 
-  // MOCK / SIMULADOR FALLBACK GUARDADO EN SUPABASE
+  // MOCK / SIMULADOR FALLBACK GUARDADO EN LOCALDB
   const newPub = {
     id: `pub-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
     vehicle_id: vehicleId,
@@ -732,28 +681,28 @@ export async function publishVehicle(
     published_at: new Date().toISOString()
   };
 
-  await (supabase as any).from("auto_vehicle_publications").insert(newPub);
+  db.vehicle_publications.push(newPub);
+  saveDb(db);
   revalidatePath("/admin/integrations");
   return { success: true, data: newPub };
 }
 
 export async function unpublishVehicle(vehicleId: string, channel: 'mercadolibre' | 'facebook' | 'instagram') {
-  await (supabase as any)
-    .from("auto_vehicle_publications")
-    .delete()
-    .eq("vehicle_id", vehicleId)
-    .eq("channel", channel);
+  const db = getDb();
+  if (db.vehicle_publications) {
+    db.vehicle_publications = db.vehicle_publications.filter(
+      (p: any) => !(p.vehicle_id === vehicleId && p.channel === channel)
+    );
+    saveDb(db);
+  }
 
   revalidatePath("/admin/integrations");
   return { success: true };
 }
 
 export async function syncMercadoLibreListings() {
-  const { data: mlRows } = await (supabase as any)
-    .from("auto_integrations")
-    .select("*")
-    .eq("channel", "mercadolibre");
-  const ml = mlRows?.[0];
+  const db = getDb();
+  const ml = db.integrations?.mercadolibre;
 
   if (!ml || !ml.connected) {
     return { success: false, error: "MercadoLibre no está conectado." };
@@ -804,17 +753,11 @@ export async function syncMercadoLibreListings() {
         }
       }
 
-      await (supabase as any)
-        .from("auto_vehicle_publications")
-        .delete()
-        .eq("channel", "mercadolibre");
-
-      if (syncedPubs.length > 0) {
-        const { error: insertError } = await (supabase as any)
-          .from("auto_vehicle_publications")
-          .insert(syncedPubs);
-        if (insertError) throw insertError;
-      }
+      db.vehicle_publications = [
+        ...(db.vehicle_publications?.filter((p: any) => p.channel !== 'mercadolibre') || []),
+        ...syncedPubs
+      ];
+      saveDb(db);
 
       revalidatePath("/admin/integrations");
       return { success: true, count: syncedPubs.length };
@@ -847,21 +790,14 @@ export async function syncMercadoLibreListings() {
     }
   ];
 
-  await (supabase as any)
-    .from("auto_vehicle_publications")
-    .delete()
-    .eq("channel", "mercadolibre");
-
-  const { error: insertError } = await (supabase as any)
-    .from("auto_vehicle_publications")
-    .insert(syncMockPubs);
-
-  if (insertError) {
-    console.error("Error al insertar publicaciones mock en Supabase:", insertError);
-  }
+  db.vehicle_publications = [
+    ...(db.vehicle_publications?.filter((p: any) => p.channel !== 'mercadolibre') || []),
+    ...syncMockPubs
+  ];
+  saveDb(db);
 
   revalidatePath("/admin/integrations");
-  return { success: !insertError, count: syncMockPubs.length };
+  return { success: true, count: syncMockPubs.length };
 }
 
 // ==========================================
@@ -873,11 +809,7 @@ export async function getInboxConversations() {
   let conversations = [...(db.inbox_conversations || [])];
 
   try {
-    const { data: mlRows } = await (supabase as any)
-      .from("auto_integrations")
-      .select("*")
-      .eq("channel", "mercadolibre");
-    const ml = mlRows?.[0];
+    const ml = db.integrations?.mercadolibre;
 
     if (ml && ml.connected && ml.mode === "production") {
       const token = await refreshMLToken();
@@ -901,17 +833,12 @@ export async function getInboxConversations() {
               const mlQuestions = qData.questions || [];
 
               // 3. Obtener las publicaciones para asociar item_id -> vehicle_id
-              const { data: pubs } = await (supabase as any)
-                .from("auto_vehicle_publications")
-                .select("vehicle_id, id")
-                .eq("channel", "mercadolibre");
+              const pubs = db.vehicle_publications?.filter((p: any) => p.channel === "mercadolibre") || [];
 
               const itemToVehicleMap: Record<string, string> = {};
-              if (pubs) {
-                for (const pub of pubs) {
-                  const itemId = pub.id.replace("pub-", "");
-                  itemToVehicleMap[itemId] = pub.vehicle_id;
-                }
+              for (const pub of pubs) {
+                const itemId = pub.id.replace("pub-", "");
+                itemToVehicleMap[itemId] = pub.vehicle_id;
               }
 
               // Filtrar conversaciones mock del canal MercadoLibre para usar solo las reales
@@ -979,12 +906,8 @@ export async function getInboxConversations() {
 export async function sendInboxMessage(conversationId: string, text: string) {
   if (conversationId.startsWith("ml-question-")) {
     const questionId = conversationId.replace("ml-question-", "");
-    
-    const { data: mlRows } = await (supabase as any)
-      .from("auto_integrations")
-      .select("*")
-      .eq("channel", "mercadolibre");
-    const ml = mlRows?.[0];
+    const db = getDb();
+    const ml = db.integrations?.mercadolibre;
 
     if (!ml || !ml.connected || ml.mode !== "production") {
       return { success: false, error: "MercadoLibre no está conectado en modo real" };
