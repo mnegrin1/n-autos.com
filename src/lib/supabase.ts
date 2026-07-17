@@ -10,7 +10,7 @@ const customFetch = (url: URL | RequestInfo, init?: RequestInit) => {
     ...init,
     // @ts-ignore - cf is a Cloudflare specific option
     cf: {
-      ...init?.cf,
+      ...(init as any)?.cf,
       dns: "public",
     },
   });
