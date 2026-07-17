@@ -1,6 +1,6 @@
 
 import { NextResponse } from "next/server";
-import { getDb, saveDb } from "@/lib/localDb";
+import { supabase } from "@/lib/supabase";
 
 // GET: Verificación del Webhook por parte de Meta
 export async function GET(request: Request) {
@@ -42,13 +42,14 @@ export async function POST(request: Request) {
         const messageText = messaging.message.text;
         const channel = isPage ? "facebook" : "instagram";
 
-        const db = getDb();
-        if (!db.inbox_conversations) db.inbox_conversations = [];
+        const { data: existingConvs } = await (supabase as any)
+          .from("inbox_conversations")
+          .select("*")
+          .eq("channel", channel)
+          .eq("channel_sender_id", senderId)
+          .limit(1);
 
-        // Buscar conversación existente por el ID del remitente de la plataforma
-        let conversation = db.inbox_conversations.find(
-          (c: any) => c.channel === channel && (c as any).channel_sender_id === senderId
-        );
+        let conversation = existingConvs && existingConvs.length > 0 ? existingConvs[0] : null;
 
         const now = new Date();
         const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -62,28 +63,32 @@ export async function POST(request: Request) {
             last_message: messageText,
             last_message_time: timeStr,
             unread: true,
-            messages: [],
+            messages: [{
+              id: `msg-${Date.now()}`,
+              sender: 'lead',
+              text: messageText,
+              time: timeStr,
+              status: 'read'
+            }],
             channel_sender_id: senderId
           };
-          db.inbox_conversations.push(newConv);
-          conversation = newConv;
+          await (supabase.from("inbox_conversations") as any).insert(newConv);
+        } else {
+          const newMessages = [...(conversation.messages || []), {
+            id: `msg-${Date.now()}`,
+            sender: 'lead',
+            text: messageText,
+            time: timeStr,
+            status: 'read'
+          }];
+          
+          await (supabase.from("inbox_conversations") as any).update({
+            last_message: messageText,
+            last_message_time: timeStr,
+            unread: true,
+            messages: newMessages
+          }).eq("id", conversation.id);
         }
-
-        // Registrar el mensaje recibido
-        const activeConv = conversation;
-        activeConv.messages.push({
-          id: `msg-${Date.now()}`,
-          sender: 'lead',
-          text: messageText,
-          time: timeStr,
-          status: 'read'
-        });
-
-        activeConv.last_message = messageText;
-        activeConv.last_message_time = timeStr;
-        activeConv.unread = true;
-
-        saveDb(db);
         console.log(`Mensaje de ${channel} registrado en el CRM.`);
       }
     }

@@ -1,7 +1,7 @@
 "use server";
 
-import { getDb, saveDb } from "@/lib/localDb";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { supabase } from "@/lib/supabase";
 import {
   leadSchema,
@@ -13,33 +13,19 @@ import {
   ticketSchema
 } from "@/lib/schemas";
 
-const isSupabaseActive = () => {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  return !!(url && !url.includes("mock-project") && key && !key.includes("mock-anon-key"));
-};
-
 // --- CRM & LEADS ---
 export async function getLeads() {
-  if (isSupabaseActive()) {
-    try {
-      const { data, error } = await supabase
-        .from("leads")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (!error && data) {
-        return (data as any[]).map(lead => ({
-          ...(lead as any),
-          property: (lead as any).property || "Contacto General",
-          time: "Reciente"
-        }));
-      }
-    } catch (e) {
-      console.error("Supabase getLeads error:", e);
-    }
+  const { data, error } = await (supabase.from("leads") as any)
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (!error && data) {
+    return (data as any[]).map(lead => ({
+      ...(lead as any),
+      property: (lead as any).property || "Contacto General",
+      time: "Reciente"
+    }));
   }
-  const db = getDb();
-  return db.leads;
+  return [];
 }
 
 export async function createLead(lead: { name: string, property: string, status: string }) {
@@ -49,39 +35,20 @@ export async function createLead(lead: { name: string, property: string, status:
   }
   const validatedData = validationResult.data;
 
-  if (isSupabaseActive()) {
-    try {
-      const { data, error } = await supabase
-        .from("leads")
-        .insert({
-          agency_id: "00000000-0000-0000-0000-000000000000",
-          name: validatedData.name,
-          status: validatedData.status,
-        } as any)
-        .select()
-        .single();
-      if (!error && data) {
-        revalidatePath("/realstate/admin/crm");
-        return { success: true, data: { ...(data as any), property: validatedData.property, time: "Ahora" } };
-      }
-    } catch (e) {
-      console.error("Supabase createLead error:", e);
-    }
-  }
+  const { data, error } = await (supabase.from("leads") as any)
+    .insert({
+      agency_id: "00000000-0000-0000-0000-000000000000",
+      name: validatedData.name,
+      status: validatedData.status,
+    } as any)
+    .select()
+    .single();
 
-  const db = getDb();
-  const newLead = {
-    name: validatedData.name,
-    property: validatedData.property,
-    status: validatedData.status,
-    id: `lead-${Date.now()}`,
-    time: "Ahora",
-    agency_id: "demo-agency-id",
-  };
-  db.leads.push(newLead);
-  saveDb(db);
-  revalidatePath("/realstate/admin/crm");
-  return { success: true, data: newLead };
+  if (!error && data) {
+    revalidatePath("/realstate/admin/crm");
+    return { success: true, data: { ...(data as any), property: validatedData.property, time: "Ahora" } };
+  }
+  return { success: false, error: "Error creating lead" };
 }
 
 export async function submitContactForm(leadData: {
@@ -98,173 +65,113 @@ export async function submitContactForm(leadData: {
   }
   const validatedData = validationResult.data;
 
-  if (isSupabaseActive()) {
-    try {
-      const { data, error } = await supabase
-        .from("leads")
-        .insert({
-          agency_id: "00000000-0000-0000-0000-000000000000",
-          name: validatedData.name,
-          email: validatedData.email || null,
-          phone: validatedData.phone || null,
-          property_id: validatedData.propertyId || null,
-          status: "nuevo"
-        } as any)
-        .select()
-        .single();
-      if (!error && data) {
-        revalidatePath("/realstate/admin/crm");
-        return { success: true, data: { ...(data as any), property: validatedData.propertyName || "Contacto General", time: "Ahora" } };
-      }
-    } catch (e) {
-      console.error("Supabase submitContactForm error:", e);
-    }
+  const { data: newLead, error } = await (supabase.from("leads") as any)
+    .insert({
+      agency_id: "00000000-0000-0000-0000-000000000000",
+      name: validatedData.name,
+      email: validatedData.email || null,
+      phone: validatedData.phone || null,
+      property_id: validatedData.propertyId || null,
+      status: "nuevo"
+    } as any)
+    .select()
+    .single();
+
+  if (error || !newLead) {
+    return { success: false, error: "Error creating lead" };
   }
 
-  const db = getDb();
-  const newLead = {
-    id: `lead-${Date.now()}`,
-    agency_id: "demo-agency-id",
-    name: validatedData.name,
-    email: validatedData.email || "",
-    phone: validatedData.phone || "",
-    property: validatedData.propertyName || "Contacto General",
-    property_id: validatedData.propertyId || null,
-    message: validatedData.message || "",
-    time: "Ahora",
-    status: "nuevo"
-  };
-  db.leads.push(newLead);
-
-  // Crear primer mensaje de la conversación (inbound, del lead)
   if (validatedData.message) {
-    if (!db.conversations) db.conversations = [];
-    db.conversations.push({
-      id: `msg-${Date.now()}`,
-      lead_id: newLead.id,
-      body: leadData.message,
+    await (supabase.from("conversations") as any).insert({
+      lead_id: (newLead as any).id,
+      body: validatedData.message,
       direction: "inbound",
       channel: "form",
       sent_at: new Date().toISOString(),
-    });
+    } as any);
   }
 
-  saveDb(db);
   revalidatePath("/realstate/admin/crm");
   revalidatePath("/realstate/admin/messages");
-  return { success: true, data: newLead };
+  return { success: true, data: { ...(newLead as any), property: validatedData.propertyName || "Contacto General", time: "Ahora" } };
 }
 
 export async function getLeadById(leadId: string) {
-  const db = getDb();
-  return db.leads.find((l) => l.id === leadId) || null;
+  const { data, error } = await (supabase.from("leads") as any).select("*").eq("id", leadId).single();
+  if (!error && data) return data as any;
+  return null;
 }
 
 export async function getConversation(leadId: string) {
-  const db = getDb();
-  if (!db.conversations) return [];
-  return db.conversations.filter((m: any) => m.lead_id === leadId);
+  const { data, error } = await (supabase.from("conversations") as any).select("*").eq("lead_id", leadId).order("sent_at", { ascending: true });
+  if (!error && data) return data as any[];
+  return [];
 }
 
 export async function saveOutboundMessage(leadId: string, body: string) {
-  const db = getDb();
-  if (!db.conversations) db.conversations = [];
-
-  const msg = {
-    id: `msg-${Date.now()}`,
+  const { data: msg, error } = await (supabase.from("conversations") as any).insert({
     lead_id: leadId,
     body,
     direction: "outbound",
     channel: "whatsapp",
     sent_at: new Date().toISOString(),
-  };
-  db.conversations.push(msg);
+  } as any).select().single();
 
-  // Mover el lead a estado "Contactado" si estaba en "Nuevo"
-  const leadIndex = db.leads.findIndex((l: any) => l.id === leadId);
-  if (leadIndex !== -1 && (db.leads[leadIndex].status === "Nuevo" || db.leads[leadIndex].status === "nuevo")) {
-    db.leads[leadIndex].status = "Contactado";
+  if (error) return { success: false, error: "Error saving message" };
+
+  const { data: lead } = await (supabase.from("leads") as any).select("*").eq("id", leadId).single();
+  if (lead && (lead.status === "Nuevo" || lead.status === "nuevo")) {
+    await (supabase.from("leads") as any).update({ status: "Contactado" }).eq("id", leadId);
   }
 
-  saveDb(db);
   revalidatePath("/realstate/admin/messages");
   revalidatePath("/realstate/admin/crm");
-  return { success: true, data: msg };
+  return { success: true, data: msg as any };
 }
 
 export async function updateLeadStatus(leadId: string, newStatus: string) {
-  if (isSupabaseActive() && !leadId.startsWith("lead-")) {
-    try {
-      let mappedStatus = newStatus.toLowerCase();
-      if (mappedStatus === "negociación") mappedStatus = "negociacion";
-      const { data, error } = await (supabase.from("leads") as any)
-        .update({ status: mappedStatus } as any)
-        .eq("id", leadId)
-        .select()
-        .single();
-      if (!error && data) {
-        revalidatePath("/realstate/admin/crm");
-        return { success: true, data };
-      }
-    } catch (e) {
-      console.error("Supabase updateLeadStatus error:", e);
-    }
-  }
+  let mappedStatus = newStatus.toLowerCase();
+  if (mappedStatus === "negociación") mappedStatus = "negociacion";
+  
+  const { data, error } = await (supabase.from("leads") as any)
+    .update({ status: mappedStatus })
+    .eq("id", leadId)
+    .select()
+    .single();
 
-  const db = getDb();
-  const index = db.leads.findIndex((l) => l.id === leadId);
-  if (index !== -1) {
-    db.leads[index].status = newStatus;
-    saveDb(db);
+  if (!error && data) {
     revalidatePath("/realstate/admin/crm");
-    return { success: true, data: db.leads[index] };
+    return { success: true, data };
   }
-  return { success: false, error: "Lead no encontrado" };
+  return { success: false, error: "Lead no encontrado o error" };
 }
 
 export async function updateLead(leadId: string, updates: any) {
-  if (isSupabaseActive() && !leadId.startsWith("lead-")) {
-    try {
-      const mappedUpdates = { ...updates };
-      if (mappedUpdates.status) {
-        let mappedStatus = mappedUpdates.status.toLowerCase();
-        if (mappedStatus === "negociación") mappedStatus = "negociacion";
-        mappedUpdates.status = mappedStatus;
-      }
-      const { data, error } = await (supabase.from("leads") as any)
-        .update(mappedUpdates)
-        .eq("id", leadId)
-        .select()
-        .single();
-      if (!error && data) {
-        revalidatePath("/realstate/admin/crm");
-        return { success: true, data };
-      }
-      if (error) throw error;
-    } catch (e) {
-      console.error("Supabase updateLead error:", e);
-      return { success: false, error: "Error de Supabase" };
-    }
+  const mappedUpdates = { ...updates };
+  if (mappedUpdates.status) {
+    let mappedStatus = mappedUpdates.status.toLowerCase();
+    if (mappedStatus === "negociación") mappedStatus = "negociacion";
+    mappedUpdates.status = mappedStatus;
   }
+  
+  const { data, error } = await (supabase.from("leads") as any)
+    .update(mappedUpdates)
+    .eq("id", leadId)
+    .select()
+    .single();
 
-  const db = getDb();
-  const index = db.leads.findIndex((l) => l.id === leadId);
-  if (index !== -1) {
-    db.leads[index] = {
-      ...db.leads[index],
-      ...updates
-    };
-    saveDb(db);
+  if (!error && data) {
     revalidatePath("/realstate/admin/crm");
-    return { success: true, data: db.leads[index] };
+    return { success: true, data };
   }
-  return { success: false, error: "Lead no encontrado" };
+  return { success: false, error: "Lead no encontrado o error" };
 }
 
 // --- AGENTS ---
 export async function getAgents() {
-  const db = getDb();
-  return db.users;
+  const { data, error } = await (supabase.from("users") as any).select("*");
+  if (!error && data) return data as any[];
+  return [];
 }
 
 export async function createAgent(agent: { name: string, email: string, role: string }) {
@@ -274,62 +181,47 @@ export async function createAgent(agent: { name: string, email: string, role: st
   }
   const validatedData = validationResult.data;
 
-  const db = getDb();
-  const newAgent = {
+  const { data, error } = await (supabase.from("users") as any).insert({
     name: validatedData.name,
     email: validatedData.email,
     role: validatedData.role,
-    id: `agent-${Date.now()}`,
     status: "active",
     agency_id: "demo-agency-id",
-    created_at: new Date().toISOString(),
-  };
-  db.users.push(newAgent);
-  saveDb(db);
-  revalidatePath("/realstate/admin/agents");
-  return { success: true, data: newAgent };
+  } as any).select().single();
+
+  if (!error && data) {
+    revalidatePath("/realstate/admin/agents");
+    return { success: true, data: data as any };
+  }
+  return { success: false, error: "Error creating agent" };
 }
 
 export async function updateAgent(agentId: string, updates: any) {
-  const db = getDb();
-  const index = db.users.findIndex(u => u.id === agentId);
-  if (index !== -1) {
-    db.users[index] = {
-      ...db.users[index],
-      ...updates
-    };
-    saveDb(db);
+  const { data, error } = await (supabase.from("users") as any).update(updates).eq("id", agentId).select().single();
+  if (!error && data) {
     revalidatePath("/realstate/admin/agents");
-    return { success: true, data: db.users[index] };
+    return { success: true, data: data as any };
   }
-  return { success: false, error: "Agente no encontrado" };
+  return { success: false, error: "Agente no encontrado o error" };
 }
-
 
 // --- CALENDAR & EVENTS ---
 export async function getEvents() {
-  if (isSupabaseActive()) {
-    try {
-      const { data, error } = await supabase
-        .from("events")
-        .select("*")
-        .order("event_date", { ascending: true });
-      if (!error && data) {
-        return (data as any[]).map((evt: any) => ({
-          id: evt.id,
-          title: evt.title,
-          description: evt.description,
-          type: evt.event_type, // 'visita' | 'reunion' | 'llamada'
-          start: evt.event_date,
-          end: new Date(new Date(evt.event_date).getTime() + 60 * 60 * 1000).toISOString() // +1 hr default
-        }));
-      }
-    } catch (e) {
-      console.error("Supabase getEvents error:", e);
-    }
+  const { data, error } = await (supabase.from("events") as any)
+    .select("*")
+    .order("event_date", { ascending: true });
+  
+  if (!error && data) {
+    return (data as any[]).map((evt: any) => ({
+      id: evt.id,
+      title: evt.title,
+      description: evt.description,
+      type: evt.event_type,
+      start: evt.event_date,
+      end: new Date(new Date(evt.event_date).getTime() + 60 * 60 * 1000).toISOString()
+    }));
   }
-  const db = getDb();
-  return db.events;
+  return [];
 }
 
 export async function createEvent(event: { title: string, start: string, end: string, type: string }) {
@@ -339,105 +231,54 @@ export async function createEvent(event: { title: string, start: string, end: st
   }
   const validatedData = validationResult.data;
 
-  if (isSupabaseActive()) {
-    try {
-      const { data, error } = await supabase
-        .from("events")
-        .insert({
-          agency_id: "00000000-0000-0000-0000-000000000000",
-          title: validatedData.title,
-          event_type: validatedData.type as any,
-          event_date: validatedData.start,
-        } as any)
-        .select()
-        .single();
-      if (!error && data) {
-        revalidatePath("/realstate/admin/calendar");
-        return {
-          success: true,
-          data: {
-            id: (data as any).id,
-            title: (data as any).title,
-            type: (data as any).event_type,
-            start: (data as any).event_date,
-            end: new Date(new Date((data as any).event_date).getTime() + 60 * 60 * 1000).toISOString()
-          }
-        };
+  const { data, error } = await (supabase.from("events") as any)
+    .insert({
+      agency_id: "00000000-0000-0000-0000-000000000000",
+      title: validatedData.title,
+      event_type: validatedData.type as any,
+      event_date: validatedData.start,
+    } as any)
+    .select()
+    .single();
+
+  if (!error && data) {
+    revalidatePath("/realstate/admin/calendar");
+    return {
+      success: true,
+      data: {
+        id: (data as any).id,
+        title: (data as any).title,
+        type: (data as any).event_type,
+        start: (data as any).event_date,
+        end: new Date(new Date((data as any).event_date).getTime() + 60 * 60 * 1000).toISOString()
       }
-    } catch (e) {
-      console.error("Supabase createEvent error:", e);
-    }
+    };
   }
-
-  const db = getDb();
-  const newEvent = {
-    title: validatedData.title,
-    start: validatedData.start,
-    end: validatedData.end,
-    type: validatedData.type,
-    id: `evt-${Date.now()}`,
-    agency_id: "demo-agency-id",
-  };
-  db.events.push(newEvent);
-  saveDb(db);
-  revalidatePath("/realstate/admin/calendar");
-  return { success: true, data: newEvent };
+  return { success: false, error: "Error creating event" };
 }
-
 
 // --- OFFERS ---
 export async function getOffers() {
-  const db = getDb();
-  return db.offers;
+  const { data, error } = await (supabase.from("offers") as any).select("*");
+  if (!error && data) return data as any[];
+  return [];
 }
 
 export async function updateOfferStatus(offerId: string, status: string) {
-  const db = getDb();
-  const index = db.offers.findIndex(o => o.id === offerId);
-  if (index !== -1) {
-    db.offers[index].status = status;
-    saveDb(db);
+  const { error } = await (supabase.from("offers") as any).update({ status } as any).eq("id", offerId);
+  if (!error) {
     revalidatePath("/realstate/admin/offers");
     return { success: true };
   }
   return { success: false };
 }
 
-// --- RENTALS ---
-export async function getRentals() {
-  const db = getDb();
-  return db.rentals;
-}
-
-export async function createRental(rental: { property: string, tenant: string, price: number, currency: string, endDate: string }) {
-  const validationResult = rentalSchema.safeParse(rental);
-  if (!validationResult.success) {
-    return { success: false, error: validationResult.error.flatten().fieldErrors };
-  }
-  const validatedData = validationResult.data;
-
-  const db = getDb();
-  const newRental = {
-    property: validatedData.property,
-    tenant: validatedData.tenant,
-    price: validatedData.price,
-    currency: validatedData.currency,
-    endDate: validatedData.endDate,
-    id: `ren-${Date.now()}`,
-    status: "activo",
-    agency_id: "demo-agency-id",
-  };
-  db.rentals.push(newRental);
-  saveDb(db);
-  revalidatePath("/realstate/admin/rentals");
-  return { success: true, data: newRental };
-}
-
 
 // --- TICKETS & SUPPORT ---
 export async function getTickets() {
-  const db = getDb();
-  return db.tickets;
+  const { data, error } = await (supabase.from("tickets") as any).select("*");
+  if (!error && data) return data as any[];
+  return [];
 }
 
 export async function createTicket(ticket: { title: string, desc: string, priority: string }) {
@@ -447,25 +288,26 @@ export async function createTicket(ticket: { title: string, desc: string, priori
   }
   const validatedData = validationResult.data;
 
-  const db = getDb();
-  const newTicket = {
+  const { data, error } = await (supabase.from("tickets") as any).insert({
     title: validatedData.title,
     desc: validatedData.desc,
     priority: validatedData.priority,
-    id: `tkt-${Date.now()}`,
     agency_id: "demo-agency-id",
     stage: "Pendiente",
-  };
-  db.tickets.push(newTicket);
-  saveDb(db);
-  revalidatePath("/realstate/admin/support");
-  return { success: true, data: newTicket };
+  } as any).select().single();
+
+  if (!error && data) {
+    revalidatePath("/realstate/admin/support");
+    return { success: true, data: data as any };
+  }
+  return { success: false, error: "Error creating ticket" };
 }
 
 // --- GOOGLE CALENDAR OAUTH ---
 export async function getGoogleConfig() {
-  const db = getDb();
-  return db.google_config || null;
+  const { data, error } = await (supabase.from("google_config") as any).select("*").single();
+  if (!error && data) return data as any;
+  return null;
 }
 
 export async function saveGoogleConfig(clientId: string, clientSecret: string) {
@@ -475,29 +317,35 @@ export async function saveGoogleConfig(clientId: string, clientSecret: string) {
   }
   const validatedData = validationResult.data;
 
-  const db = getDb();
-  db.google_config = {
+  const config = {
     clientId: validatedData.clientId,
     clientSecret: validatedData.clientSecret,
     accessToken: "",
     refreshToken: "",
     tokenExpiry: 0,
   };
-  saveDb(db);
+  
+  const { error: updateError } = await (supabase.from("google_config") as any).update(config as any).neq("id", "0"); 
+  if (updateError) {
+    await (supabase.from("google_config") as any).insert(config as any);
+  }
+
   revalidatePath("/realstate/admin/calendar");
   return { success: true };
 }
 
 export async function disconnectGoogle() {
-  const db = getDb();
-  if (db.google_config) {
-    db.google_config.accessToken = "";
-    db.google_config.refreshToken = "";
-    db.google_config.tokenExpiry = 0;
-    saveDb(db);
+  const { error } = await (supabase.from("google_config") as any).update({
+    accessToken: "",
+    refreshToken: "",
+    tokenExpiry: 0,
+  } as any).neq("id", "0"); 
+  
+  if (!error) {
+    revalidatePath("/realstate/admin/calendar");
+    return { success: true };
   }
-  revalidatePath("/realstate/admin/calendar");
-  return { success: true };
+  return { success: false, error: "Error disconnecting" };
 }
 
 async function refreshGoogleAccessToken(config: any) {
@@ -525,25 +373,26 @@ async function refreshGoogleAccessToken(config: any) {
 }
 
 export async function getGoogleEvents() {
-  const db = getDb();
-  const config = db.google_config;
+  const config = await getGoogleConfig();
   if (!config || !config.refreshToken) return [];
 
   let token = config.accessToken;
-  const isExpired = !config.tokenExpiry || Date.now() >= config.tokenExpiry - 300000; // 5 mins buffer
+  const isExpired = !config.tokenExpiry || Date.now() >= config.tokenExpiry - 300000; 
 
   if (isExpired) {
     token = await refreshGoogleAccessToken(config);
     if (token) {
-      db.google_config = config;
-      saveDb(db);
+      await (supabase.from("google_config") as any).update({
+        accessToken: config.accessToken,
+        tokenExpiry: config.tokenExpiry
+      } as any).neq("id", "0");
     }
   }
 
   if (!token) return [];
 
   try {
-    const timeMin = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 días atrás
+    const timeMin = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const res = await fetch(
       `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(timeMin)}&maxResults=100&orderBy=startTime&singleEvents=true`,
       {
@@ -567,35 +416,16 @@ export async function getGoogleEvents() {
 }
 
 export async function deleteEvent(eventId: string) {
-  if (isSupabaseActive() && !eventId.startsWith("evt-")) {
-    try {
-      const { error } = await supabase
-        .from("events")
-        .delete()
-        .eq("id", eventId);
-      if (!error) {
-        revalidatePath("/realstate/admin/calendar");
-        return { success: true };
-      }
-    } catch (e) {
-      console.error("Supabase deleteEvent error:", e);
-    }
-  }
-
-  const db = getDb();
-  const index = db.events.findIndex(e => e.id === eventId);
-  if (index !== -1) {
-    db.events.splice(index, 1);
-    saveDb(db);
+  const { error } = await (supabase.from("events") as any).delete().eq("id", eventId);
+  if (!error) {
     revalidatePath("/realstate/admin/calendar");
     return { success: true };
   }
-  return { success: false, error: "Evento no encontrado" };
+  return { success: false, error: "Evento no encontrado o error" };
 }
 
 export async function createGoogleEvent(event: { title: string, start: string, end: string, type: string }) {
-  const db = getDb();
-  const config = db.google_config;
+  const config = await getGoogleConfig();
   if (!config || !config.refreshToken) return { success: false, error: "No conectado" };
 
   let token = config.accessToken;
@@ -604,8 +434,10 @@ export async function createGoogleEvent(event: { title: string, start: string, e
   if (isExpired) {
     token = await refreshGoogleAccessToken(config);
     if (token) {
-      db.google_config = config;
-      saveDb(db);
+      await (supabase.from("google_config") as any).update({
+        accessToken: config.accessToken,
+        tokenExpiry: config.tokenExpiry
+      } as any).neq("id", "0");
     }
   }
 
@@ -649,8 +481,7 @@ export async function createGoogleEvent(event: { title: string, start: string, e
 }
 
 export async function deleteGoogleEvent(gcalId: string) {
-  const db = getDb();
-  const config = db.google_config;
+  const config = await getGoogleConfig();
   if (!config || !config.refreshToken) return { success: false, error: "No conectado" };
 
   let token = config.accessToken;
@@ -659,8 +490,10 @@ export async function deleteGoogleEvent(gcalId: string) {
   if (isExpired) {
     token = await refreshGoogleAccessToken(config);
     if (token) {
-      db.google_config = config;
-      saveDb(db);
+      await (supabase.from("google_config") as any).update({
+        accessToken: config.accessToken,
+        tokenExpiry: config.tokenExpiry
+      } as any).neq("id", "0");
     }
   }
 
@@ -683,23 +516,17 @@ export async function deleteGoogleEvent(gcalId: string) {
 }
 
 // --- LEAD INTERACTIONS (BITÁCORA) ---
-import { cookies } from "next/headers";
 
 export async function getLeadInteractions(leadId: string) {
-  const db = getDb();
-  if (!db.lead_interactions) db.lead_interactions = [];
-  
-  const interactions = db.lead_interactions.filter((i: any) => i.lead_id === leadId);
-  return interactions.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const { data, error } = await (supabase.from("lead_interactions") as any).select("*").eq("lead_id", leadId).order("created_at", { ascending: false });
+  if (!error && data) return data as any[];
+  return [];
 }
 
 export async function createLeadInteraction(leadId: string, content: string, type: string) {
   if (!leadId || !content || !type) {
     return { success: false, error: "Faltan parámetros obligatorios" };
   }
-
-  const db = getDb();
-  if (!db.lead_interactions) db.lead_interactions = [];
 
   let agentName = "Sistema";
   try {
@@ -713,21 +540,18 @@ export async function createLeadInteraction(leadId: string, content: string, typ
     console.error("Error decoding session in createLeadInteraction:", e);
   }
 
-  const newInteraction = {
-    id: `int-${Date.now()}`,
+  const { data, error } = await (supabase.from("lead_interactions") as any).insert({
     lead_id: leadId,
     agent_name: agentName,
     type,
     content,
     created_at: new Date().toISOString(),
-  };
+  } as any).select().single();
 
-  db.lead_interactions.push(newInteraction);
-  saveDb(db);
-  
-  revalidatePath("/realstate/admin/crm");
-  revalidatePath("/realstate/admin/messages");
-
-  return { success: true, data: newInteraction };
+  if (!error && data) {
+    revalidatePath("/realstate/admin/crm");
+    revalidatePath("/realstate/admin/messages");
+    return { success: true, data: data as any };
+  }
+  return { success: false, error: "Error creating interaction" };
 }
-

@@ -1,16 +1,8 @@
 "use server";
 
-import { getDb, saveDb } from "@/lib/localDb";
 import { revalidatePath } from "next/cache";
-
 import { supabase } from "@/lib/supabase";
 import { propertySchema } from "@/lib/schemas";
-
-const isSupabaseActive = () => {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  return !!(url && !url.includes("mock-project") && key && !key.includes("mock-anon-key"));
-};
 
 // Helper para guardar archivos subidos físicamente en public/uploads/ y clasificarlos
 async function saveUploadedFiles(files: any[]): Promise<{ images: string[], videos: string[] }> {
@@ -58,41 +50,37 @@ async function saveUploadedFiles(files: any[]): Promise<{ images: string[], vide
 }
 
 export async function getProperties(agencyId: string) {
-  if (isSupabaseActive()) {
-    try {
-      const { data, error } = await supabase
-        .from("properties")
-        .select("*")
-        .eq("agency_id", agencyId)
-        .order("created_at", { ascending: false });
-      if (!error && data) {
-        return data as any[];
-      }
-    } catch (e) {
-      console.error("Supabase getProperties error:", e);
+  try {
+    const { data, error } = await supabase
+      .from("properties")
+      .select("*")
+      .eq("agency_id", agencyId)
+      .order("created_at", { ascending: false });
+    if (!error && data) {
+      return data as any[];
     }
+    return [];
+  } catch (e) {
+    console.error("Supabase getProperties error:", e);
+    return [];
   }
-  const db = getDb();
-  return db.properties.filter((p) => p.agency_id === agencyId);
 }
 
 export async function getPropertyById(propertyId: string) {
-  if (isSupabaseActive()) {
-    try {
-      const { data, error } = await supabase
-        .from("properties")
-        .select("*")
-        .eq("id", propertyId)
-        .maybeSingle();
-      if (!error && data) {
-        return data;
-      }
-    } catch (e) {
-      console.error("Supabase getPropertyById error:", e);
+  try {
+    const { data, error } = await supabase
+      .from("properties")
+      .select("*")
+      .eq("id", propertyId)
+      .maybeSingle();
+    if (!error && data) {
+      return data as any;
     }
+    return null;
+  } catch (e) {
+    console.error("Supabase getPropertyById error:", e);
+    return null;
   }
-  const db = getDb();
-  return db.properties.find((p) => p.id === propertyId) || null;
 }
 
 export async function createProperty(formData: FormData) {
@@ -172,72 +160,42 @@ export async function createProperty(formData: FormData) {
     finalImages = ["https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"];
   }
 
-  if (isSupabaseActive()) {
-    try {
-      const { data, error } = await supabase
-        .from("properties")
-        .insert({
-          agency_id: "00000000-0000-0000-0000-000000000000",
-          title: validatedData.title,
-          type: validatedData.type,
-          operation: validatedData.operation,
-          price: validatedData.price,
-          currency: validatedData.currency,
-          bedrooms: validatedData.bedrooms,
-          bathrooms: validatedData.bathrooms,
-          description: validatedData.description,
-          images: finalImages,
-          videos: finalVideos,
-          latitude: validatedData.latitude,
-          longitude: validatedData.longitude,
-          polygon: validatedData.polygon,
-          youtube_videos: youtubeVideosField,
-          status: validatedData.status,
-        } as any)
-        .select()
-        .single();
+  try {
+    const { data, error } = await supabase
+      .from("properties")
+      .insert({
+        agency_id: "00000000-0000-0000-0000-000000000000",
+        title: validatedData.title,
+        type: validatedData.type,
+        operation: validatedData.operation,
+        price: validatedData.price,
+        currency: validatedData.currency,
+        bedrooms: validatedData.bedrooms,
+        bathrooms: validatedData.bathrooms,
+        description: validatedData.description,
+        images: finalImages,
+        videos: finalVideos,
+        latitude: validatedData.latitude,
+        longitude: validatedData.longitude,
+        polygon: validatedData.polygon,
+        youtube_videos: youtubeVideosField,
+        status: validatedData.status,
+      } as any)
+      .select()
+      .single();
 
-      if (!error && data) {
-        revalidatePath("/realstate/admin/properties");
-        revalidatePath(`/realstate/portal/[agency]`, 'layout');
-        return { success: true, data };
-      } else {
-        console.error("Supabase insert property error:", error);
-      }
-    } catch (e) {
-      console.error("Supabase createProperty error:", e);
+    if (!error && data) {
+      revalidatePath("/realstate/admin/properties");
+      revalidatePath(`/realstate/portal/[agency]`, 'layout');
+      return { success: true, data };
+    } else {
+      console.error("Supabase insert property error:", error);
+      return { success: false, error: error?.message || "Database insert error" };
     }
+  } catch (e) {
+    console.error("Supabase createProperty error:", e);
+    return { success: false, error: "Server error" };
   }
-
-  const db = getDb();
-  const newProperty = {
-    id: `prop-${Date.now()}`,
-    agency_id: "demo-agency-id",
-    title: validatedData.title,
-    type: validatedData.type,
-    operation: validatedData.operation,
-    price: validatedData.price,
-    currency: validatedData.currency,
-    bedrooms: validatedData.bedrooms,
-    bathrooms: validatedData.bathrooms,
-    description: validatedData.description,
-    images: finalImages,
-    videos: finalVideos,
-    latitude: validatedData.latitude,
-    longitude: validatedData.longitude,
-    polygon: validatedData.polygon,
-    youtube_videos: youtubeVideosField,
-    status: validatedData.status,
-    created_at: new Date().toISOString(),
-  };
-
-  db.properties.unshift(newProperty);
-  saveDb(db);
-
-  revalidatePath("/realstate/admin/properties");
-  revalidatePath(`/realstate/portal/[agency]`, 'layout');
-  
-  return { success: true, data: newProperty };
 }
 
 export async function updateProperty(propertyId: string, formData: FormData) {
@@ -337,18 +295,11 @@ export async function updateProperty(propertyId: string, formData: FormData) {
     youtubeVideosField = formData.get("youtube_videos") as string || null;
   }
 
-  // If nothing at all, fall back to existing property data
   let existingProperty: any = null;
-  if (isSupabaseActive()) {
-    try {
-      const { data } = await supabase.from("properties").select("*").eq("id", propertyId).maybeSingle();
-      existingProperty = data;
-    } catch {}
-  }
-  if (!existingProperty) {
-    const db = getDb();
-    existingProperty = db.properties.find((p) => p.id === propertyId);
-  }
+  try {
+    const { data } = await supabase.from("properties").select("*").eq("id", propertyId).maybeSingle();
+    existingProperty = data;
+  } catch {}
 
   if (!existingProperty) {
     return { success: false, error: "Propiedad no encontrada" };
@@ -380,45 +331,27 @@ export async function updateProperty(propertyId: string, formData: FormData) {
     status: validatedData.status,
   };
 
-  if (isSupabaseActive()) {
-    try {
-      const { data, error } = await (supabase.from("properties") as any)
-        .update(updatedFields as any)
-        .eq("id", propertyId)
-        .select()
-        .single();
+  try {
+    const { data, error } = await (supabase.from("properties") as any)
+      .update(updatedFields as any)
+      .eq("id", propertyId)
+      .select()
+      .single();
 
-      if (!error && data) {
-        revalidatePath("/realstate/admin");
-        revalidatePath("/realstate/admin/properties");
-        revalidatePath(`/realstate/admin/properties/edit/${propertyId}`);
-        revalidatePath(`/realstate/portal/[agency]`, 'layout');
-        revalidatePath(`/realstate/portal/[agency]/${propertyId}`);
-        return { success: true, data };
-      }
-    } catch (e) {
-      console.error("Supabase updateProperty error:", e);
+    if (!error && data) {
+      revalidatePath("/realstate/admin");
+      revalidatePath("/realstate/admin/properties");
+      revalidatePath(`/realstate/admin/properties/edit/${propertyId}`);
+      revalidatePath(`/realstate/portal/[agency]`, 'layout');
+      revalidatePath(`/realstate/portal/[agency]/${propertyId}`);
+      return { success: true, data };
+    } else {
+      console.error("Supabase update error:", error);
+      return { success: false, error: error?.message || "Error al actualizar la propiedad" };
     }
+  } catch (e) {
+    console.error("Supabase updateProperty error:", e);
+    return { success: false, error: "Error del servidor" };
   }
-
-  const db = getDb();
-  const index = db.properties.findIndex((p) => p.id === propertyId);
-  if (index !== -1) {
-    db.properties[index] = {
-      ...existingProperty,
-      ...updatedFields,
-    };
-
-    saveDb(db);
-
-    revalidatePath("/realstate/admin");
-    revalidatePath("/realstate/admin/properties");
-    revalidatePath(`/realstate/admin/properties/edit/${propertyId}`);
-    revalidatePath(`/realstate/portal/[agency]`, 'layout');
-    revalidatePath(`/realstate/portal/[agency]/${propertyId}`);
-
-    return { success: true, data: db.properties[index] };
-  }
-
-  return { success: false, error: "Propiedad no encontrada" };
 }
+

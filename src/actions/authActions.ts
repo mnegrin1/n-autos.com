@@ -1,18 +1,19 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { getDb } from "@/lib/localDb";
+import { supabase } from "@/lib/supabase";
 
 export async function login(email: string, password?: string) {
   if (!email) {
     return { success: false, error: "El correo electrónico es requerido." };
   }
 
-  // Buscar el usuario en la base de datos local
-  const db = getDb();
-  const user = db.users.find((u: any) => u.email.toLowerCase() === email.toLowerCase());
+  const { data: user, error } = await (supabase.from("users") as any)
+    .select("*")
+    .ilike("email", email)
+    .maybeSingle();
 
-  if (!user) {
+  if (error || !user) {
     return { success: false, error: "El usuario no existe." };
   }
 

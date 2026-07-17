@@ -1,22 +1,47 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { getDb, saveDb } from "@/lib/localDb";
 import { revalidatePath } from "next/cache";
+import { supabase } from "@/lib/supabase";
 
 export async function getDevelopments() {
-  const db = getDb();
-  return db.developments || [];
+  const { data, error } = await (supabase.from('developments') as any).select('*');
+  if (error) {
+    console.error("Error fetching developments:", error);
+    return [];
+  }
+  return data || [];
 }
 
 export async function getDevelopmentById(id: string) {
-  const db = getDb();
-  return (db.developments || []).find((d: any) => d.id === id || d.slug === id) || null;
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+  
+  if (isUUID) {
+    const { data } = await (supabase.from('developments') as any)
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (data) return data;
+  }
+  
+  const { data } = await (supabase.from('developments') as any)
+    .select('*')
+    .eq('slug', id)
+    .single();
+    
+  return data || null;
 }
 
 export async function getLotsByDevelopment(developmentId: string) {
-  const db = getDb();
-  return (db.lots || []).filter((l: any) => l.development_id === developmentId);
+  const { data, error } = await (supabase.from('lots') as any)
+    .select('*')
+    .eq('development_id', developmentId);
+  
+  if (error) {
+    console.error("Error fetching lots:", error);
+    return [];
+  }
+  return data || [];
 }
 
 export async function loginOwner(email: string) {
@@ -24,18 +49,20 @@ export async function loginOwner(email: string) {
     return { success: false, error: "El correo electrónico es requerido." };
   }
 
-  const db = getDb();
   // Buscar si este email posee algún lote en los desarrollos
-  const lot = (db.lots || []).find(
-    (l: any) => l.owner_email && l.owner_email.toLowerCase() === email.toLowerCase()
-  );
+  const { data, error } = await (supabase.from('lots') as any)
+    .select('*')
+    .ilike('owner_email', email)
+    .limit(1);
 
-  if (!lot) {
+  if (error || !data || data.length === 0) {
     return {
       success: false,
       error: "No se encontraron lotes registrados bajo este correo electrónico de propietario.",
     };
   }
+
+  const lot = data[0];
 
   const sessionData = {
     email: lot.owner_email.toLowerCase(),
@@ -73,32 +100,30 @@ export async function getCurrentOwner() {
 }
 
 export async function getOwnerDashboardData(email: string) {
-  const db = getDb();
-  
-  // Buscar lotes del propietario
-  const ownerLots = (db.lots || []).filter(
-    (l: any) => l.owner_email && l.owner_email.toLowerCase() === email.toLowerCase()
-  );
+  const { data: ownerLots, error: lotsError } = await (supabase.from('lots') as any)
+    .select('*')
+    .ilike('owner_email', email);
 
-  if (ownerLots.length === 0) {
+  if (lotsError || !ownerLots || ownerLots.length === 0) {
     return { lots: [], developments: [], notifications: [] };
   }
 
   // IDs de los desarrollos asociados
   const devIds = Array.from(new Set(ownerLots.map((l: any) => l.development_id)));
 
-  // Buscar los desarrollos
-  const developments = (db.developments || []).filter((d: any) => devIds.includes(d.id));
+  const { data: developments } = await (supabase.from('developments') as any)
+    .select('*')
+    .in('id', devIds);
 
-  // Buscar comunicados/notificaciones para estos desarrollos
-  const notifications = (db.notifications || []).filter(
-    (n: any) => devIds.includes(n.development_id)
-  ).sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const { data: notifications } = await (supabase.from('notifications') as any)
+    .select('*')
+    .in('development_id', devIds)
+    .order('created_at', { ascending: false });
 
   return {
     lots: ownerLots,
-    developments,
-    notifications,
+    developments: developments || [],
+    notifications: notifications || [],
   };
 }
 
@@ -111,26 +136,38 @@ export async function submitOwnerInquiry(inquiry: {
     return { success: false, error: "El mensaje debe tener al menos 5 caracteres." };
   }
 
-  const db = getDb();
-  const lot = (db.lots || []).find((l: any) => l.id === inquiry.lotId);
-  const dev = lot ? (db.developments || []).find((d: any) => d.id === lot.development_id) : null;
+  const { data: lot } = await (supabase.from('lots') as any)
+    .select('*')
+    .eq('id', inquiry.lotId)
+    .single();
+
+  let dev = null;
+  if (lot) {
+    const { data: devData } = await (supabase.from('developments') as any)
+      .select('*')
+      .eq('id', lot.development_id)
+      .single();
+    dev = devData;
+  }
   
   // Registrar consulta en los leads del CRM para que la inmobiliaria la atienda
   const newLead = {
-    id: `lead-${Date.now()}`,
     agency_id: "demo-agency-id",
     name: `Propietario (${inquiry.email})`,
     email: inquiry.email,
     property: `${dev ? dev.name : "Desarrollo"} - ${lot ? lot.number : "Lote"}`,
-    property_id: lot ? lot.id : "",
+    property_id: lot ? lot.id : null,
     message: `Consulta de propietario sobre entrega de lote: ${inquiry.message}`,
     status: "Nuevo",
     time: "Ahora",
     created_at: new Date().toISOString(),
   };
 
-  db.leads.push(newLead);
-  saveDb(db);
+  const { error } = await (supabase.from('leads') as any).insert(newLead);
+  if (error) {
+    console.error("Error inserting lead:", error);
+    return { success: false, error: "Error al registrar la consulta." };
+  }
 
   revalidatePath("/realstate/desarrollos/dashboard");
   return { success: true };

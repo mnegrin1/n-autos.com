@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/localDb";
+import { supabase } from "@/lib/supabase";
 
 export async function GET() {
-  const db = getDb();
-  const config = db.google_config;
+  const { data: config } = await (supabase.from("google_config") as any).select("*").single();
 
   if (!config || !config.clientId) {
     return NextResponse.redirect(

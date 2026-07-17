@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb, saveDb } from "@/lib/localDb";
+import { supabase } from "@/lib/supabase";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -12,8 +12,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const db = getDb();
-  const config = db.google_config;
+  const { data: config } = await (supabase.from("google_config") as any).select("*").single();
 
   if (!config || !config.clientId || !config.clientSecret) {
     return NextResponse.redirect(
@@ -48,13 +47,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Actualizar configuración en base de datos local
-    config.accessToken = data.access_token;
-    config.refreshToken = data.refresh_token || config.refreshToken; // A veces no devuelve refresh token si no es la primera vez
-    config.tokenExpiry = Date.now() + data.expires_in * 1000;
-
-    db.google_config = config;
-    saveDb(db);
+    // Actualizar configuración en base de datos
+    await (supabase.from("google_config") as any).update({
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token || config.refreshToken,
+      tokenExpiry: Date.now() + data.expires_in * 1000,
+    }).eq("id", config.id);
 
     return NextResponse.redirect(
       new URL("/admin/calendar?success=google_connected", request.url)

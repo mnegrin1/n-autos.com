@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { getDb } from "@/lib/localDb";
+import { supabase } from "@/lib/supabase";
 import styles from "./dashboard.module.css";
 import Link from "next/link";
 import { Car, Users, TrendingUp, Calendar, Clock } from "lucide-react";
@@ -22,11 +22,16 @@ function parseActivityDate(item: any) {
   return new Date(now - 2 * 24 * 60 * 60 * 1000);
 }
 
-export default function AutoAdminDashboard() {
-  const db = getDb();
-  const vehicles = db.vehicles || [];
-  const leads = db.auto_leads || [];
-  const events = db.events || []; // shared events table
+export default async function AutoAdminDashboard() {
+  const [{ data: vehiclesData }, { data: leadsData }, { data: eventsData }] = await Promise.all([
+    supabase.from("vehicles").select("*"),
+    supabase.from("auto_leads").select("*"),
+    supabase.from("events").select("*"),
+  ]);
+
+  const vehicles = vehiclesData || [];
+  const leads = leadsData || [];
+  const events = eventsData || []; // shared events table
 
   // Operative KPIs
   const stockCount = vehicles.filter((v: any) => v.status === "disponible").length;

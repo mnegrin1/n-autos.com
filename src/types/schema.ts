@@ -14,24 +14,36 @@ export interface Database {
           id: string
           name: string
           slug: string
+          subdomain: string | null
           logo_url: string | null
           primary_color: string | null
+          whatsapp: string | null
+          cover_url: string | null
+          publish_sold: boolean | null
           created_at: string
         }
         Insert: {
           id?: string
           name: string
           slug: string
+          subdomain?: string | null
           logo_url?: string | null
           primary_color?: string | null
+          whatsapp?: string | null
+          cover_url?: string | null
+          publish_sold?: boolean | null
           created_at?: string
         }
         Update: {
           id?: string
           name?: string
           slug?: string
+          subdomain?: string | null
           logo_url?: string | null
           primary_color?: string | null
+          whatsapp?: string | null
+          cover_url?: string | null
+          publish_sold?: boolean | null
           created_at?: string
         }
       }
