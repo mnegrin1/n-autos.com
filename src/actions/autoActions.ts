@@ -581,8 +581,8 @@ export async function publishVehicle(
     .eq("channel", channel);
 
   if (existingPubs && existingPubs.length > 0) {
-    await supabase
-      .from("auto_vehicle_publications")
+    await (supabase
+      .from("auto_vehicle_publications") as any)
       .update({ status: 'published' })
       .eq("id", existingPubs[0].id);
     
@@ -688,7 +688,7 @@ export async function publishVehicle(
         published_at: new Date().toISOString()
       };
 
-      await supabase.from("auto_vehicle_publications").insert([newPub]);
+      await (supabase.from("auto_vehicle_publications") as any).insert([newPub]);
       
       revalidatePath("/admin/integrations");
       return { success: true, data: newPub };
@@ -703,8 +703,8 @@ export async function publishVehicle(
 }
 
 export async function unpublishVehicle(vehicleId: string, channel: 'mercadolibre' | 'facebook' | 'instagram') {
-  await supabase
-    .from("auto_vehicle_publications")
+  await (supabase
+    .from("auto_vehicle_publications") as any)
     .delete()
     .eq("vehicle_id", vehicleId)
     .eq("channel", channel);
@@ -766,7 +766,7 @@ export async function syncMercadoLibreListings() {
       }
 
       for (const pub of syncedPubs) {
-        await supabase.from("auto_vehicle_publications").upsert(pub, { onConflict: "id" });
+        await (supabase.from("auto_vehicle_publications") as any).upsert(pub, { onConflict: "id" });
       }
 
       revalidatePath("/admin/integrations");
