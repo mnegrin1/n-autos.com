@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { getVehicles } from "@/actions/autoActions";
 import { getAgencyBySlug } from "@/actions/agencyActions";
 import PortalShowroomClient from "./PortalShowroomClient";

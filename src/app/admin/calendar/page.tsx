@@ -1,3 +1,4 @@
+export const runtime = "edge";
 import { getEvents } from "@/actions/otherActions";
 import { getVehicles } from "@/actions/autoActions";
 import CalendarClient from "./CalendarClient";
