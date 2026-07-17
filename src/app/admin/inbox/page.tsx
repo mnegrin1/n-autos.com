@@ -1,8 +1,9 @@
 export const runtime = "edge";
-export const dynamic = "force-dynamic";
 
 import { getInboxConversations, getVehicles, getIntegrations, getAutoLeads } from "@/actions/autoActions";
 import InboxClient from "./InboxClient";
+
+export const dynamic = "force-dynamic";
 
 export default async function InboxPage() {
   const conversations = await getInboxConversations();

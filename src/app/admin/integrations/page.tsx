@@ -1,8 +1,9 @@
 export const runtime = "edge";
-export const dynamic = "force-dynamic";
 
 import { getVehicles, getIntegrations, getVehiclePublications } from "@/actions/autoActions";
 import IntegrationsClient from "./IntegrationsClient";
+
+export const dynamic = "force-dynamic";
 
 export default async function IntegrationsPage() {
   const stockVehicles = await getVehicles("demo-agency-id");

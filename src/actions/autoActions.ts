@@ -1,39 +1,53 @@
 "use server";
 
 import { getDb, saveDb } from "@/lib/localDb";
+import { supabase } from "@/lib/supabase";
 import { revalidatePath } from "next/cache";
-import fs from "fs/promises";
-import path from "path";
 import { vehicleSchema, autoLeadSchema } from "@/lib/schemas";
 
 // Helper to save files to public/uploads
 async function saveUploadedFiles(files: any[]): Promise<{ images: string[], videos: string[] }> {
   const images: string[] = [];
   const videos: string[] = [];
-  const uploadDir = path.join(process.cwd(), "public", "uploads");
 
-  await fs.mkdir(uploadDir, { recursive: true });
+  let fsModule: any = null;
+  let pathModule: any = null;
+  if (typeof window === 'undefined' && process.env.NEXT_RUNTIME !== 'edge') {
+    try {
+      fsModule = require('fs/promises');
+      pathModule = require('path');
+      
+      const uploadDir = pathModule.join(process.cwd(), "public", "uploads");
+      await fsModule.mkdir(uploadDir, { recursive: true });
 
-  for (const file of files) {
-    if (file && typeof file === "object" && file.size > 0 && file.name) {
-      try {
-        const isImg = file.type.startsWith("image/");
-        const prefix = isImg ? "img" : "vid";
-        const buffer = Buffer.from(await file.arrayBuffer());
-        const filename = `${Date.now()}-${prefix}-${file.name.replace(/\s+/g, "-")}`;
-        const filePath = path.join(uploadDir, filename);
-        await fs.writeFile(filePath, buffer);
-        
-        const relativePath = `/uploads/${filename}`;
-        if (isImg) {
-          images.push(relativePath);
-        } else {
-          videos.push(relativePath);
+      for (const file of files) {
+        if (file && typeof file === "object" && file.size > 0 && file.name) {
+          try {
+            const isImg = file.type.startsWith("image/");
+            const prefix = isImg ? "img" : "vid";
+            const buffer = Buffer.from(await file.arrayBuffer());
+            const filename = `${Date.now()}-${prefix}-${file.name.replace(/\s+/g, "-")}`;
+            const filePath = pathModule.join(uploadDir, filename);
+            await fsModule.writeFile(filePath, buffer);
+            
+            const relativePath = `/uploads/${filename}`;
+            if (isImg) {
+              images.push(relativePath);
+            } else {
+              videos.push(relativePath);
+            }
+          } catch (err) {
+            console.error("Error saving vehicle multimedia file:", err);
+          }
         }
-      } catch (err) {
-        console.error("Error saving vehicle multimedia file:", err);
       }
+    } catch (e) {
+      console.error("Error writing files in autoActions:", e);
     }
+  }
+
+  if (!fsModule || !pathModule) {
+    console.log("No filesystem access in Edge Runtime, skipping local file write.");
   }
 
   return { images, videos };
@@ -143,9 +157,9 @@ export async function createVehicle(formData: FormData) {
   db.vehicles.unshift(newVehicle);
   saveDb(db);
 
-  revalidatePath("/admin");
-  revalidatePath("/admin/vehicles");
-  revalidatePath("/portal/demo", "layout");
+  revalidatePath("/auto/admin");
+  revalidatePath("/auto/admin/vehicles");
+  revalidatePath("/auto/portal/demo", "layout");
 
   return { success: true, data: newVehicle };
 }
@@ -258,10 +272,10 @@ export async function updateVehicle(vehicleId: string, formData: FormData) {
 
   saveDb(db);
 
-  revalidatePath("/admin");
-  revalidatePath("/admin/vehicles");
-  revalidatePath(`/portal/demo/${vehicleId}`);
-  revalidatePath("/portal/demo", "layout");
+  revalidatePath("/auto/admin");
+  revalidatePath("/auto/admin/vehicles");
+  revalidatePath(`/auto/portal/demo/${vehicleId}`);
+  revalidatePath("/auto/portal/demo", "layout");
 
   return { success: true, data: db.vehicles[index] };
 }
@@ -278,9 +292,9 @@ export async function deleteVehicle(vehicleId: string) {
   db.vehicles.splice(index, 1);
   saveDb(db);
 
-  revalidatePath("/admin");
-  revalidatePath("/admin/vehicles");
-  revalidatePath("/portal/demo", "layout");
+  revalidatePath("/auto/admin");
+  revalidatePath("/auto/admin/vehicles");
+  revalidatePath("/auto/portal/demo", "layout");
 
   return { success: true };
 }
@@ -320,8 +334,8 @@ export async function createAutoLead(lead: {
   db.auto_leads.push(newLead);
   saveDb(db);
 
-  revalidatePath("/admin");
-  revalidatePath("/admin/crm");
+  revalidatePath("/auto/admin");
+  revalidatePath("/auto/admin/crm");
 
   return { success: true, data: newLead };
 }
@@ -338,8 +352,8 @@ export async function updateAutoLeadStatus(leadId: string, status: string) {
   db.auto_leads[index].status = status;
   saveDb(db);
 
-  revalidatePath("/admin");
-  revalidatePath("/admin/crm");
+  revalidatePath("/auto/admin");
+  revalidatePath("/auto/admin/crm");
 
   return { success: true, data: db.auto_leads[index] };
 }
@@ -356,8 +370,8 @@ export async function deleteAutoLead(leadId: string) {
   db.auto_leads.splice(index, 1);
   saveDb(db);
 
-  revalidatePath("/admin");
-  revalidatePath("/admin/crm");
+  revalidatePath("/auto/admin");
+  revalidatePath("/auto/admin/crm");
 
   return { success: true };
 }
@@ -405,16 +419,49 @@ export async function getAutoStats(agencyId: string) {
 // ==========================================
 
 export async function getIntegrations() {
-  const db = getDb();
-  if (!db.integrations) {
-    db.integrations = {
-      mercadolibre: { connected: false, username: "", token: "" },
-      facebook: { connected: false, pageName: "", token: "" },
-      instagram: { connected: false, handle: "" },
-      whatsapp: { connected: false, phoneNumber: "" }
-    };
+  const { data: rows, error } = await (supabase as any)
+    .from("auto_integrations")
+    .select("*");
+
+  const integrations: any = {
+    mercadolibre: { connected: false, username: "", token: "" },
+    facebook: { connected: false, pageName: "", token: "" },
+    instagram: { connected: false, handle: "" },
+    whatsapp: { connected: false, phoneNumber: "" }
+  };
+
+  if (!error && rows) {
+    for (const row of rows) {
+      if (row.channel === 'mercadolibre') {
+        integrations.mercadolibre = {
+          connected: row.connected,
+          username: row.username || "",
+          token: row.token || "",
+          refreshToken: row.refresh_token || "",
+          expiresAt: row.expires_at || 0,
+          mode: row.mode || "simulation"
+        };
+      } else if (row.channel === 'facebook') {
+        integrations.facebook = {
+          connected: row.connected,
+          pageName: row.username || "",
+          token: row.token || ""
+        };
+      } else if (row.channel === 'instagram') {
+        integrations.instagram = {
+          connected: row.connected,
+          handle: row.username || ""
+        };
+      } else if (row.channel === 'whatsapp') {
+        integrations.whatsapp = {
+          connected: row.connected,
+          phoneNumber: row.username || ""
+        };
+      }
+    }
   }
-  return db.integrations;
+
+  return integrations;
 }
 
 export async function updateIntegration(
@@ -422,73 +469,83 @@ export async function updateIntegration(
   connected: boolean,
   data?: any
 ) {
-  const db = getDb();
-  if (!db.integrations) {
-    db.integrations = {
-      mercadolibre: { connected: false, username: "", token: "" },
-      facebook: { connected: false, pageName: "", token: "" },
-      instagram: { connected: false, handle: "" },
-      whatsapp: { connected: false, phoneNumber: "" }
-    };
-  }
+  let username = "";
+  let token = "";
+  let refreshToken = "";
+  let expiresAt = 0;
+  let mode = "simulation";
 
   if (channel === 'mercadolibre') {
-    db.integrations.mercadolibre = {
-      connected,
-      username: connected ? (data?.username || "Automotora Demo ML") : "",
-      token: connected ? (data?.token || "TEST-ML-TOKEN-123456") : ""
-    };
+    username = connected ? (data?.username || "Automotora Demo ML") : "";
+    token = connected ? (data?.token || "TEST-ML-TOKEN-123456") : "";
+    mode = data?.mode || "simulation";
   } else if (channel === 'facebook') {
-    db.integrations.facebook = {
-      connected,
-      pageName: connected ? (data?.pageName || "Automotora Fanpage") : "",
-      token: connected ? (data?.token || "TEST-FB-TOKEN-123456") : ""
-    };
+    username = connected ? (data?.pageName || "Automotora Fanpage") : "";
+    token = connected ? (data?.token || "TEST-FB-TOKEN-123456") : "";
   } else if (channel === 'instagram') {
-    db.integrations.instagram = {
-      connected,
-      handle: connected ? (data?.handle || "@automotora_demo") : ""
-    };
+    username = connected ? (data?.handle || "@automotora_demo") : "";
   } else if (channel === 'whatsapp') {
-    db.integrations.whatsapp = {
-      connected,
-      phoneNumber: connected ? (data?.phoneNumber || "+598 99 123 456") : ""
-    };
+    username = connected ? (data?.phoneNumber || "+598 99 123 456") : "";
   }
 
-  saveDb(db);
-  revalidatePath("/admin/integrations");
-  revalidatePath("/admin/inbox");
-  return { success: true, integrations: db.integrations };
+  const { error } = await (supabase as any)
+    .from("auto_integrations")
+    .upsert({
+      agency_id: "demo-agency-id",
+      channel,
+      connected,
+      username,
+      token,
+      refresh_token: refreshToken,
+      expires_at: expiresAt,
+      mode,
+      updated_at: new Date().toISOString()
+    }, {
+      onConflict: "channel"
+    });
+
+  if (error) {
+    console.error(`Error al actualizar integración ${channel} en Supabase:`, error);
+  }
+
+  revalidatePath("/auto/admin/integrations");
+  revalidatePath("/auto/admin/inbox");
+
+  const updatedIntegrations = await getIntegrations();
+  return { success: !error, integrations: updatedIntegrations };
 }
 
 export async function getVehiclePublications() {
-  const db = getDb();
-  return db.vehicle_publications || [];
+  const { data, error } = await (supabase as any)
+    .from("auto_vehicle_publications")
+    .select("*");
+  return error || !data ? [] : data;
 }
 
 // Helper to refresh MercadoLibre Access Token
 export async function refreshMLToken() {
-  const db = getDb();
-  const ml = db.integrations?.mercadolibre;
+  const { data: rows } = await (supabase as any)
+    .from("auto_integrations")
+    .select("*")
+    .eq("channel", "mercadolibre");
+
+  const ml = rows?.[0];
   if (!ml || !ml.connected) return null;
 
   const appId = process.env.MERCADOLIBRE_APP_ID;
   const secretKey = process.env.MERCADOLIBRE_SECRET_KEY;
 
-  // Si no está configurada la app en producción o no hay refresh token, no se puede hacer refresh
-  if (!appId || !secretKey || !(ml as any).refreshToken || (ml as any).mode !== "production") {
-    return ml.token || null; // Retornar el token simulado existente o null
+  if (!appId || !secretKey || !ml.refresh_token || ml.mode !== "production") {
+    return ml.token || null;
   }
 
-  // Si aún no expira (con margen de 5 minutos), usar el actual
-  const expiresAt = (ml as any).expiresAt || 0;
+  const expiresAt = ml.expires_at || 0;
   if (Date.now() < expiresAt - 5 * 60 * 1000) {
     return ml.token || null;
   }
 
   try {
-    console.log("Renovando Access Token de MercadoLibre...");
+    console.log("Renovando Access Token de MercadoLibre en Supabase...");
     const response = await fetch("https://api.mercadolibre.com/oauth/token", {
       method: "POST",
       headers: {
@@ -499,20 +556,22 @@ export async function refreshMLToken() {
         grant_type: "refresh_token",
         client_id: appId,
         client_secret: secretKey,
-        refresh_token: (ml as any).refreshToken
+        refresh_token: ml.refresh_token
       })
     });
 
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || "Error al refrescar token");
 
-    // Guardar los nuevos tokens (refresh token es de único uso)
-    if (db.integrations?.mercadolibre) {
-      db.integrations.mercadolibre.token = data.access_token;
-      (db.integrations.mercadolibre as any).refreshToken = data.refresh_token;
-      (db.integrations.mercadolibre as any).expiresAt = Date.now() + (data.expires_in * 1000);
-      saveDb(db);
-    }
+    await (supabase as any)
+      .from("auto_integrations")
+      .update({
+        token: data.access_token,
+        refresh_token: data.refresh_token,
+        expires_at: Date.now() + (data.expires_in * 1000),
+        updated_at: new Date().toISOString()
+      })
+      .eq("channel", "mercadolibre");
 
     return data.access_token;
   } catch (err) {
@@ -525,47 +584,59 @@ export async function publishVehicle(
   vehicleId: string,
   channel: 'mercadolibre' | 'facebook' | 'instagram'
 ) {
-  const db = getDb();
-  if (!db.vehicle_publications) db.vehicle_publications = [];
+  // 1. Verificar si ya existe en Supabase
+  const { data: existing } = await (supabase as any)
+    .from("auto_vehicle_publications")
+    .select("*")
+    .eq("vehicle_id", vehicleId)
+    .eq("channel", channel)
+    .maybeSingle();
 
-  // Verificar si ya existe
-  const existing = db.vehicle_publications.find((p: any) => p.vehicle_id === vehicleId && p.channel === channel);
   if (existing) {
-    existing.status = 'published';
-    saveDb(db);
-    revalidatePath("/admin/integrations");
-    return { success: true, data: existing };
+    await (supabase as any)
+      .from("auto_vehicle_publications")
+      .update({ status: 'published' })
+      .eq("vehicle_id", vehicleId)
+      .eq("channel", channel);
+
+    revalidatePath("/auto/admin/integrations");
+    return { success: true, data: { ...existing, status: 'published' } };
   }
 
+  const db = getDb();
   const vehicle = db.vehicles?.find((v: any) => v.id === vehicleId);
   if (!vehicle) {
     return { success: false, error: "Vehículo no encontrado en inventario" };
   }
 
+  // Consultar configuración de la integración de MercadoLibre en Supabase
+  const { data: mlRows } = await (supabase as any)
+    .from("auto_integrations")
+    .select("*")
+    .eq("channel", "mercadolibre");
+  const ml = mlRows?.[0];
+
   // Si el canal es MercadoLibre y es en modo producción
-  if (channel === 'mercadolibre' && db.integrations?.mercadolibre?.connected && (db.integrations.mercadolibre as any).mode === 'production') {
+  if (channel === 'mercadolibre' && ml?.connected && ml.mode === 'production') {
     const token = await refreshMLToken();
     if (!token) {
       return { success: false, error: "No se pudo obtener el token de MercadoLibre o está expirado" };
     }
 
     try {
-      // Registrar publicación real en MercadoLibre Automotores (Clasificados Uruguay)
       const payload = {
         title: `${vehicle.brand} ${vehicle.model} ${vehicle.year}`,
-        category_id: "MLU1744", // Categoría de Autos y Camionetas en Uruguay (MLU)
+        category_id: "MLU1744",
         price: vehicle.price,
         currency_id: vehicle.currency || "USD",
         available_quantity: 1,
         buying_mode: "classified",
-        listing_type_id: "silver", // Oro, Plata, Bronce
+        listing_type_id: "silver",
         condition: "used",
         description: {
           plain_text: vehicle.description || "Concesionario Oficial Automotora"
         },
         pictures: vehicle.images.map((imgUrl: string) => {
-          // ML requiere URLs absolutas accesibles por internet.
-          // Si es local /uploads, ML no lo podrá descargar, por lo que usamos una imagen de prueba de Unsplash
           const absoluteUrl = imgUrl.startsWith("http") 
             ? imgUrl 
             : `https://images.unsplash.com/photo-1552519507-da3b142c6e3d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80`;
@@ -599,16 +670,15 @@ export async function publishVehicle(
         id: `pub-${data.id}`,
         vehicle_id: vehicleId,
         channel,
-        status: 'published' as const,
-        external_url: data.permalink, // Enlace real a la publicación
+        status: 'published',
+        external_url: data.permalink,
         views: 0,
         questions_count: 0,
         published_at: new Date().toISOString()
       };
 
-      db.vehicle_publications.push(newPub);
-      saveDb(db);
-      revalidatePath("/admin/integrations");
+      await (supabase as any).from("auto_vehicle_publications").insert(newPub);
+      revalidatePath("/auto/admin/integrations");
       return { success: true, data: newPub };
     } catch (err: any) {
       console.error("Error al publicar en ML producción:", err);
@@ -616,12 +686,12 @@ export async function publishVehicle(
     }
   }
 
-  // MOCK / SIMULADOR FALLBACK
+  // MOCK / SIMULADOR FALLBACK GUARDADO EN SUPABASE
   const newPub = {
     id: `pub-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
     vehicle_id: vehicleId,
     channel,
-    status: 'published' as const,
+    status: 'published',
     external_url: channel === 'mercadolibre'
       ? `https://articulo.mercadolibre.com.uy/MLU-simulado-${vehicleId}`
       : channel === 'facebook'
@@ -632,41 +702,38 @@ export async function publishVehicle(
     published_at: new Date().toISOString()
   };
 
-  db.vehicle_publications.push(newPub);
-  saveDb(db);
-  revalidatePath("/admin/integrations");
+  await (supabase as any).from("auto_vehicle_publications").insert(newPub);
+  revalidatePath("/auto/admin/integrations");
   return { success: true, data: newPub };
 }
 
 export async function unpublishVehicle(vehicleId: string, channel: 'mercadolibre' | 'facebook' | 'instagram') {
-  const db = getDb();
-  if (!db.vehicle_publications) db.vehicle_publications = [];
+  await (supabase as any)
+    .from("auto_vehicle_publications")
+    .delete()
+    .eq("vehicle_id", vehicleId)
+    .eq("channel", channel);
 
-  const index = db.vehicle_publications.findIndex((p: any) => p.vehicle_id === vehicleId && p.channel === channel);
-  if (index !== -1) {
-    db.vehicle_publications.splice(index, 1);
-    saveDb(db);
-  }
-
-  revalidatePath("/admin/integrations");
+  revalidatePath("/auto/admin/integrations");
   return { success: true };
 }
 
 export async function syncMercadoLibreListings() {
-  const db = getDb();
-  const ml = db.integrations?.mercadolibre;
+  const { data: mlRows } = await (supabase as any)
+    .from("auto_integrations")
+    .select("*")
+    .eq("channel", "mercadolibre");
+  const ml = mlRows?.[0];
 
   if (!ml || !ml.connected) {
     return { success: false, error: "MercadoLibre no está conectado." };
   }
 
-  // MODO PRODUCCIÓN REAL
-  if ((ml as any).mode === 'production') {
+  if (ml.mode === 'production') {
     const token = await refreshMLToken();
     if (!token) return { success: false, error: "No se pudo renovar token de MercadoLibre" };
 
     try {
-      // 1. Obtener el ID de usuario autenticado
       const userRes = await fetch("https://api.mercadolibre.com/users/me", {
         headers: { "Authorization": `Bearer ${token}` }
       });
@@ -675,7 +742,6 @@ export async function syncMercadoLibreListings() {
 
       const userId = userData.id;
 
-      // 2. Buscar las publicaciones activas del vendedor
       const searchRes = await fetch(`https://api.mercadolibre.com/users/${userId}/items/search?status=active`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
@@ -685,21 +751,21 @@ export async function syncMercadoLibreListings() {
       const itemIds = searchData.results || [];
       const syncedPubs = [];
 
-      // 3. Obtener detalles de cada publicación
+      const db = getDb();
+
       for (const itemId of itemIds) {
         const itemRes = await fetch(`https://api.mercadolibre.com/items/${itemId}`);
         const itemData = await itemRes.json();
 
         if (itemRes.ok) {
-          // Intentar vincular con un auto del CRM
           const price = itemData.price;
           const matchingVehicle = db.vehicles?.find((v: any) => v.price === price) || db.vehicles?.[0];
 
           syncedPubs.push({
             id: `pub-${itemData.id}`,
             vehicle_id: matchingVehicle ? matchingVehicle.id : "veh-1",
-            channel: 'mercadolibre' as const,
-            status: 'published' as const,
+            channel: 'mercadolibre',
+            status: 'published',
             external_url: itemData.permalink,
             views: itemData.visits || Math.floor(Math.random() * 80) + 10,
             questions_count: itemData.questions_count || 0,
@@ -708,13 +774,19 @@ export async function syncMercadoLibreListings() {
         }
       }
 
-      // Mezclar con publicaciones existentes (reemplazar duplicados)
-      if (!db.vehicle_publications) db.vehicle_publications = [];
-      const otherPubs = db.vehicle_publications.filter((p: any) => p.channel !== 'mercadolibre');
-      db.vehicle_publications = [...otherPubs, ...syncedPubs];
-      saveDb(db);
+      await (supabase as any)
+        .from("auto_vehicle_publications")
+        .delete()
+        .eq("channel", "mercadolibre");
 
-      revalidatePath("/admin/integrations");
+      if (syncedPubs.length > 0) {
+        const { error: insertError } = await (supabase as any)
+          .from("auto_vehicle_publications")
+          .insert(syncedPubs);
+        if (insertError) throw insertError;
+      }
+
+      revalidatePath("/auto/admin/integrations");
       return { success: true, count: syncedPubs.length };
     } catch (err: any) {
       console.error("Fallo al sincronizar publicaciones de MercadoLibre:", err);
@@ -722,15 +794,12 @@ export async function syncMercadoLibreListings() {
     }
   }
 
-  // MODO SIMULACIÓN LOCAL
-  if (!db.vehicle_publications) db.vehicle_publications = [];
-
   const syncMockPubs = [
     {
       id: "pub-MLU400123456",
-      vehicle_id: "veh-1", // Cruze
-      channel: 'mercadolibre' as const,
-      status: 'published' as const,
+      vehicle_id: "veh-1",
+      channel: 'mercadolibre',
+      status: 'published',
       external_url: "https://articulo.mercadolibre.com.uy/MLU-400123456-chevrolet-cruze-2022",
       views: 145,
       questions_count: 3,
@@ -738,9 +807,9 @@ export async function syncMercadoLibreListings() {
     },
     {
       id: "pub-MLU400987654",
-      vehicle_id: "veh-2", // Hilux
-      channel: 'mercadolibre' as const,
-      status: 'published' as const,
+      vehicle_id: "veh-2",
+      channel: 'mercadolibre',
+      status: 'published',
       external_url: "https://articulo.mercadolibre.com.uy/MLU-400987654-toyota-hilux-2020",
       views: 312,
       questions_count: 5,
@@ -748,12 +817,21 @@ export async function syncMercadoLibreListings() {
     }
   ];
 
-  const otherPubs = db.vehicle_publications.filter((p: any) => p.channel !== 'mercadolibre');
-  db.vehicle_publications = [...otherPubs, ...syncMockPubs];
-  saveDb(db);
+  await (supabase as any)
+    .from("auto_vehicle_publications")
+    .delete()
+    .eq("channel", "mercadolibre");
 
-  revalidatePath("/admin/integrations");
-  return { success: true, count: syncMockPubs.length };
+  const { error: insertError } = await (supabase as any)
+    .from("auto_vehicle_publications")
+    .insert(syncMockPubs);
+
+  if (insertError) {
+    console.error("Error al insertar publicaciones mock en Supabase:", insertError);
+  }
+
+  revalidatePath("/auto/admin/integrations");
+  return { success: !insertError, count: syncMockPubs.length };
 }
 
 // ==========================================
@@ -791,7 +869,7 @@ export async function sendInboxMessage(conversationId: string, text: string) {
   conversation.unread = false;
 
   saveDb(db);
-  revalidatePath("/admin/inbox");
+  revalidatePath("/auto/admin/inbox");
   return { success: true, conversation };
 }
 
@@ -835,7 +913,7 @@ export async function simulateLeadReply(conversationId: string, agentMessageText
   conversation.unread = true;
 
   saveDb(db);
-  revalidatePath("/admin/inbox");
+  revalidatePath("/auto/admin/inbox");
   return { success: true, conversation };
 }
 
@@ -847,7 +925,7 @@ export async function markConversationRead(conversationId: string) {
   if (conversation) {
     conversation.unread = false;
     saveDb(db);
-    revalidatePath("/admin/inbox");
+    revalidatePath("/auto/admin/inbox");
   }
   return { success: true };
 }
@@ -860,7 +938,7 @@ export async function updateConversationNotes(conversationId: string, notes: str
   if (conversation) {
     conversation.notes = notes;
     saveDb(db);
-    revalidatePath("/admin/inbox");
+    revalidatePath("/auto/admin/inbox");
   }
   return { success: true };
 }

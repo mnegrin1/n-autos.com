@@ -1,6 +1,7 @@
 export const runtime = "edge";
+
 import { NextResponse } from "next/server";
-import { getDb, saveDb } from "@/lib/localDb";
+import { supabase } from "@/lib/supabase";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
 
   // Si no se encuentra el código de autorización
   if (!code) {
-    return NextResponse.redirect(new URL("/admin/integrations?status=error&error=no_code", request.url));
+    return NextResponse.redirect(new URL("/auto/admin/integrations?status=error&error=no_code", request.url));
   }
 
   try {
@@ -56,37 +57,34 @@ export async function GET(request: Request) {
       console.log("Conexión en modo simulación local. Generando tokens mock...");
     }
 
-    // 2. Guardar las credenciales en la base de datos local
-    const db = getDb();
-    if (!db.integrations) {
-      db.integrations = {
-        mercadolibre: { connected: false },
-        facebook: { connected: false },
-        instagram: { connected: false },
-        whatsapp: { connected: false }
-      };
+    // 2. Guardar las credenciales en la base de datos de Supabase
+    const { error: dbError } = await (supabase as any)
+      .from("auto_integrations")
+      .upsert({
+        agency_id: "demo-agency-id",
+        channel: "mercadolibre",
+        connected: true,
+        username: username,
+        token: token,
+        refresh_token: refreshToken,
+        expires_at: expiresAt,
+        mode: isRealOAuth ? "production" : "simulation",
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: "channel"
+      });
+
+    if (dbError) {
+      console.error("Error saving integration to Supabase:", dbError);
+      throw new Error(dbError.message || "Error al persistir la integración en base de datos");
     }
 
-    db.integrations.mercadolibre = {
-      connected: true,
-      username: username,
-      token: token,
-      // Almacenamos el refresh token y expiración para control del backend
-      ...({
-        refreshToken: refreshToken,
-        expiresAt: expiresAt,
-        mode: isRealOAuth ? "production" : "simulation"
-      } as any)
-    };
-
-    saveDb(db);
-
     // 3. Redirigir con éxito
-    return NextResponse.redirect(new URL("/admin/integrations?status=success", request.url));
+    return NextResponse.redirect(new URL("/auto/admin/integrations?status=success", request.url));
   } catch (error: any) {
     console.error("Error en callback de autenticación:", error);
     return NextResponse.redirect(
-      new URL(`/admin/integrations?status=error&error=${encodeURIComponent(error.message || "auth_failed")}`, request.url)
+      new URL(`/auto/admin/integrations?status=error&error=${encodeURIComponent(error.message || "auth_failed")}`, request.url)
     );
   }
 }

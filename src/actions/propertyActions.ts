@@ -2,8 +2,7 @@
 
 import { getDb, saveDb } from "@/lib/localDb";
 import { revalidatePath } from "next/cache";
-import fs from "fs/promises";
-import path from "path";
+
 import { supabase } from "@/lib/supabase";
 import { propertySchema } from "@/lib/schemas";
 
@@ -17,30 +16,41 @@ const isSupabaseActive = () => {
 async function saveUploadedFiles(files: any[]): Promise<{ images: string[], videos: string[] }> {
   const images: string[] = [];
   const videos: string[] = [];
-  const uploadDir = path.join(process.cwd(), "public", "uploads");
 
-  // Asegurar que la carpeta public/uploads existe
-  await fs.mkdir(uploadDir, { recursive: true });
+  let fsModule: any = null;
+  let pathModule: any = null;
 
-  for (const file of files) {
-    if (file && typeof file === "object" && file.size > 0 && file.name) {
-      try {
-        const isImg = file.type.startsWith("image/");
-        const prefix = isImg ? "img" : "vid";
-        const buffer = Buffer.from(await file.arrayBuffer());
-        const filename = `${Date.now()}-${prefix}-${file.name.replace(/\s+/g, "-")}`;
-        const filePath = path.join(uploadDir, filename);
-        await fs.writeFile(filePath, buffer);
-        
-        const relativePath = `/uploads/${filename}`;
-        if (isImg) {
-          images.push(relativePath);
-        } else {
-          videos.push(relativePath);
+  if (typeof window === 'undefined' && process.env.NEXT_RUNTIME !== 'edge') {
+    try {
+      fsModule = require("fs/promises");
+      pathModule = require("path");
+      
+      const uploadDir = pathModule.join(process.cwd(), "public", "uploads");
+      await fsModule.mkdir(uploadDir, { recursive: true });
+
+      for (const file of files) {
+        if (file && typeof file === "object" && file.size > 0 && file.name) {
+          try {
+            const isImg = file.type.startsWith("image/");
+            const prefix = isImg ? "img" : "vid";
+            const buffer = Buffer.from(await file.arrayBuffer());
+            const filename = `${Date.now()}-${prefix}-${file.name.replace(/\s+/g, "-")}`;
+            const filePath = pathModule.join(uploadDir, filename);
+            await fsModule.writeFile(filePath, buffer);
+            
+            const relativePath = `/uploads/${filename}`;
+            if (isImg) {
+              images.push(relativePath);
+            } else {
+              videos.push(relativePath);
+            }
+          } catch (err) {
+            console.error("Error guardando archivo multimedia:", err);
+          }
         }
-      } catch (err) {
-        console.error("Error guardando archivo multimedia:", err);
       }
+    } catch (e) {
+      console.error("Error loading fs/path in propertyActions:", e);
     }
   }
 
