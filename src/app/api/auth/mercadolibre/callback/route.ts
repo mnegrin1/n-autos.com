@@ -45,7 +45,8 @@ export async function GET(request: Request) {
 
       if (!response.ok) {
         console.error("Error exchanging OAuth code on ML:", data);
-        throw new Error(data.message || "Error intercambiando el código de autorización");
+        const errorDetail = data.error ? `${data.error}: ${data.message}` : data.message || "Error intercambiando el código";
+        throw new Error(`ML_API_ERROR|${errorDetail}`);
       }
 
       token = data.access_token;
@@ -89,7 +90,7 @@ export async function GET(request: Request) {
 
     if (dbError) {
       console.error("Error saving integration to Supabase:", dbError);
-      throw new Error(dbError.message || "Error al persistir la integración en base de datos");
+      throw new Error(`SUPABASE_ERROR|${dbError.message || "Error al persistir"}`);
     }
 
     // 3. Redirigir con éxito
