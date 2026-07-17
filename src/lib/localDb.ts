@@ -30,7 +30,7 @@ interface DatabaseSchema {
   vehicles?: any[];
   auto_leads?: any[];
   integrations?: {
-    mercadolibre: { connected: boolean; username?: string; token?: string };
+    mercadolibre: { connected: boolean; username?: string; token?: string; refresh_token?: string; expires_at?: number; mode?: string };
     facebook: { connected: boolean; pageName?: string; token?: string };
     instagram: { connected: boolean; handle?: string };
     whatsapp: { connected: boolean; phoneNumber?: string };

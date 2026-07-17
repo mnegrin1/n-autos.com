@@ -169,6 +169,44 @@ export interface Database {
           created_at?: string
         }
       }
+      integrations: {
+        Row: {
+          id: string
+          agency_id: string
+          channel: 'mercadolibre' | 'facebook' | 'instagram' | 'whatsapp'
+          connected: boolean
+          username: string | null
+          token: string | null
+          refresh_token: string | null
+          expires_at: number | null
+          mode: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          agency_id: string
+          channel: 'mercadolibre' | 'facebook' | 'instagram' | 'whatsapp'
+          connected?: boolean
+          username?: string | null
+          token?: string | null
+          refresh_token?: string | null
+          expires_at?: number | null
+          mode?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          agency_id?: string
+          channel?: 'mercadolibre' | 'facebook' | 'instagram' | 'whatsapp'
+          connected?: boolean
+          username?: string | null
+          token?: string | null
+          refresh_token?: string | null
+          expires_at?: number | null
+          mode?: string | null
+          created_at?: string
+        }
+      }
     }
   }
 }
