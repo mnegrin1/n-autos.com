@@ -46,13 +46,13 @@ export default function LoginClient() {
             }
             var zoom = localStorage.getItem('crm-zoom') || '100%';
             var mapping = {
-              '75%': '100%',
-              '100%': '133.3%',
-              '125%': '166.7%',
-              '150%': '200%',
-              '175%': '233.3%'
+              '75%': '75%',
+              '100%': '100%',
+              '125%': '125%',
+              '150%': '150%',
+              '175%': '175%'
             };
-            var appliedZoom = mapping[zoom] || '133.3%';
+            var appliedZoom = mapping[zoom] || '100%';
             document.documentElement.style.zoom = appliedZoom;
           } catch (e) {}
         })();

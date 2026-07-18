@@ -75,14 +75,14 @@ export default function SettingsForm({ initialAgency }: SettingsFormProps) {
     localStorage.setItem("crm-zoom", selectedZoom);
     
     const mapping: Record<string, string> = {
-      "75%": "100%",
-      "100%": "133.3%",
-      "125%": "166.7%",
-      "150%": "200%",
-      "175%": "233.3%",
+      "75%": "75%",
+      "100%": "100%",
+      "125%": "125%",
+      "150%": "150%",
+      "175%": "175%",
     };
     
-    const appliedZoom = mapping[selectedZoom] || "133.3%";
+    const appliedZoom = mapping[selectedZoom] || "100%";
     if (typeof document !== "undefined") {
       document.documentElement.style.zoom = appliedZoom;
     }
