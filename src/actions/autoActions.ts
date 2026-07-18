@@ -977,23 +977,22 @@ export async function importSelectedMLListings(selectedItems: any[]) {
         };
 
         matchingVehicle = {
-          id: `veh-ml-${itemData.id}`,
           agency_id: "demo-agency-id",
           brand: getAttr("BRAND", "Auto"),
-          model: getAttr("MODEL", itemData.title),
-          year: parseInt(getAttr("VEHICLE_YEAR", "2020")),
-          kms: parseInt(getAttr("KILOMETERS", "0").replace(/\D/g, '') || "0"),
+          model: getAttr("MODEL", itemData.title).substring(0, 99),
+          year: parseInt(getAttr("VEHICLE_YEAR", "2020")) || 2020,
+          kms: parseInt(getAttr("KILOMETERS", "0").replace(/\D/g, '') || "0") || 0,
           transmission: getAttr("TRANSMISSION", "Manual").toLowerCase(),
           fuel: getAttr("FUEL_TYPE", "Nafta").toLowerCase(),
           price: price,
-          currency: itemData.currency_id,
-          color: getAttr("COLOR", "Blanco"),
-          engine: getAttr("ENGINE", "1.0"),
-          doors: parseInt(getAttr("DOORS", "4")),
+          currency: itemData.currency_id || "USD",
+          color: getAttr("COLOR", "Blanco").substring(0, 99),
+          engine: getAttr("ENGINE", "1.0").substring(0, 99),
+          doors: parseInt(getAttr("DOORS", "4")) || 4,
           plate: "",
           description: "Importado automáticamente desde MercadoLibre.",
           images: [
-            itemData.pictures?.[0]?.secure_url || itemData.secure_thumbnail || itemData.thumbnail
+            itemData.pictures?.[0]?.secure_url || itemData.secure_thumbnail || itemData.thumbnail || "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
           ],
           status: "disponible",
         };
@@ -1001,8 +1000,8 @@ export async function importSelectedMLListings(selectedItems: any[]) {
         delete (matchingVehicle as any).id;
         const { data, error } = await (supabase.from('vehicles') as any).insert([matchingVehicle]).select().single();
         if (error) {
-          console.error("Error al insertar vehículo:", error);
-          throw new Error("No se pudo crear el vehículo en el inventario.");
+          console.error("Error al insertar vehículo:", error, matchingVehicle);
+          throw new Error(`Error de Supabase: ${error.message} | Payload: ${JSON.stringify(matchingVehicle).substring(0, 150)}...`);
         }
         if (data) {
           matchingVehicle = data;
