@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { 
   Link2, 
   Unlink2, 
@@ -39,6 +39,7 @@ interface Publication {
   vehicle_id: string;
   channel: 'mercadolibre' | 'facebook' | 'instagram';
   status: 'published' | 'pending' | 'failed';
+  external_id?: string;
   external_url?: string;
   views?: number;
   questions_count?: number;
@@ -51,6 +52,8 @@ interface IntegrationsClientProps {
   initialPublications: Publication[];
   appId?: string;
   appUrl?: string;
+  errorMsg?: string;
+  successMsg?: string;
 }
 
 // Los mocks fueron eliminados. Se usará la API real.
@@ -60,12 +63,43 @@ export default function IntegrationsClient({
   initialIntegrations,
   initialPublications,
   appId,
-  appUrl
+  appUrl,
+  errorMsg,
+  successMsg
 }: IntegrationsClientProps) {
   const [integrations, setIntegrations] = useState<Integrations>(initialIntegrations);
   const [publications, setPublications] = useState<Publication[]>(initialPublications);
   const [vehicles, setVehicles] = useState<Vehicle[]>(initialVehicles);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (errorMsg) {
+      let msg = "Ocurrió un error al conectar la integración.";
+      if (errorMsg === 'no_pages_found') {
+        msg = "El usuario de Facebook inició sesión correctamente, pero no se encontró ninguna Página asociada o no se otorgaron los permisos necesarios. Por favor, asegúrate de tener una página creada y de seleccionarla al otorgar los permisos a la aplicación.";
+      } else if (errorMsg === 'missing_credentials') {
+        msg = "Falta la configuración de credenciales de Meta (Facebook/Instagram) en el servidor.";
+      } else if (errorMsg === 'db_error_fb') {
+        msg = "Error al guardar la integración de Facebook en la base de datos.";
+      } else if (errorMsg === 'meta_callback_failed') {
+        msg = "Fallo inesperado al procesar la respuesta de Meta.";
+      } else {
+        msg = `Error: ${errorMsg}`;
+      }
+      // Use setTimeout to ensure alert doesn't block immediate rendering of the page
+      setTimeout(() => alert(msg), 100);
+      
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('error');
+      window.history.replaceState({}, '', newUrl);
+    }
+    if (successMsg) {
+      setTimeout(() => alert("¡Integración conectada con éxito!"), 100);
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('success');
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, [errorMsg, successMsg]);
 
   // Modal de Conexión
   const [showConnectModal, setShowConnectModal] = useState<string | null>(null);
@@ -459,7 +493,7 @@ export default function IntegrationsClient({
                 </div>
               ) : (
                 socialPosts.map(post => {
-                  const isImported = publications.some(p => p.id === `pub-${showImportModal}-${post.id}`);
+                  const isImported = publications.some(p => p.external_id === post.id || p.external_url === post.external_url);
                   return (
                     <div key={post.id} style={{ display: 'flex', gap: '1rem', padding: '1rem', border: '1px solid var(--border-color)', borderRadius: '8px', alignItems: 'center' }}>
                       {post.images && post.images.length > 0 ? (
@@ -517,7 +551,7 @@ export default function IntegrationsClient({
                 </div>
               ) : (
                 mlListings.map(item => {
-                  const isImported = publications.some(p => p.id === `pub-${item.id}` || p.external_url === item.permalink);
+                  const isImported = publications.some(p => p.external_id === item.id || p.external_url === item.permalink);
                   const isSelected = selectedMlItems.has(item.id);
                   const statusLabel = item.status === 'active' ? 'Activa' : (item.status === 'paused' ? 'Pausada' : item.status);
                   const statusColor = item.status === 'active' ? '#10b981' : '#f59e0b';

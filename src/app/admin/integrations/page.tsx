@@ -4,7 +4,11 @@ import IntegrationsClient from "./IntegrationsClient";
 
 export const dynamic = "force-dynamic";
 
-export default async function IntegrationsPage() {
+export default async function IntegrationsPage({
+  searchParams,
+}: {
+  searchParams: { [key: string]: string | string[] | undefined };
+}) {
   const stockVehicles = await getVehicles("demo-agency-id");
   const integrations = await getIntegrations();
   const publications = await getVehiclePublications();
@@ -17,6 +21,8 @@ export default async function IntegrationsPage() {
         initialPublications={publications} 
         appId={process.env.MERCADOLIBRE_APP_ID}
         appUrl={process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}
+        errorMsg={searchParams.error as string}
+        successMsg={searchParams.success as string}
       />
     </div>
   );

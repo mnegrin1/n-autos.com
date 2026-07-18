@@ -1000,7 +1000,11 @@ export async function importSelectedMLListings(selectedItems: any[]) {
         
         delete (matchingVehicle as any).id;
         const { data, error } = await (supabase.from('vehicles') as any).insert([matchingVehicle]).select().single();
-        if (!error && data) {
+        if (error) {
+          console.error("Error al insertar vehículo:", error);
+          throw new Error("No se pudo crear el vehículo en el inventario.");
+        }
+        if (data) {
           matchingVehicle = data;
         }
       }
@@ -1028,10 +1032,10 @@ export async function importSelectedMLListings(selectedItems: any[]) {
       } catch(e) {}
 
       syncedPubs.push({
-        id: `pub-${itemData.id}`,
         vehicle_id: matchingVehicle.id,
         channel: 'mercadolibre',
         status: itemData.status === 'paused' ? 'pending' : 'published',
+        external_id: itemData.id,
         external_url: itemData.permalink,
         views: realVisits,
         questions_count: realQuestions,
@@ -1040,7 +1044,11 @@ export async function importSelectedMLListings(selectedItems: any[]) {
     }
 
     for (const pub of syncedPubs) {
-      await (supabase.from("auto_vehicle_publications") as any).upsert(pub, { onConflict: "id" });
+      const { error: pubError } = await (supabase.from("auto_vehicle_publications") as any).upsert(pub, { onConflict: "vehicle_id, channel" });
+      if (pubError) {
+         console.error("Error upserting publication:", pubError);
+         throw new Error("Error al guardar la publicación en la base de datos.");
+      }
     }
 
     revalidatePath("/admin/integrations");
@@ -1352,17 +1360,20 @@ export async function importSocialPost(channel: 'facebook' | 'instagram', postDa
 
   // Crear la publicación en base de datos
   const newPub = {
-    id: `pub-${channel}-${postData.id}`,
     vehicle_id: newVehicle.id,
     channel: channel,
     status: 'published',
+    external_id: postData.id,
     external_url: postData.external_url || "#",
     views: Math.floor(Math.random() * 150) + 10,
     questions_count: Math.floor(Math.random() * 5),
     published_at: postData.date || new Date().toISOString()
   };
 
-  await (supabase.from("auto_vehicle_publications") as any).upsert(newPub, { onConflict: "id" });
+  const { error: pubError } = await (supabase.from("auto_vehicle_publications") as any).upsert(newPub, { onConflict: "vehicle_id, channel" });
+  if (pubError) {
+    console.error("Error upserting social publication:", pubError);
+  }
 
   revalidatePath("/admin/integrations");
   revalidatePath("/admin/vehicles");
