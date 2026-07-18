@@ -64,7 +64,7 @@ export async function GET(request: Request) {
     const { error: supaError } = await (supabase.from("auto_integrations") as any)
       .upsert({
         channel: "mercadolibre",
-        agency_id: "demo-agency-id",
+        agency_id: "00000000-0000-0000-0000-000000000000",
         connected: true,
         username: username,
         token: token,

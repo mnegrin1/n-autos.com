@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AutoCalendarPage() {
   const allEvents = await getEvents();
-  const vehicles = await getVehicles("demo-agency-id");
+  const vehicles = await getVehicles("00000000-0000-0000-0000-000000000000");
 
   // Filter events related to auto (type: test_drive or any appointment for auto)
   // Real Estate events have type: 'visita' | 'reunion' | 'llamada'

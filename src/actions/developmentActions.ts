@@ -152,7 +152,7 @@ export async function submitOwnerInquiry(inquiry: {
   
   // Registrar consulta en los leads del CRM para que la inmobiliaria la atienda
   const newLead = {
-    agency_id: "demo-agency-id",
+    agency_id: "00000000-0000-0000-0000-000000000000",
     name: `Propietario (${inquiry.email})`,
     email: inquiry.email,
     property: `${dev ? dev.name : "Desarrollo"} - ${lot ? lot.number : "Lote"}`,

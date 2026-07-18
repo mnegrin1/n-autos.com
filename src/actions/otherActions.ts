@@ -186,7 +186,7 @@ export async function createAgent(agent: { name: string, email: string, role: st
     email: validatedData.email,
     role: validatedData.role,
     status: "active",
-    agency_id: "demo-agency-id",
+    agency_id: "00000000-0000-0000-0000-000000000000",
   } as any).select().single();
 
   if (!error && data) {
@@ -292,7 +292,7 @@ export async function createTicket(ticket: { title: string, desc: string, priori
     title: validatedData.title,
     desc: validatedData.desc,
     priority: validatedData.priority,
-    agency_id: "demo-agency-id",
+    agency_id: "00000000-0000-0000-0000-000000000000",
     stage: "Pendiente",
   } as any).select().single();
 

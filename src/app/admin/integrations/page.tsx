@@ -9,7 +9,7 @@ export default async function IntegrationsPage({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  const stockVehicles = await getVehicles("demo-agency-id");
+  const stockVehicles = await getVehicles("00000000-0000-0000-0000-000000000000");
   const integrations = await getIntegrations();
   const publications = await getVehiclePublications();
 

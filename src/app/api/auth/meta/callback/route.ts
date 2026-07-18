@@ -59,7 +59,7 @@ export async function GET(request: Request) {
     // 6. Guardar en Supabase para Facebook capturando los errores de Base de Datos
     const { error: supaFbError } = await (supabase as any).from("auto_integrations").upsert({
       channel: "facebook",
-      agency_id: "demo-agency-id",
+      agency_id: "00000000-0000-0000-0000-000000000000",
       connected: true,
       username: pageName,
       token: pageAccessToken,
@@ -78,7 +78,7 @@ export async function GET(request: Request) {
       const igUsername = igData.username || igId;
       const { error: supaIgError } = await (supabase as any).from("auto_integrations").upsert({
         channel: "instagram",
-        agency_id: "demo-agency-id",
+        agency_id: "00000000-0000-0000-0000-000000000000",
         connected: true,
         username: igUsername,
         token: pageAccessToken,

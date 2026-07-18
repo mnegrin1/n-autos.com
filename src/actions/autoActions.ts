@@ -147,7 +147,7 @@ export async function createVehicle(formData: FormData) {
   }
 
   const newVehicle = {
-    agency_id: "demo-agency-id",
+    agency_id: "00000000-0000-0000-0000-000000000000",
     ...validated,
     images: finalImages.length > 0 ? finalImages : ["https://images.unsplash.com/photo-1552519507-da3b142c6e3d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"],
     videos: finalVideos,
@@ -322,7 +322,7 @@ export async function createAutoLead(lead: {
   message?: string;
 }) {
   const newLead = {
-    agency_id: "demo-agency-id",
+    agency_id: "00000000-0000-0000-0000-000000000000",
     name: lead.name,
     email: lead.email || "",
     phone: lead.phone || "",
@@ -427,7 +427,7 @@ export async function getIntegrations() {
   try {
     const { data, error } = await (supabase.from("auto_integrations") as any)
       .select("*")
-      .eq("agency_id", "demo-agency-id");
+      .eq("agency_id", "00000000-0000-0000-0000-000000000000");
       
     if (!error && data && data.length > 0) {
       const result = { ...baseIntegrations };
@@ -488,7 +488,7 @@ export async function updateIntegration(
   try {
     await (supabase.from("auto_integrations") as any).upsert({
       channel,
-      agency_id: "demo-agency-id",
+      agency_id: "00000000-0000-0000-0000-000000000000",
       connected,
       username,
       token,
@@ -952,7 +952,7 @@ export async function importSelectedMLListings(selectedItems: any[]) {
   if (!token) return { success: false, error: "No se pudo renovar token de MercadoLibre" };
 
   try {
-    const vehicles = await getVehicles("demo-agency-id");
+    const vehicles = await getVehicles("00000000-0000-0000-0000-000000000000");
     const syncedPubs = [];
 
     for (const item of selectedItems) {
@@ -977,7 +977,7 @@ export async function importSelectedMLListings(selectedItems: any[]) {
         };
 
         matchingVehicle = {
-          agency_id: "demo-agency-id",
+          agency_id: "00000000-0000-0000-0000-000000000000",
           brand: getAttr("BRAND", "Auto"),
           model: getAttr("MODEL", itemData.title).substring(0, 99),
           year: parseInt(getAttr("VEHICLE_YEAR", "2020")) || 2020,
@@ -1331,7 +1331,7 @@ export async function importSocialPost(channel: 'facebook' | 'instagram', postDa
   // Crear vehículo basado en el post
   const newVehicle = {
     id: `veh-${channel}-${postData.id}`,
-    agency_id: "demo-agency-id",
+    agency_id: "00000000-0000-0000-0000-000000000000",
     brand: postData.brand || "Desconocido",
     model: postData.model || "Vehículo Importado",
     year: postData.year || 2020,

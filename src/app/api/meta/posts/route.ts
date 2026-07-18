@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     const { data: integrationData, error } = await (supabase as any)
       .from("auto_integrations")
       .select("*")
-      .eq("agency_id", "demo-agency-id")
+      .eq("agency_id", "00000000-0000-0000-0000-000000000000")
       .eq("channel", channel)
       .single();
 

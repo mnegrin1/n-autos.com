@@ -263,7 +263,7 @@ export default function VehiclesClient({ initialVehicles, initialPublishSold }: 
           onChange={async (e) => {
             const val = e.target.checked;
             setPublishSold(val);
-            await updateAgencySettings("demo-agency-id", { publish_sold: val });
+            await updateAgencySettings("00000000-0000-0000-0000-000000000000", { publish_sold: val });
           }}
           style={{ cursor: "pointer" }}
         />

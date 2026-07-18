@@ -79,7 +79,7 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
   const handleOpenAddModal = async () => {
     setShowAddModal(true);
     try {
-      const res = await getVehicles("demo-agency-id");
+      const res = await getVehicles("00000000-0000-0000-0000-000000000000");
       setVehicles(res);
       if (res.length > 0) {
         setNewLeadForm(prev => ({ ...prev, vehicleId: res[0].id }));

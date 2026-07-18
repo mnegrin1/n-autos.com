@@ -5,7 +5,7 @@ export async function GET() {
   try {
     const { data } = await (supabase.from("auto_integrations") as any)
       .select("*")
-      .eq("agency_id", "demo-agency-id")
+      .eq("agency_id", "00000000-0000-0000-0000-000000000000")
       .eq("channel", "mercadolibre");
 
     if (!data || data.length === 0) {

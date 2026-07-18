@@ -6,9 +6,9 @@ export const dynamic = "force-dynamic";
 
 export default async function InboxPage() {
   const conversations = await getInboxConversations();
-  const vehicles = await getVehicles("demo-agency-id");
+  const vehicles = await getVehicles("00000000-0000-0000-0000-000000000000");
   const integrations = await getIntegrations();
-  const leads = await getAutoLeads("demo-agency-id");
+  const leads = await getAutoLeads("00000000-0000-0000-0000-000000000000");
 
   return (
     <InboxClient 
