@@ -199,6 +199,7 @@ CREATE TABLE auto_leads (
     vehicle VARCHAR(255),
     vehicle_id UUID REFERENCES vehicles(id) ON DELETE SET NULL,
     message TEXT,
+    tags JSONB DEFAULT '[]'::jsonb,
     status VARCHAR(50) DEFAULT 'nuevo',
     time VARCHAR(50),
     assigned_agent_id UUID REFERENCES users(id) ON DELETE SET NULL,

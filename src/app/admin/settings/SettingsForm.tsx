@@ -31,12 +31,18 @@ export default function SettingsForm({ initialAgency }: SettingsFormProps) {
   const [theme, setTheme] = useState("light");
   const [zoom, setZoom] = useState("100%");
   const [bgPattern, setBgPattern] = useState("solid");
+  const [bgPatternColor, setBgPatternColor] = useState(agency.primary_color || "#10b981");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setTheme(localStorage.getItem("crm-theme") || "light");
     setZoom(localStorage.getItem("crm-zoom") || "100%");
-    setBgPattern(localStorage.getItem("crm-bg-pattern") || "solid");
+    let savedPattern = localStorage.getItem("crm-bg-pattern") || "solid";
+    if (savedPattern === "emerald") savedPattern = "gradient";
+    setBgPattern(savedPattern);
+    const savedColor = localStorage.getItem("crm-bg-pattern-color") || agency.primary_color || "#10b981";
+    setBgPatternColor(savedColor);
+    document.documentElement.style.setProperty("--bg-pattern-color", savedColor);
     setMounted(true);
   }, []);
 
@@ -68,8 +74,8 @@ export default function SettingsForm({ initialAgency }: SettingsFormProps) {
     document.documentElement.classList.add("theme-" + selectedTheme);
     if (bgPattern === "topography") {
       document.documentElement.classList.add("bg-pattern-topography");
-    } else if (bgPattern === "emerald") {
-      document.documentElement.classList.add("bg-pattern-emerald");
+    } else if (bgPattern === "emerald" || bgPattern === "gradient") {
+      document.documentElement.classList.add("bg-pattern-gradient");
     }
   };
 
@@ -79,12 +85,20 @@ export default function SettingsForm({ initialAgency }: SettingsFormProps) {
     
     document.documentElement.classList.remove("bg-pattern-topography");
     document.documentElement.classList.remove("bg-pattern-emerald");
+    document.documentElement.classList.remove("bg-pattern-gradient");
     
     if (selectedPattern === "topography") {
       document.documentElement.classList.add("bg-pattern-topography");
-    } else if (selectedPattern === "emerald") {
-      document.documentElement.classList.add("bg-pattern-emerald");
+    } else if (selectedPattern === "emerald" || selectedPattern === "gradient") {
+      document.documentElement.classList.add("bg-pattern-gradient");
     }
+  };
+
+  
+  const handleApplyPatternColor = (color: string) => {
+    setBgPatternColor(color);
+    localStorage.setItem("crm-bg-pattern-color", color);
+    document.documentElement.style.setProperty("--bg-pattern-color", color);
   };
 
   const handleApplyZoom = (selectedZoom: string) => {
@@ -247,10 +261,10 @@ export default function SettingsForm({ initialAgency }: SettingsFormProps) {
                   </div>
 
                   <div 
-                    onClick={() => handleApplyPattern("emerald")}
+                    onClick={() => handleApplyPattern("gradient")}
                     style={{ 
                       flex: 1, 
-                      border: bgPattern === "emerald" ? "2px solid var(--primary)" : "2px solid var(--border-color)", 
+                      border: bgPattern === "gradient" ? "2px solid var(--primary)" : "2px solid var(--border-color)", 
                       borderRadius: "8px", 
                       padding: "0.5rem", 
                       cursor: "pointer", 
@@ -260,11 +274,32 @@ export default function SettingsForm({ initialAgency }: SettingsFormProps) {
                       alignItems: "center"
                     }}
                   >
-                    <div className={bgPattern === "emerald" ? "" : "bg-pattern-emerald"} style={{ width: "100%", height: "60px", backgroundColor: "#022c22", borderRadius: "4px", border: "1px solid var(--border-color)" }} />
-                    <span style={{ fontSize: "0.8rem", fontWeight: bgPattern === "emerald" ? "600" : "400", textAlign: "center" }}>Esmeralda Fluido</span>
+                    <div style={{ width: "100%", height: "60px", background: `radial-gradient(circle at 15% 50%, color-mix(in srgb, ${bgPatternColor} 40%, transparent) 0%, transparent 45%), radial-gradient(circle at 85% 30%, color-mix(in srgb, ${bgPatternColor} 50%, transparent) 0%, transparent 45%), radial-gradient(circle at 50% 80%, color-mix(in srgb, ${bgPatternColor} 35%, transparent) 0%, transparent 50%), color-mix(in srgb, ${bgPatternColor} 15%, #000)`, borderRadius: "4px", border: "1px solid var(--border-color)" }} />
+                    <span style={{ fontSize: "0.8rem", fontWeight: bgPattern === "gradient" ? "600" : "400", textAlign: "center" }}>Gradiente Fluido</span>
                   </div>
                 </div>
               </div>
+
+              {bgPattern === "gradient" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "0.5rem", padding: "1rem", backgroundColor: "var(--bg-color)", borderRadius: "8px", border: "1px dashed var(--border-color)" }}>
+                  <label style={{ fontSize: "0.85rem", fontWeight: "600" }}>Color del Gradiente</label>
+                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                    <input
+                      type="color"
+                      value={bgPatternColor}
+                      onChange={(e) => handleApplyPatternColor(e.target.value)}
+                      style={{ width: "42px", height: "42px", border: "1px solid var(--border-color)", borderRadius: "8px", cursor: "pointer", padding: 0 }}
+                    />
+                    <input
+                      type="text"
+                      value={bgPatternColor}
+                      onChange={(e) => handleApplyPatternColor(e.target.value)}
+                      style={{ padding: "0.75rem 1rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--surface-color)", color: "var(--text-color)", fontSize: "0.9rem", flex: 1 }}
+                    />
+                  </div>
+                  <span style={{ fontSize: "0.75rem", opacity: 0.6 }}>Elegí el color base para el patrón animado. El mapa topográfico se mostrará por encima.</span>
+                </div>
+              )}
 
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                 <label style={{ fontSize: "0.85rem", fontWeight: "600" }}>Nivel de Zoom Visual</label>

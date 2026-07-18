@@ -196,11 +196,13 @@ export default function AutoAdminLayout({
               document.documentElement.className = '';
               document.documentElement.classList.add('theme-' + theme);
             }
+            var patternColor = localStorage.getItem('crm-bg-pattern-color');
+            if (patternColor) document.documentElement.style.setProperty('--bg-pattern-color', patternColor);
             var pattern = localStorage.getItem('crm-bg-pattern');
             if (pattern === 'topography') {
               document.documentElement.classList.add('bg-pattern-topography');
-            } else if (pattern === 'emerald') {
-              document.documentElement.classList.add('bg-pattern-emerald');
+            } else if (pattern === 'emerald' || pattern === 'gradient') {
+              document.documentElement.classList.add('bg-pattern-gradient');
             }
             var zoom = localStorage.getItem('crm-zoom') || '100%';
             var mapping = {
@@ -331,26 +333,7 @@ export default function AutoAdminLayout({
                   >
                     <Users size={16} /> Nuevo Contacto
                   </Link>
-                  <Link 
-                    href="/admin/calendar?action=new" 
-                    onClick={() => setShowNewDropdown(false)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.75rem",
-                      padding: "0.85rem 1.15rem",
-                      fontSize: "0.9rem",
-                      fontWeight: 600,
-                      color: "var(--text-color)",
-                      textDecoration: "none",
-                      borderBottom: "1px solid var(--border-color)",
-                      transition: "background-color 0.2s"
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--border-color)"}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-                  >
-                    <Calendar size={16} /> Nuevo Evento
-                  </Link>
+
                   <Link 
                     href="/admin/crm?action=sale" 
                     onClick={() => setShowNewDropdown(false)}
@@ -383,21 +366,17 @@ export default function AutoAdminLayout({
             <Car size={16} />
             Inventario Stock
           </Link>
+          <Link href="/admin/inbox" className={`${styles.navLink} ${pathname.startsWith("/admin/inbox") ? styles.activeNavLink : ""}`}>
+            <MessageSquare size={16} />
+            Bandeja de Entrada
+          </Link>
           <Link href="/admin/crm" className={`${styles.navLink} ${pathname.startsWith("/admin/crm") ? styles.activeNavLink : ""}`}>
             <Users size={16} />
-            CRM Leads
-          </Link>
-          <Link href="/admin/calendar" className={`${styles.navLink} ${pathname.startsWith("/admin/calendar") ? styles.activeNavLink : ""}`}>
-            <Calendar size={16} />
-            Test Drives
+            Contactos
           </Link>
           <Link href="/admin/integrations" className={`${styles.navLink} ${pathname.startsWith("/admin/integrations") ? styles.activeNavLink : ""}`}>
             <Share2 size={16} />
             Publicaciones / Canales
-          </Link>
-          <Link href="/admin/inbox" className={`${styles.navLink} ${pathname.startsWith("/admin/inbox") ? styles.activeNavLink : ""}`}>
-            <MessageSquare size={16} />
-            Bandeja de Entrada
           </Link>
           <Link href="/admin/settings" className={`${styles.navLink} ${pathname.startsWith("/admin/settings") ? styles.activeNavLink : ""}`}>
             <Settings size={16} />

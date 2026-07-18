@@ -8,14 +8,18 @@
 .sidebar {
   width: 260px;
   background-color: var(--surface-color);
-  border-right: 1px solid var(--border-color);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  margin: 1rem;
+  height: calc(100vh - 2rem);
   display: flex;
   flex-direction: column;
   position: fixed;
   left: 0;
   top: 0;
-  bottom: 0;
   z-index: 100;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
 }
 
 .logoContainer {
@@ -49,18 +53,33 @@
   text-decoration: none;
 }
 
-.navLink:hover, .activeNavLink {
-  background-color: var(--primary-light);
-  color: var(--primary);
+.navLink:hover {
+  background-color: var(--surface-hover);
+  color: var(--text-color);
 }
 
 .activeNavLink {
   font-weight: 700;
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--text-color);
+  position: relative;
+}
+
+.activeNavLink::before {
+  content: '';
+  position: absolute;
+  left: -1rem; /* Based on navLink padding */
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 60%;
+  background-color: var(--primary);
+  border-radius: 0 4px 4px 0;
 }
 
 .mainContent {
   flex: 1;
-  margin-left: 260px;
+  margin-left: calc(260px + 2rem); /* 260px width + 1rem left margin + 1rem right margin */
   display: flex;
   flex-direction: column;
   overflow: hidden;

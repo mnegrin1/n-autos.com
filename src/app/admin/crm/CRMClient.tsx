@@ -15,6 +15,7 @@ interface Lead {
   vehicle: string;
   vehicle_id: string;
   message: string;
+  tags?: string[];
   status: "nuevo" | "contactado" | "test_drive" | "negociacion" | "cerrado";
   time: string;
   created_at: string;
@@ -53,7 +54,9 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
     phone: "",
     vehicleId: "",
     message: "",
+    tags: [] as string[],
   });
+  const [tagInput, setTagInput] = useState("");
 
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -75,18 +78,33 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
     }
   }, [searchParams]);
 
-  // Load vehicles for lead creation modal
   const handleOpenAddModal = async () => {
     setShowAddModal(true);
     try {
       const res = await getVehicles("00000000-0000-0000-0000-000000000000");
       setVehicles(res);
-      if (res.length > 0) {
-        setNewLeadForm(prev => ({ ...prev, vehicleId: res[0].id }));
-      }
+      // Vehicle is optional, so we can default to empty ("")
+      setNewLeadForm(prev => ({ ...prev, vehicleId: "" }));
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && tagInput.trim()) {
+      e.preventDefault();
+      if (!newLeadForm.tags.includes(tagInput.trim())) {
+        setNewLeadForm(prev => ({ ...prev, tags: [...prev.tags, tagInput.trim()] }));
+      }
+      setTagInput("");
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setNewLeadForm(prev => ({
+      ...prev,
+      tags: prev.tags.filter(t => t !== tagToRemove)
+    }));
   };
 
   const handleStatusChange = async (leadId: string, nextStatus: Lead["status"]) => {
@@ -115,13 +133,13 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
 
   const handleCreateLead = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newLeadForm.name || !newLeadForm.vehicleId) {
-      alert("Nombre y vehículo son campos requeridos");
+    if (!newLeadForm.name) {
+      alert("El nombre es requerido");
       return;
     }
 
     const selectedVehicle = vehicles.find(v => v.id === newLeadForm.vehicleId);
-    const vehicleText = selectedVehicle ? `${selectedVehicle.brand} ${selectedVehicle.model}` : "Vehículo";
+    const vehicleText = selectedVehicle ? `${selectedVehicle.brand} ${selectedVehicle.model}` : "Sin vehículo";
 
     startTransition(async () => {
       const res = await createAutoLead({
@@ -129,8 +147,9 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
         email: newLeadForm.email,
         phone: newLeadForm.phone,
         vehicle: vehicleText,
-        vehicleId: newLeadForm.vehicleId,
+        vehicleId: newLeadForm.vehicleId || "",
         message: newLeadForm.message,
+        tags: newLeadForm.tags,
       });
 
       if (res.success && res.data) {
@@ -142,9 +161,10 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
           phone: "",
           vehicleId: "",
           message: "",
+          tags: [],
         });
       } else {
-        alert("Error al guardar lead");
+        alert("Error al guardar contacto");
       }
     });
   };
@@ -170,11 +190,11 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
     <div className={styles.crmContainer}>
       <div className={styles.header}>
         <div>
-          <h1>CRM Automotor</h1>
-          <p>Embudo de ventas y seguimiento de prospectos en tiempo real.</p>
+          <h1>Contactos CRM</h1>
+          <p>Gestión de clientes y seguimiento de embudo en tiempo real.</p>
         </div>
         <button className="btn-primary" style={{ backgroundColor: "#10b981", borderColor: "#10b981", display: "flex", alignItems: "center", gap: "0.25rem" }} onClick={handleOpenAddModal}>
-          <Plus size={16} /> Crear Prospecto
+          <Plus size={16} /> Nuevo Contacto
         </button>
       </div>
 
@@ -216,8 +236,18 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
                     </div>
 
                     <div className={styles.leadProperty} style={{ color: "#10b981", fontWeight: "600", fontSize: "0.85rem", marginTop: "0.25rem" }}>
-                      🚗 {lead.vehicle}
+                      {lead.vehicle !== "Sin vehículo" ? `🚗 ${lead.vehicle}` : "👤 Contacto general"}
                     </div>
+
+                    {lead.tags && lead.tags.length > 0 && (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem", marginTop: "0.5rem" }}>
+                        {lead.tags.map(tag => (
+                          <span key={tag} style={{ backgroundColor: "rgba(16, 185, 129, 0.1)", color: "#10b981", padding: "0.1rem 0.4rem", borderRadius: "4px", fontSize: "0.65rem", fontWeight: "600" }}>
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
 
                     {lead.message && (
                       <p style={{ fontSize: "0.8rem", margin: "0.5rem 0", opacity: 0.8, lineBreak: "anywhere" }}>
@@ -296,8 +326,8 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: "1rem", marginBottom: "1.5rem" }}>
-              <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "700" }}>Crear Prospecto</h3>
-              <button onClick={() => setShowAddModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-color)" }}>
+              <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: "700" }}>Nuevo Contacto</h3>
+              <button type="button" onClick={() => setShowAddModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-color)" }}>
                 <X size={20} />
               </button>
             </div>
@@ -338,20 +368,39 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                <label style={{ fontSize: "0.85rem", fontWeight: "600" }}>Vehículo de Interés *</label>
+                <label style={{ fontSize: "0.85rem", fontWeight: "600" }}>Vehículo de Interés (Opcional)</label>
                 <select
                   value={newLeadForm.vehicleId}
                   onChange={(e) => setNewLeadForm(prev => ({ ...prev, vehicleId: e.target.value }))}
                   style={{ padding: "0.65rem 0.85rem", border: "1px solid var(--border-color)", borderRadius: "8px", backgroundColor: "var(--bg-color)", color: "var(--text-color)", cursor: "pointer" }}
                 >
-                  {vehicles.length === 0 ? (
-                    <option value="">Cargando vehículos...</option>
-                  ) : (
-                    vehicles.map((v) => (
-                      <option key={v.id} value={v.id}>{v.brand} {v.model} ({v.year})</option>
-                    ))
-                  )}
+                  <option value="">Ninguno / Contacto General</option>
+                  {vehicles.map((v) => (
+                    <option key={v.id} value={v.id}>{v.brand} {v.model} ({v.year})</option>
+                  ))}
                 </select>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                <label style={{ fontSize: "0.85rem", fontWeight: "600" }}>Etiquetas (Presiona Enter)</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Inversor, VIP, Contado..."
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={handleAddTag}
+                  style={{ padding: "0.65rem 0.85rem", border: "1px solid var(--border-color)", borderRadius: "8px", backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}
+                />
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginTop: "0.35rem" }}>
+                  {newLeadForm.tags.map(tag => (
+                    <span key={tag} style={{ display: "flex", alignItems: "center", gap: "0.25rem", backgroundColor: "rgba(16, 185, 129, 0.1)", color: "#10b981", padding: "0.2rem 0.5rem", borderRadius: "4px", fontSize: "0.75rem", fontWeight: "600" }}>
+                      {tag}
+                      <button type="button" onClick={() => handleRemoveTag(tag)} style={{ background: "none", border: "none", color: "#10b981", cursor: "pointer", padding: 0, display: "flex" }}>
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
@@ -378,7 +427,7 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
                   style={{ backgroundColor: "#10b981", border: "none", padding: "0.65rem 1.25rem", borderRadius: "8px", fontWeight: "600", color: "white", cursor: "pointer" }}
                   disabled={isPending}
                 >
-                  {isPending ? "Creando..." : "Crear Prospecto"}
+                  {isPending ? "Creando..." : "Crear Contacto"}
                 </button>
               </div>
             </form>

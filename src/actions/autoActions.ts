@@ -318,8 +318,9 @@ export async function createAutoLead(lead: {
   email?: string;
   phone?: string;
   vehicle: string;
-  vehicleId: string;
+  vehicleId?: string;
   message?: string;
+  tags?: string[];
 }) {
   const newLead = {
     agency_id: "00000000-0000-0000-0000-000000000000",
@@ -327,9 +328,10 @@ export async function createAutoLead(lead: {
     email: lead.email || "",
     phone: lead.phone || "",
     vehicle: lead.vehicle,
-    vehicle_id: lead.vehicleId,
+    vehicle_id: lead.vehicleId || null,
     message: lead.message || "Interesado en vehículo.",
     status: "nuevo",
+    tags: lead.tags || [],
     time: "Ahora",
     assigned_agent_id: "agent-1" // default assign
   };

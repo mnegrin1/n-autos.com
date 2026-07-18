@@ -248,30 +248,31 @@ html.bg-pattern-topography body::before {
   pointer-events: none;
 }
 
-/* --- EMERALD FLUID PATTERN --- */
-html.bg-pattern-emerald {
-  background-color: #022c22 !important;
+/* --- GRADIENTE FLUIDO PATTERN --- */
+html.bg-pattern-gradient {
+  background-color: color-mix(in srgb, var(--bg-pattern-color, #10b981) 15%, #000) !important;
 }
 
-html.bg-pattern-emerald body {
+html.bg-pattern-gradient body {
   background-color: transparent !important;
-  color: #ecfdf5 !important;
+  color: #fff !important;
 }
 
-html.bg-pattern-emerald body::before {
+html.bg-pattern-gradient body::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: -2;
   background-image: 
-    radial-gradient(circle at 15% 50%, rgba(16, 185, 129, 0.25), transparent 45%),
-    radial-gradient(circle at 85% 30%, rgba(4, 120, 87, 0.3), transparent 45%),
-    radial-gradient(circle at 50% 80%, rgba(6, 78, 59, 0.25), transparent 50%);
-  animation: emerald-fluid 15s ease-in-out infinite alternate;
+    radial-gradient(circle at 15% 50%, color-mix(in srgb, var(--bg-pattern-color, #10b981) 40%, transparent) 0%, transparent 45%),
+    radial-gradient(circle at 85% 30%, color-mix(in srgb, var(--bg-pattern-color, #10b981) 50%, transparent) 0%, transparent 45%),
+    radial-gradient(circle at 50% 80%, color-mix(in srgb, var(--bg-pattern-color, #10b981) 35%, transparent) 0%, transparent 50%);
+  background-size: 150% 150%;
+  animation: fluid-gradient 15s ease-in-out infinite alternate;
   pointer-events: none;
 }
 
-html.bg-pattern-emerald body::after {
+html.bg-pattern-gradient body::after {
   content: "";
   position: fixed;
   inset: 0;
@@ -282,4 +283,10 @@ html.bg-pattern-emerald body::after {
   opacity: 0.15;
   mix-blend-mode: overlay;
   pointer-events: none;
+}
+
+@keyframes fluid-gradient {
+  0% { background-position: 0% 0%, 100% 0%, 50% 100%; }
+  50% { background-position: 100% 100%, 0% 50%, 50% 0%; }
+  100% { background-position: 0% 100%, 50% 100%, 100% 0%; }
 }
