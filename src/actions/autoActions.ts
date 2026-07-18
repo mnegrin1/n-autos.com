@@ -1031,6 +1031,7 @@ export async function importSelectedMLListings(selectedItems: any[]) {
       } catch(e) {}
 
       syncedPubs.push({
+        agency_id: "00000000-0000-0000-0000-000000000000",
         vehicle_id: matchingVehicle.id,
         channel: 'mercadolibre',
         status: itemData.status === 'paused' ? 'pending' : 'published',
@@ -1045,8 +1046,8 @@ export async function importSelectedMLListings(selectedItems: any[]) {
     for (const pub of syncedPubs) {
       const { error: pubError } = await (supabase.from("auto_vehicle_publications") as any).upsert(pub, { onConflict: "vehicle_id, channel" });
       if (pubError) {
-         console.error("Error upserting publication:", pubError);
-         throw new Error("Error al guardar la publicación en la base de datos.");
+         console.error("Error upserting publication:", pubError, pub);
+         throw new Error(`Error al guardar publicación: ${pubError.message} | Payload: ${JSON.stringify(pub).substring(0, 150)}...`);
       }
     }
 
@@ -1359,6 +1360,7 @@ export async function importSocialPost(channel: 'facebook' | 'instagram', postDa
 
   // Crear la publicación en base de datos
   const newPub = {
+    agency_id: "00000000-0000-0000-0000-000000000000",
     vehicle_id: newVehicle.id,
     channel: channel,
     status: 'published',
@@ -1371,7 +1373,8 @@ export async function importSocialPost(channel: 'facebook' | 'instagram', postDa
 
   const { error: pubError } = await (supabase.from("auto_vehicle_publications") as any).upsert(newPub, { onConflict: "vehicle_id, channel" });
   if (pubError) {
-    console.error("Error upserting social publication:", pubError);
+    console.error("Error upserting social publication:", pubError, newPub);
+    throw new Error(`Error al guardar publicación: ${pubError.message}`);
   }
 
   revalidatePath("/admin/integrations");
