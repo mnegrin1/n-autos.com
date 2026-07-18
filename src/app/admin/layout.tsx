@@ -154,6 +154,12 @@ export default function AutoAdminLayout({
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
       <style dangerouslySetInnerHTML={{ __html: `
+        html, body {
+          background-color: var(--bg-color) !important;
+          margin: 0;
+          padding: 0;
+          min-height: 100vh;
+        }
         body, html, button, input, select, textarea, span, div, h1, h2, h3, h4, h5, h6, aside, main, label, table, td, tr, th {
           font-family: 'Inter', sans-serif !important;
         }

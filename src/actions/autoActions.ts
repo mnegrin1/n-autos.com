@@ -843,7 +843,7 @@ export async function unpublishVehicle(vehicleId: string, channel: 'mercadolibre
   return { success: true };
 }
 
-export async function syncMercadoLibreListings() {
+export async function fetchMercadoLibreListings() {
   const integrations = await getIntegrations();
   const ml = integrations.mercadolibre;
 
@@ -861,13 +861,11 @@ export async function syncMercadoLibreListings() {
         cache: 'no-store'
       });
       
-      // === NUEVO: Interceptar token inválido ===
       if (userRes.status === 401) {
           console.log("Token de ML rechazado. Forzando renovación automática...");
-          token = await refreshMLToken(true); // Forzamos la renovación
+          token = await refreshMLToken(true);
           if (!token) throw new Error("Token expirado y no se pudo renovar");
           
-          // Reintentamos la petición con el nuevo token
           userRes = await fetch("https://api.mercadolibre.com/users/me", {
             headers: { "Authorization": `Bearer ${token}` },
             cache: 'no-store'
@@ -876,20 +874,28 @@ export async function syncMercadoLibreListings() {
 
       const userData = await userRes.json();
       if (!userRes.ok) throw new Error(userData.message || "Error obteniendo perfil");
-
       const userId = userData.id;
 
-      const searchRes = await fetch(`https://api.mercadolibre.com/users/${userId}/items/search`, {
+      // Buscar items activos y pausados
+      const searchActiveRes = await fetch(`https://api.mercadolibre.com/users/${userId}/items/search?status=active`, {
         headers: { "Authorization": `Bearer ${token}` },
         cache: 'no-store'
       });
-      const searchData = await searchRes.json();
-      if (!searchRes.ok) throw new Error(searchData.message || "Error buscando publicaciones");
+      const searchPausedRes = await fetch(`https://api.mercadolibre.com/users/${userId}/items/search?status=paused`, {
+        headers: { "Authorization": `Bearer ${token}` },
+        cache: 'no-store'
+      });
 
-      let itemIds = searchData.results || [];
+      let itemIds: string[] = [];
+      if (searchActiveRes.ok) {
+         const data = await searchActiveRes.json();
+         itemIds.push(...(data.results || []));
+      }
+      if (searchPausedRes.ok) {
+         const data = await searchPausedRes.json();
+         itemIds.push(...(data.results || []));
+      }
 
-      // Si items/search viene vacío, intentamos usar la búsqueda pública por vendedor
-      // (a veces los clasificados tardan en indexar en items/search o requieren otro endpoint)
       if (itemIds.length === 0) {
         const publicSearchRes = await fetch(`https://api.mercadolibre.com/sites/MLU/search?seller_id=${userId}`, {
           headers: { "Authorization": `Bearer ${token}` },
@@ -901,135 +907,148 @@ export async function syncMercadoLibreListings() {
         }
       }
 
-      const syncedPubs = [];
-      const vehicles = await getVehicles("demo-agency-id");
+      // Eliminar duplicados si los hubiera
+      itemIds = Array.from(new Set(itemIds));
 
+      const listings = [];
       for (const itemId of itemIds) {
         const itemRes = await fetch(`https://api.mercadolibre.com/items/${itemId}`, {
           headers: { "Authorization": `Bearer ${token}` },
           cache: 'no-store'
         });
-        const itemData = await itemRes.json();
-
         if (itemRes.ok) {
-          const price = itemData.price;
-          const titleLower = itemData.title?.toLowerCase() || "";
-          
-          // Buscar primero por precio
-          let matchingVehicle = vehicles.find((v: any) => v.price === price);
-          
-          // Si no, buscar por coincidencia en marca o modelo
-          if (!matchingVehicle) {
-             matchingVehicle = vehicles.find((v: any) => 
-               titleLower.includes(v.brand?.toLowerCase() || "xxx") || 
-               titleLower.includes(v.model?.toLowerCase() || "xxx")
-             );
-          }
-
-          // Si el usuario no tiene este vehículo en su base local, lo importamos/creamos automáticamente
-          if (!matchingVehicle) {
-            const getAttr = (id: string, def: string) => {
-              const attr = itemData.attributes?.find((a: any) => a.id === id);
-              return attr ? attr.value_name : def;
-            };
-
-            matchingVehicle = {
-              id: `veh-ml-${itemData.id}`,
-              agency_id: "demo-agency-id",
-              brand: getAttr("BRAND", "Auto"),
-              model: getAttr("MODEL", itemData.title),
-              year: parseInt(getAttr("VEHICLE_YEAR", "2020")),
-              kms: parseInt(getAttr("KILOMETERS", "0").replace(/\D/g, '') || "0"),
-              transmission: getAttr("TRANSMISSION", "Manual").toLowerCase(),
-              fuel: getAttr("FUEL_TYPE", "Nafta").toLowerCase(),
-              price: price,
-              currency: itemData.currency_id,
-              color: getAttr("COLOR", "Blanco"),
-              engine: getAttr("ENGINE", "1.0"),
-              doors: parseInt(getAttr("DOORS", "4")),
-              plate: "",
-              description: "Importado automáticamente desde MercadoLibre.",
-              images: [
-                itemData.pictures?.[0]?.secure_url || itemData.secure_thumbnail || itemData.thumbnail
-              ],
-              status: "disponible",
-              };
-            
-            delete (matchingVehicle as any).id;
-            const { data, error } = await (supabase.from('vehicles') as any).insert([matchingVehicle]).select().single();
-            if (!error && data) {
-              matchingVehicle = data;
-            }
-          }
-
-          // Obtener visitas reales de ML
-          let realVisits = Math.floor(Math.random() * 80) + 10;
-          try {
-            const vRes = await fetch(`https://api.mercadolibre.com/visits/items?ids=${itemId}`, {
-              headers: { "Authorization": `Bearer ${token}` }
-            });
-            const vData = await vRes.json();
-            if (vData && vData[itemId]) {
-              realVisits = vData[itemId];
-            }
-          } catch(e) {}
-
-          // Obtener preguntas reales de ML
-          let realQuestions = 0;
-          try {
-            const qRes = await fetch(`https://api.mercadolibre.com/questions/search?item=${itemId}`, {
-              headers: { "Authorization": `Bearer ${token}` }
-            });
-            const qData = await qRes.json();
-            if (qData && typeof qData.total === 'number') {
-              realQuestions = qData.total;
-            }
-          } catch(e) {}
-
-          syncedPubs.push({
-            id: `pub-${itemData.id}`,
-            vehicle_id: matchingVehicle.id,
-            channel: 'mercadolibre',
-            status: 'published',
-            external_url: itemData.permalink,
-            views: realVisits,
-            questions_count: realQuestions,
-            published_at: itemData.start_time || new Date().toISOString()
+          const itemData = await itemRes.json();
+          listings.push({
+             id: itemData.id,
+             title: itemData.title,
+             price: itemData.price,
+             currency: itemData.currency_id,
+             status: itemData.status,
+             thumbnail: itemData.pictures?.[0]?.secure_url || itemData.secure_thumbnail || itemData.thumbnail,
+             permalink: itemData.permalink,
+             raw_data: itemData 
           });
         }
       }
 
-      if (syncedPubs.length === 0 && vehicles.length > 0) {
-        console.log("No real listings found in ML, generating mock listings for demo purposes");
-        const mockCount = Math.min(2, vehicles.length);
-        for (let i = 0; i < mockCount; i++) {
-          const v = vehicles[i];
-          syncedPubs.push({
-            id: `pub-MLU${Math.floor(Math.random() * 1000000000)}`,
-            vehicle_id: v.id,
-            channel: 'mercadolibre',
-            status: 'published',
-            external_url: `https://auto.mercadolibre.com.uy/MLU-${Math.floor(Math.random() * 1000000000)}-${v.brand.toLowerCase()}-${v.model.toLowerCase()}`,
-            views: Math.floor(Math.random() * 150) + 20,
-            questions_count: Math.floor(Math.random() * 5),
-            published_at: new Date().toISOString()
-          });
-        }
-      }
-
-      for (const pub of syncedPubs) {
-        await (supabase.from("auto_vehicle_publications") as any).upsert(pub, { onConflict: "id" });
-      }
-
-      revalidatePath("/admin/integrations");
-      return { success: true, count: syncedPubs.length };
+      return { success: true, listings };
     } catch (err: any) {
-      console.error("Fallo al sincronizar publicaciones de MercadoLibre:", err);
+      console.error("Fallo al buscar publicaciones de MercadoLibre:", err);
       return { success: false, error: err.message || "Fallo en la comunicación con la API de MercadoLibre" };
     }
   }
+  return { success: false, error: "Conexión a MercadoLibre no configurada en modo producción." };
+}
 
-  return { success: false, error: "Conexión a MercadoLibre no configurada en modo producción. Se requiere la integración online completa." };
+export async function importSelectedMLListings(selectedItems: any[]) {
+  const integrations = await getIntegrations();
+  const ml = integrations.mercadolibre;
+
+  if (!ml || !ml.connected || ml.mode !== 'production') {
+    return { success: false, error: "MercadoLibre no está conectado." };
+  }
+
+  let token = await refreshMLToken();
+  if (!token) return { success: false, error: "No se pudo renovar token de MercadoLibre" };
+
+  try {
+    const vehicles = await getVehicles("demo-agency-id");
+    const syncedPubs = [];
+
+    for (const item of selectedItems) {
+      const itemData = item.raw_data;
+      const itemId = itemData.id;
+      const price = itemData.price;
+      const titleLower = itemData.title?.toLowerCase() || "";
+      
+      let matchingVehicle = vehicles.find((v: any) => v.price === price);
+      
+      if (!matchingVehicle) {
+         matchingVehicle = vehicles.find((v: any) => 
+           titleLower.includes(v.brand?.toLowerCase() || "xxx") || 
+           titleLower.includes(v.model?.toLowerCase() || "xxx")
+         );
+      }
+
+      if (!matchingVehicle) {
+        const getAttr = (id: string, def: string) => {
+          const attr = itemData.attributes?.find((a: any) => a.id === id);
+          return attr ? attr.value_name : def;
+        };
+
+        matchingVehicle = {
+          id: `veh-ml-${itemData.id}`,
+          agency_id: "demo-agency-id",
+          brand: getAttr("BRAND", "Auto"),
+          model: getAttr("MODEL", itemData.title),
+          year: parseInt(getAttr("VEHICLE_YEAR", "2020")),
+          kms: parseInt(getAttr("KILOMETERS", "0").replace(/\D/g, '') || "0"),
+          transmission: getAttr("TRANSMISSION", "Manual").toLowerCase(),
+          fuel: getAttr("FUEL_TYPE", "Nafta").toLowerCase(),
+          price: price,
+          currency: itemData.currency_id,
+          color: getAttr("COLOR", "Blanco"),
+          engine: getAttr("ENGINE", "1.0"),
+          doors: parseInt(getAttr("DOORS", "4")),
+          plate: "",
+          description: "Importado automáticamente desde MercadoLibre.",
+          images: [
+            itemData.pictures?.[0]?.secure_url || itemData.secure_thumbnail || itemData.thumbnail
+          ],
+          status: "disponible",
+        };
+        
+        delete (matchingVehicle as any).id;
+        const { data, error } = await (supabase.from('vehicles') as any).insert([matchingVehicle]).select().single();
+        if (!error && data) {
+          matchingVehicle = data;
+        }
+      }
+
+      let realVisits = Math.floor(Math.random() * 80) + 10;
+      try {
+        const vRes = await fetch(`https://api.mercadolibre.com/visits/items?ids=${itemId}`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        const vData = await vRes.json();
+        if (vData && vData[itemId]) {
+          realVisits = vData[itemId];
+        }
+      } catch(e) {}
+
+      let realQuestions = 0;
+      try {
+        const qRes = await fetch(`https://api.mercadolibre.com/questions/search?item=${itemId}`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        const qData = await qRes.json();
+        if (qData && typeof qData.total === 'number') {
+          realQuestions = qData.total;
+        }
+      } catch(e) {}
+
+      syncedPubs.push({
+        id: `pub-${itemData.id}`,
+        vehicle_id: matchingVehicle.id,
+        channel: 'mercadolibre',
+        status: itemData.status === 'paused' ? 'pending' : 'published',
+        external_url: itemData.permalink,
+        views: realVisits,
+        questions_count: realQuestions,
+        published_at: itemData.start_time || new Date().toISOString()
+      });
+    }
+
+    for (const pub of syncedPubs) {
+      await (supabase.from("auto_vehicle_publications") as any).upsert(pub, { onConflict: "id" });
+    }
+
+    revalidatePath("/admin/integrations");
+    return { success: true, count: syncedPubs.length };
+  } catch (err: any) {
+    console.error("Fallo al importar publicaciones de MercadoLibre:", err);
+    return { success: false, error: err.message || "Error al importar" };
+  }
 }
 
 // ==========================================

@@ -14,7 +14,7 @@ import {
   Info
 } from "lucide-react";
 import styles from "./integrations.module.css";
-import { updateIntegration, unpublishVehicle, syncMercadoLibreListings, importSocialPost } from "@/actions/autoActions";
+import { updateIntegration, unpublishVehicle, fetchMercadoLibreListings, importSelectedMLListings, importSocialPost } from "@/actions/autoActions";
 
 interface Vehicle {
   id: string;
@@ -81,6 +81,12 @@ export default function IntegrationsClient({
   const [showImportModal, setShowImportModal] = useState<'facebook' | 'instagram' | null>(null);
   const [socialPosts, setSocialPosts] = useState<any[]>([]);
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
+
+  // Modal de Sincronización ML
+  const [showMLSyncModal, setShowMLSyncModal] = useState<boolean>(false);
+  const [mlListings, setMlListings] = useState<any[]>([]);
+  const [selectedMlItems, setSelectedMlItems] = useState<Set<string>>(new Set());
+  const [isLoadingML, setIsLoadingML] = useState(false);
   const handleOpenConnect = (channel: string) => {
     if (channel === 'facebook' || channel === 'instagram') {
       window.location.href = '/api/auth/meta';
@@ -116,13 +122,39 @@ export default function IntegrationsClient({
   };
 
   const handleSyncListings = async () => {
+    setIsLoadingML(true);
+    setShowMLSyncModal(true);
+    setMlListings([]);
+    setSelectedMlItems(new Set());
+    
+    try {
+      const res = await fetchMercadoLibreListings();
+      if (res.success) {
+        setMlListings(res.listings || []);
+      } else {
+        alert(`Error al buscar en MercadoLibre: ${res.error}`);
+        setShowMLSyncModal(false);
+      }
+    } catch (err: any) {
+      alert(`Error al sincronizar: ${err.message}`);
+      setShowMLSyncModal(false);
+    }
+    setIsLoadingML(false);
+  };
+
+  const handleImportML = async () => {
+    if (selectedMlItems.size === 0) return alert("Selecciona al menos una publicación");
+    
+    const selectedData = mlListings.filter(item => selectedMlItems.has(item.id));
+    
     startTransition(async () => {
-      const res = await syncMercadoLibreListings();
+      const res = await importSelectedMLListings(selectedData);
       if (res.success) {
         alert(`Sincronización exitosa: se cargaron/actualizaron ${res.count} publicaciones.`);
+        setShowMLSyncModal(false);
         window.location.reload();
       } else {
-        alert(`Error al sincronizar: ${res.error}`);
+        alert(`Error al importar: ${res.error}`);
       }
     });
   };
@@ -459,6 +491,99 @@ export default function IntegrationsClient({
             <div className={styles.modalActions} style={{ justifyContent: 'flex-end' }}>
               <button onClick={() => setShowImportModal(null)} className={styles.btnCancel} disabled={isPending}>
                 Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal Sincronización Mercado Libre */}
+      {showMLSyncModal && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modal} style={{ maxWidth: '700px', width: '90%' }}>
+            <h3>Publicaciones de Mercado Libre</h3>
+            <p style={{ fontSize: '0.85rem', opacity: 0.7, marginBottom: '1.25rem' }}>
+              Selecciona las publicaciones que deseas importar al inventario del CRM. Se muestran publicaciones activas y pausadas.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem', maxHeight: '50vh', overflowY: 'auto' }}>
+              {isLoadingML ? (
+                <div style={{ padding: '2rem', textAlign: 'center', opacity: 0.5 }}>
+                  <Loader2 className={styles.spin} size={24} style={{ margin: '0 auto' }} />
+                  <p>Buscando en Mercado Libre...</p>
+                </div>
+              ) : mlListings.length === 0 ? (
+                <div style={{ padding: '2rem', textAlign: 'center', opacity: 0.5 }}>
+                  No se encontraron publicaciones en Mercado Libre.
+                </div>
+              ) : (
+                mlListings.map(item => {
+                  const isImported = publications.some(p => p.id === `pub-${item.id}` || p.external_url === item.permalink);
+                  const isSelected = selectedMlItems.has(item.id);
+                  const statusLabel = item.status === 'active' ? 'Activa' : (item.status === 'paused' ? 'Pausada' : item.status);
+                  const statusColor = item.status === 'active' ? '#10b981' : '#f59e0b';
+                  
+                  return (
+                    <div 
+                      key={item.id} 
+                      style={{ 
+                        display: 'flex', gap: '1rem', padding: '1rem', 
+                        border: `1px solid ${isSelected ? 'var(--primary)' : 'var(--border-color)'}`, 
+                        borderRadius: '8px', alignItems: 'center',
+                        backgroundColor: isSelected ? 'var(--primary-light)' : 'transparent',
+                        cursor: isImported ? 'default' : 'pointer',
+                        opacity: isImported ? 0.6 : 1
+                      }}
+                      onClick={() => {
+                        if (isImported) return;
+                        const newSet = new Set(selectedMlItems);
+                        if (newSet.has(item.id)) newSet.delete(item.id);
+                        else newSet.add(item.id);
+                        setSelectedMlItems(newSet);
+                      }}
+                    >
+                      <input 
+                        type="checkbox" 
+                        checked={isSelected || isImported} 
+                        disabled={isImported}
+                        onChange={() => {}}
+                        style={{ cursor: isImported ? 'default' : 'pointer' }}
+                      />
+                      {item.thumbnail ? (
+                        <img src={item.thumbnail} alt="" style={{ width: '80px', height: '80px', borderRadius: '4px', objectFit: 'cover' }} />
+                      ) : (
+                        <div style={{ width: '80px', height: '80px', borderRadius: '4px', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem' }}>Sin imagen</div>
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: '0.85rem', color: statusColor, fontWeight: 600, marginBottom: '4px' }}>
+                          {statusLabel}
+                        </div>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {item.title}
+                        </div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                          {item.currency} {item.price.toLocaleString()}
+                        </div>
+                        <a href={item.permalink} target="_blank" rel="noreferrer" style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: '4px', display: 'inline-block' }} onClick={e => e.stopPropagation()}>Ver original</a>
+                      </div>
+                      {isImported && <span style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: 600 }}>Importado</span>}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className={styles.modalActions} style={{ justifyContent: 'space-between' }}>
+              <button onClick={() => setShowMLSyncModal(false)} className={styles.btnCancel} disabled={isPending}>
+                Cancelar
+              </button>
+              
+              <button 
+                onClick={handleImportML} 
+                className={styles.btnPublish} 
+                disabled={isPending || isLoadingML || selectedMlItems.size === 0}
+                style={{ padding: '8px 16px', fontWeight: 600 }}
+              >
+                {isPending ? <Loader2 size={14} className={styles.spin} /> : "Importar Seleccionados"}
               </button>
             </div>
           </div>
