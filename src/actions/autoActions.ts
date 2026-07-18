@@ -333,7 +333,7 @@ export async function createAutoLead(lead: {
     status: "nuevo",
     tags: lead.tags || [],
     time: "Ahora",
-    assigned_agent_id: "agent-1" // default assign
+    assigned_agent_id: null // default assign removed since "agent-1" is not a valid UUID
   };
 
   const { data, error } = await (supabase.from('auto_leads') as any).insert([newLead]).select().single();
