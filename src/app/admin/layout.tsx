@@ -99,6 +99,29 @@ export default function AutoAdminLayout({
       setCurrentTheme(localStorage.getItem("crm-theme") || "light");
     }
 
+    // Force application of theme and zoom in case Next.js hydration or client navigation wiped it
+    const theme = localStorage.getItem("crm-theme") || "light";
+    setCurrentTheme(theme);
+    const pattern = localStorage.getItem("crm-bg-pattern") || "solid";
+    document.documentElement.className = "";
+    document.documentElement.classList.add("theme-" + theme);
+    if (pattern === "topography") {
+      document.documentElement.classList.add("bg-pattern-topography");
+    }
+
+    const zoom = localStorage.getItem("crm-zoom") || "100%";
+    const mapping: Record<string, string> = {
+      "75%": "75%",
+      "100%": "100%",
+      "125%": "125%",
+      "150%": "150%",
+      "175%": "175%",
+    };
+    const appliedZoom = mapping[zoom] || "100%";
+    document.documentElement.style.zoom = appliedZoom;
+    const scaleVal = parseFloat(appliedZoom) / 100;
+    document.documentElement.style.setProperty("--zoom-scale", scaleVal.toString());
+
     function handleNewNotification(event: any) {
       const { type, title, desc, link } = event.detail || {};
       const newNotif = {
@@ -173,6 +196,10 @@ export default function AutoAdminLayout({
               document.documentElement.className = '';
               document.documentElement.classList.add('theme-' + theme);
             }
+            var pattern = localStorage.getItem('crm-bg-pattern');
+            if (pattern === 'topography') {
+              document.documentElement.classList.add('bg-pattern-topography');
+            }
             var zoom = localStorage.getItem('crm-zoom') || '100%';
             var mapping = {
               '75%': '75%',
@@ -236,8 +263,8 @@ export default function AutoAdminLayout({
                     position: "fixed",
                     top: 0,
                     left: 0,
-                    right: 0,
-                    bottom: 0,
+                    width: "calc(100vw / var(--zoom-scale, 1))",
+                    height: "calc(100vh / var(--zoom-scale, 1))",
                     backgroundColor: "rgba(0, 0, 0, 0.22)",
                     backdropFilter: "blur(0.5px)",
                     zIndex: 190,
@@ -446,9 +473,13 @@ export default function AutoAdminLayout({
                   const nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length;
                   const nextTheme = themes[nextIndex];
                   localStorage.setItem('crm-theme', nextTheme);
-                  document.documentElement.className = '';
-                  document.documentElement.classList.add('theme-' + nextTheme);
-                  setCurrentTheme(nextTheme);
+                  const pattern = localStorage.getItem("crm-bg-pattern") || "solid";
+              document.documentElement.className = "";
+              document.documentElement.classList.add('theme-' + nextTheme);
+              if (pattern === "topography") {
+                document.documentElement.classList.add("bg-pattern-topography");
+              }
+              setCurrentTheme(nextTheme);
                 }}
                 title="Cambiar Tema"
                 style={{ cursor: "pointer" }}

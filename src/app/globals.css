@@ -46,16 +46,17 @@
 
 /* Temas Custom Habilitados por Usuario */
 .theme-light {
-  --bg-color: #ffffff;
-  --text-color: #111827;
-  --surface-color: #f9fafb;
-  --surface-hover: #f3f4f6;
-  --border-color: #e5e7eb;
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
-  --primary-light: #eff6ff;
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.5);
+  --bg-color: #0b0c10;
+  --text-color: #ffffff;
+  --text-muted: #888888;
+  --border-color: #1a1a24;
+  --sidebar-bg: #111116;
+  --card-bg: #111116;
+  --hover-bg: #1f2029;
+}
+
+.bg-pattern-topography {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='152' height='152' viewBox='0 0 152 152'%3E%3Cg fill-rule='evenodd'%3E%3Cg id='temple' fill='%239C92AC' fill-opacity='0.08'%3E%3Cpath d='M152 150v2H0v-2h28v-8H8v-20H0v-2h11v-4h-1v-2h1v-5h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
 
 .theme-dark-dim { /* Azul Oscuro Twitter */

@@ -42,6 +42,13 @@ export default function SettingsForm({ initialAgency }: SettingsFormProps) {
     return "100%";
   });
 
+  const [bgPattern, setBgPattern] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("crm-bg-pattern") || "solid";
+    }
+    return "solid";
+  });
+
   const handleSaveAgency = async (e: React.FormEvent) => {
     e.preventDefault();
     setSuccess(false);
@@ -68,6 +75,19 @@ export default function SettingsForm({ initialAgency }: SettingsFormProps) {
     localStorage.setItem("crm-theme", selectedTheme);
     document.documentElement.className = "";
     document.documentElement.classList.add("theme-" + selectedTheme);
+    if (bgPattern === "topography") {
+      document.documentElement.classList.add("bg-pattern-topography");
+    }
+  };
+
+  const handleApplyPattern = (selectedPattern: string) => {
+    setBgPattern(selectedPattern);
+    localStorage.setItem("crm-bg-pattern", selectedPattern);
+    if (selectedPattern === "topography") {
+      document.documentElement.classList.add("bg-pattern-topography");
+    } else {
+      document.documentElement.classList.remove("bg-pattern-topography");
+    }
   };
 
   const handleApplyZoom = (selectedZoom: string) => {
@@ -184,6 +204,47 @@ export default function SettingsForm({ initialAgency }: SettingsFormProps) {
               <option value="dark-dim">Tema Dim (Azul Twitter)</option>
               <option value="dark-black">Tema Black (Negro Total)</option>
             </select>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <label style={{ fontSize: "0.85rem", fontWeight: "600" }}>Fondo de Pantalla</label>
+            <div style={{ display: "flex", gap: "1rem" }}>
+              <div 
+                onClick={() => handleApplyPattern("solid")}
+                style={{ 
+                  flex: 1, 
+                  border: bgPattern === "solid" ? "2px solid var(--primary)" : "2px solid var(--border-color)", 
+                  borderRadius: "8px", 
+                  padding: "0.5rem", 
+                  cursor: "pointer", 
+                  display: "flex", 
+                  flexDirection: "column", 
+                  gap: "0.5rem",
+                  alignItems: "center"
+                }}
+              >
+                <div style={{ width: "100%", height: "60px", backgroundColor: "var(--bg-color)", borderRadius: "4px", border: "1px solid var(--border-color)" }} />
+                <span style={{ fontSize: "0.8rem", fontWeight: bgPattern === "solid" ? "600" : "400" }}>Sólido</span>
+              </div>
+              
+              <div 
+                onClick={() => handleApplyPattern("topography")}
+                style={{ 
+                  flex: 1, 
+                  border: bgPattern === "topography" ? "2px solid var(--primary)" : "2px solid var(--border-color)", 
+                  borderRadius: "8px", 
+                  padding: "0.5rem", 
+                  cursor: "pointer", 
+                  display: "flex", 
+                  flexDirection: "column", 
+                  gap: "0.5rem",
+                  alignItems: "center"
+                }}
+              >
+                <div className={bgPattern === "topography" ? "" : "bg-pattern-topography"} style={{ width: "100%", height: "60px", backgroundColor: "var(--bg-color)", borderRadius: "4px", border: "1px solid var(--border-color)" }} />
+                <span style={{ fontSize: "0.8rem", fontWeight: bgPattern === "topography" ? "600" : "400" }}>Topográfico</span>
+              </div>
+            </div>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
