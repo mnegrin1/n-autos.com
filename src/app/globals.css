@@ -46,18 +46,19 @@
 
 /* Temas Custom Habilitados por Usuario */
 .theme-light {
-  --bg-color: #0b0c10;
-  --text-color: #ffffff;
-  --text-muted: #888888;
-  --border-color: #1a1a24;
-  --sidebar-bg: #111116;
-  --card-bg: #111116;
-  --hover-bg: #1f2029;
+  --bg-color: #ffffff;
+  --text-color: #111827;
+  --surface-color: #f9fafb;
+  --surface-hover: #f3f4f6;
+  --border-color: #e5e7eb;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-light: #eff6ff;
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.5);
 }
 
-.bg-pattern-topography {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='152' height='152' viewBox='0 0 152 152'%3E%3Cg fill-rule='evenodd'%3E%3Cg id='temple' fill='%239C92AC' fill-opacity='0.08'%3E%3Cpath d='M152 150v2H0v-2h28v-8H8v-20H0v-2h11v-4h-1v-2h1v-5h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-5h3v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h2v-4h-2v-4h3v-5h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-1v-4h1v-4h-2v-4h1v-4h-1z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-}
+
 
 .theme-dark-dim { /* Azul Oscuro Twitter */
   --bg-color: #15202b;
@@ -85,20 +86,32 @@
   --glass-border: rgba(255, 255, 255, 0.08);
 }
 
-html, body {
+html {
   height: 100%;
   max-width: 100vw;
   overflow-x: hidden;
+  background-color: var(--bg-color);
+  transition: background-color 0.3s ease;
 }
 
 body {
-  background-color: var(--bg-color);
+  height: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  background-color: transparent;
   color: var(--text-color);
   font-family: var(--font-family);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.5;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition: color 0.3s ease;
+  position: relative;
+}
+
+@keyframes emerald-fluid {
+  0% { background-position: 0% 0%, 100% 0%, 50% 100%; }
+  50% { background-position: 100% 100%, 0% 50%, 50% 0%; }
+  100% { background-position: 0% 100%, 50% 100%, 100% 0%; }
 }
 
 * {
@@ -209,3 +222,64 @@ button {
   transform: scale(0.98);
 }
 
+
+
+
+
+/* --- TOPOGRAPHY PATTERN (Classic) --- */
+html.bg-pattern-topography {
+  background-color: var(--bg-color) !important;
+}
+
+html.bg-pattern-topography body {
+  background-color: transparent !important;
+  position: relative;
+}
+
+html.bg-pattern-topography body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: url('/mapa-topografico-optimizado.jpg');
+  background-size: cover;
+  background-position: center;
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+/* --- EMERALD FLUID PATTERN --- */
+html.bg-pattern-emerald {
+  background-color: #022c22 !important;
+}
+
+html.bg-pattern-emerald body {
+  background-color: transparent !important;
+  color: #ecfdf5 !important;
+}
+
+html.bg-pattern-emerald body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-image: 
+    radial-gradient(circle at 15% 50%, rgba(16, 185, 129, 0.25), transparent 45%),
+    radial-gradient(circle at 85% 30%, rgba(4, 120, 87, 0.3), transparent 45%),
+    radial-gradient(circle at 50% 80%, rgba(6, 78, 59, 0.25), transparent 50%);
+  animation: emerald-fluid 15s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+html.bg-pattern-emerald body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: url('/mapa-topografico-optimizado.jpg');
+  background-size: cover;
+  background-position: center;
+  opacity: 0.15;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}

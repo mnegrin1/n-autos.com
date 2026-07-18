@@ -199,6 +199,8 @@ export default function AutoAdminLayout({
             var pattern = localStorage.getItem('crm-bg-pattern');
             if (pattern === 'topography') {
               document.documentElement.classList.add('bg-pattern-topography');
+            } else if (pattern === 'emerald') {
+              document.documentElement.classList.add('bg-pattern-emerald');
             }
             var zoom = localStorage.getItem('crm-zoom') || '100%';
             var mapping = {

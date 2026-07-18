@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import styles from "./settings.module.css";
 import { updateAgencySettings } from "@/actions/agencyActions";
 import { Save, CheckCircle, Palette, HelpCircle } from "lucide-react";
@@ -28,26 +28,17 @@ export default function SettingsForm({ initialAgency }: SettingsFormProps) {
   const [success, setSuccess] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const [theme, setTheme] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("crm-theme") || "light";
-    }
-    return "light";
-  });
+  const [theme, setTheme] = useState("light");
+  const [zoom, setZoom] = useState("100%");
+  const [bgPattern, setBgPattern] = useState("solid");
+  const [mounted, setMounted] = useState(false);
 
-  const [zoom, setZoom] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("crm-zoom") || "100%";
-    }
-    return "100%";
-  });
-
-  const [bgPattern, setBgPattern] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("crm-bg-pattern") || "solid";
-    }
-    return "solid";
-  });
+  useEffect(() => {
+    setTheme(localStorage.getItem("crm-theme") || "light");
+    setZoom(localStorage.getItem("crm-zoom") || "100%");
+    setBgPattern(localStorage.getItem("crm-bg-pattern") || "solid");
+    setMounted(true);
+  }, []);
 
   const handleSaveAgency = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,16 +68,22 @@ export default function SettingsForm({ initialAgency }: SettingsFormProps) {
     document.documentElement.classList.add("theme-" + selectedTheme);
     if (bgPattern === "topography") {
       document.documentElement.classList.add("bg-pattern-topography");
+    } else if (bgPattern === "emerald") {
+      document.documentElement.classList.add("bg-pattern-emerald");
     }
   };
 
   const handleApplyPattern = (selectedPattern: string) => {
     setBgPattern(selectedPattern);
     localStorage.setItem("crm-bg-pattern", selectedPattern);
+    
+    document.documentElement.classList.remove("bg-pattern-topography");
+    document.documentElement.classList.remove("bg-pattern-emerald");
+    
     if (selectedPattern === "topography") {
       document.documentElement.classList.add("bg-pattern-topography");
-    } else {
-      document.documentElement.classList.remove("bg-pattern-topography");
+    } else if (selectedPattern === "emerald") {
+      document.documentElement.classList.add("bg-pattern-emerald");
     }
   };
 
@@ -193,75 +190,99 @@ export default function SettingsForm({ initialAgency }: SettingsFormProps) {
             <Palette size={16} /> Preferencias del Panel
           </h3>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-            <label style={{ fontSize: "0.85rem", fontWeight: "600" }}>Tema de Color</label>
-            <select
-              value={theme}
-              onChange={(e) => handleApplyTheme(e.target.value)}
-              style={{ padding: "0.75rem 1rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", fontSize: "0.9rem", cursor: "pointer" }}
-            >
-              <option value="light">Tema Claro (Azul)</option>
-              <option value="dark-dim">Tema Dim (Azul Twitter)</option>
-              <option value="dark-black">Tema Black (Negro Total)</option>
-            </select>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-            <label style={{ fontSize: "0.85rem", fontWeight: "600" }}>Fondo de Pantalla</label>
-            <div style={{ display: "flex", gap: "1rem" }}>
-              <div 
-                onClick={() => handleApplyPattern("solid")}
-                style={{ 
-                  flex: 1, 
-                  border: bgPattern === "solid" ? "2px solid var(--primary)" : "2px solid var(--border-color)", 
-                  borderRadius: "8px", 
-                  padding: "0.5rem", 
-                  cursor: "pointer", 
-                  display: "flex", 
-                  flexDirection: "column", 
-                  gap: "0.5rem",
-                  alignItems: "center"
-                }}
-              >
-                <div style={{ width: "100%", height: "60px", backgroundColor: "var(--bg-color)", borderRadius: "4px", border: "1px solid var(--border-color)" }} />
-                <span style={{ fontSize: "0.8rem", fontWeight: bgPattern === "solid" ? "600" : "400" }}>Sólido</span>
+          {!mounted ? (
+            <div style={{ opacity: 0.5, fontSize: "0.9rem", padding: "1rem 0" }}>Cargando preferencias...</div>
+          ) : (
+            <>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <label style={{ fontSize: "0.85rem", fontWeight: "600" }}>Tema de Color</label>
+                <select
+                  value={theme}
+                  onChange={(e) => handleApplyTheme(e.target.value)}
+                  style={{ padding: "0.75rem 1rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", fontSize: "0.9rem", cursor: "pointer" }}
+                >
+                  <option value="light">Tema Claro (Azul)</option>
+                  <option value="dark-dim">Tema Dim (Azul Twitter)</option>
+                  <option value="dark-black">Tema Black (Negro Total)</option>
+                </select>
               </div>
-              
-              <div 
-                onClick={() => handleApplyPattern("topography")}
-                style={{ 
-                  flex: 1, 
-                  border: bgPattern === "topography" ? "2px solid var(--primary)" : "2px solid var(--border-color)", 
-                  borderRadius: "8px", 
-                  padding: "0.5rem", 
-                  cursor: "pointer", 
-                  display: "flex", 
-                  flexDirection: "column", 
-                  gap: "0.5rem",
-                  alignItems: "center"
-                }}
-              >
-                <div className={bgPattern === "topography" ? "" : "bg-pattern-topography"} style={{ width: "100%", height: "60px", backgroundColor: "var(--bg-color)", borderRadius: "4px", border: "1px solid var(--border-color)" }} />
-                <span style={{ fontSize: "0.8rem", fontWeight: bgPattern === "topography" ? "600" : "400" }}>Topográfico</span>
-              </div>
-            </div>
-          </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-            <label style={{ fontSize: "0.85rem", fontWeight: "600" }}>Nivel de Zoom Visual</label>
-            <select
-              value={zoom}
-              onChange={(e) => handleApplyZoom(e.target.value)}
-              style={{ padding: "0.75rem 1rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", fontSize: "0.9rem", cursor: "pointer" }}
-            >
-              <option value="75%">Pequeño (75%)</option>
-              <option value="100%">Normal (100%)</option>
-              <option value="125%">Grande (125%)</option>
-              <option value="150%">Extra Grande (150%)</option>
-              <option value="175%">Máximo (175%)</option>
-            </select>
-            <span style={{ fontSize: "0.75rem", opacity: 0.5 }}>Ajusta el tamaño del panel para mayor comodidad de lectura.</span>
-          </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <label style={{ fontSize: "0.85rem", fontWeight: "600" }}>Fondo de Pantalla</label>
+              <div style={{ display: "flex", gap: "1rem" }}>
+                  <div 
+                    onClick={() => handleApplyPattern("solid")}
+                    style={{ 
+                      flex: 1, 
+                      border: bgPattern === "solid" ? "2px solid var(--primary)" : "2px solid var(--border-color)", 
+                      borderRadius: "8px", 
+                      padding: "0.5rem", 
+                      cursor: "pointer", 
+                      display: "flex", 
+                      flexDirection: "column", 
+                      gap: "0.5rem",
+                      alignItems: "center"
+                    }}
+                  >
+                    <div style={{ width: "100%", height: "60px", backgroundColor: "var(--bg-color)", borderRadius: "4px", border: "1px solid var(--border-color)" }} />
+                    <span style={{ fontSize: "0.8rem", fontWeight: bgPattern === "solid" ? "600" : "400", textAlign: "center" }}>Sólido</span>
+                  </div>
+                  
+                  <div 
+                    onClick={() => handleApplyPattern("topography")}
+                    style={{ 
+                      flex: 1, 
+                      border: bgPattern === "topography" ? "2px solid var(--primary)" : "2px solid var(--border-color)", 
+                      borderRadius: "8px", 
+                      padding: "0.5rem", 
+                      cursor: "pointer", 
+                      display: "flex", 
+                      flexDirection: "column", 
+                      gap: "0.5rem",
+                      alignItems: "center"
+                    }}
+                  >
+                    <div className={bgPattern === "topography" ? "" : "bg-pattern-topography"} style={{ width: "100%", height: "60px", backgroundColor: "var(--bg-color)", borderRadius: "4px", border: "1px solid var(--border-color)" }} />
+                    <span style={{ fontSize: "0.8rem", fontWeight: bgPattern === "topography" ? "600" : "400", textAlign: "center" }}>Topográfico Clásico</span>
+                  </div>
+
+                  <div 
+                    onClick={() => handleApplyPattern("emerald")}
+                    style={{ 
+                      flex: 1, 
+                      border: bgPattern === "emerald" ? "2px solid var(--primary)" : "2px solid var(--border-color)", 
+                      borderRadius: "8px", 
+                      padding: "0.5rem", 
+                      cursor: "pointer", 
+                      display: "flex", 
+                      flexDirection: "column", 
+                      gap: "0.5rem",
+                      alignItems: "center"
+                    }}
+                  >
+                    <div className={bgPattern === "emerald" ? "" : "bg-pattern-emerald"} style={{ width: "100%", height: "60px", backgroundColor: "#022c22", borderRadius: "4px", border: "1px solid var(--border-color)" }} />
+                    <span style={{ fontSize: "0.8rem", fontWeight: bgPattern === "emerald" ? "600" : "400", textAlign: "center" }}>Esmeralda Fluido</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <label style={{ fontSize: "0.85rem", fontWeight: "600" }}>Nivel de Zoom Visual</label>
+                <select
+                  value={zoom}
+                  onChange={(e) => handleApplyZoom(e.target.value)}
+                  style={{ padding: "0.75rem 1rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", fontSize: "0.9rem", cursor: "pointer" }}
+                >
+                  <option value="75%">Pequeño (75%)</option>
+                  <option value="100%">Normal (100%)</option>
+                  <option value="125%">Grande (125%)</option>
+                  <option value="150%">Extra Grande (150%)</option>
+                  <option value="175%">Máximo (175%)</option>
+                </select>
+                <span style={{ fontSize: "0.75rem", opacity: 0.5 }}>Ajusta el tamaño del panel para mayor comodidad de lectura.</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
