@@ -15,6 +15,8 @@ export default function ZoomScript() {
       };
       const appliedZoom = mapping[zoom === "100__" ? "100%" : (zoom || "100%")] || "100__";
       document.documentElement.style.zoom = appliedZoom === "100__" ? "100%" : appliedZoom;
+      const scaleVal = parseFloat(appliedZoom === "100__" ? "100%" : appliedZoom) / 100;
+      document.documentElement.style.setProperty("--zoom-scale", scaleVal.toString());
     } catch (e) {
       // ignorar errores de localStorage
     }
