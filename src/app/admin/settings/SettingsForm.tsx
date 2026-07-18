@@ -85,8 +85,6 @@ export default function SettingsForm({ initialAgency }: SettingsFormProps) {
     const appliedZoom = mapping[selectedZoom] || "100%";
     if (typeof document !== "undefined") {
       document.documentElement.style.zoom = appliedZoom;
-      const scaleVal = parseFloat(appliedZoom) / 100;
-      document.documentElement.style.setProperty("--zoom-scale", scaleVal.toString());
     }
   };
 

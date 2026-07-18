@@ -1,8 +1,9 @@
 .adminContainer {
   display: flex;
-  min-height: calc(100vh / var(--zoom-scale, 1));
-  width: calc(100vw / var(--zoom-scale, 1));
+  height: 100vh;
+  width: 100vw;
   background-color: var(--bg-color);
+  overflow: hidden;
 }
 
 .sidebar {

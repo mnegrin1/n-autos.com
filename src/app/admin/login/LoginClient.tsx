@@ -54,8 +54,6 @@ export default function LoginClient() {
             };
             var appliedZoom = mapping[zoom] || '100%';
             document.documentElement.style.zoom = appliedZoom;
-            var scaleVal = parseFloat(appliedZoom) / 100;
-            document.documentElement.style.setProperty('--zoom-scale', scaleVal);
           } catch (e) {}
         })();
       ` }} />
