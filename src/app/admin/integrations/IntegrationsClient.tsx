@@ -35,7 +35,7 @@ interface Integrations {
 }
 
 interface Publication {
-  id: string;
+  id?: string;
   vehicle_id: string;
   channel: 'mercadolibre' | 'facebook' | 'instagram';
   status: 'published' | 'pending' | 'failed';
@@ -381,7 +381,7 @@ export default function IntegrationsClient({
                 {publications.map(p => {
                   const vehicle = vehicles.find(v => v.id === p.vehicle_id);
                   return (
-                    <tr key={p.id}>
+                    <tr key={p.id || p.external_id || Math.random().toString()}>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                           {vehicle?.images && vehicle.images.length > 0 ? (
