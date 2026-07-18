@@ -1,6 +1,7 @@
 .adminContainer {
   display: flex;
-  height: 100vh;
+  min-height: calc(100vh / var(--zoom-scale, 1));
+  width: calc(100vw / var(--zoom-scale, 1));
   background-color: var(--bg-color);
 }
 
