@@ -22,48 +22,37 @@
   opacity: 0.7;
 }
 
-.kanbanBoard {
+.searchContainer {
+  margin-bottom: 1.5rem;
   display: flex;
-  gap: 1.5rem;
-  overflow-x: auto;
-  flex: 1;
-  padding-bottom: 1rem;
-}
-
-.kanbanColumn {
-  flex: 0 0 300px;
-  background-color: var(--bg-color);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  box-shadow: var(--shadow-sm);
-}
-
-.columnHeader {
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  justify-content: space-between;
   align-items: center;
   background-color: var(--surface-color);
-  border-radius: 12px 12px 0 0;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
 }
 
-.columnHeader h3 {
-  font-size: 1rem;
-  font-weight: 600;
+.searchInput {
+  border: none;
+  background: transparent;
+  width: 100%;
+  padding: 0.5rem;
   color: var(--text-color);
+  font-size: 0.95rem;
 }
 
-.leadCount {
-  background-color: var(--primary-light);
-  color: var(--primary);
-  padding: 0.2rem 0.6rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 700;
+.searchInput:focus {
+  outline: none;
 }
+
+.contactsList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  overflow-y: auto;
+  padding-bottom: 2rem;
+}
+
 
 .leadsList {
   padding: 1rem;
@@ -77,15 +66,12 @@
 .leadCard {
   background-color: var(--surface-color);
   border: 1px solid var(--border-color);
-  padding: 1rem;
-  border-radius: 8px;
-  cursor: grab;
+  padding: 1.25rem;
+  border-radius: 12px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   box-shadow: var(--shadow-sm);
-}
-
-.leadCard:active {
-  cursor: grabbing;
+  display: flex;
+  flex-direction: column;
 }
 
 .leadCard:hover {
@@ -145,18 +131,6 @@
   padding-top: 0.5rem;
 }
 
-/* Drag & Drop dynamic styling */
-.leadsList.draggedOver {
-  background-color: var(--primary-light);
-  border: 2px dashed rgba(37, 99, 235, 0.4);
-  border-radius: 8px;
-  min-height: 100px;
-}
-
-.leadCard.isDragging {
-  opacity: 0.4;
-  border-style: dashed;
-}
 
 /* Lead click and detail badge styling */
 .leadNameLink {

@@ -272,18 +272,6 @@ html.bg-pattern-gradient body::before {
   pointer-events: none;
 }
 
-html.bg-pattern-gradient body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background-image: url('/mapa-topografico-optimizado.jpg');
-  background-size: cover;
-  background-position: center;
-  opacity: 0.15;
-  mix-blend-mode: overlay;
-  pointer-events: none;
-}
 
 @keyframes fluid-gradient {
   0% { background-position: 0% 0%, 100% 0%, 50% 100%; }

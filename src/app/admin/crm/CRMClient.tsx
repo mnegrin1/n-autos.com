@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect } from "react";
 import styles from "./crm.module.css";
 import { updateAutoLeadStatus, deleteAutoLead, createAutoLead } from "@/actions/autoActions";
 import { getVehicles } from "@/actions/autoActions";
-import { Phone, Mail, User, Plus, Trash2, Calendar, MessageSquare, X } from "lucide-react";
+import { Phone, Mail, User, Plus, Trash2, Calendar, MessageSquare, X, Search } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 
 interface Lead {
@@ -35,13 +35,6 @@ interface CRMClientProps {
   currentUser: any;
 }
 
-const columns = [
-  { title: "Nuevos Leads", status: "nuevo" as const },
-  { title: "Contactados", status: "contactado" as const },
-  { title: "Test Drive", status: "test_drive" as const },
-  { title: "Negociación", status: "negociacion" as const },
-  { title: "Cerrados / Vendidos", status: "cerrado" as const },
-];
 
 export default function CRMClient({ initialLeads, initialAgents, currentUser }: CRMClientProps) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
@@ -57,8 +50,8 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
     tags: [] as string[],
   });
   const [tagInput, setTagInput] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const searchParams = useSearchParams();
@@ -105,19 +98,6 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
       ...prev,
       tags: prev.tags.filter(t => t !== tagToRemove)
     }));
-  };
-
-  const handleStatusChange = async (leadId: string, nextStatus: Lead["status"]) => {
-    // Optimistic UI update
-    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, status: nextStatus } : l));
-    
-    // Server action
-    const res = await updateAutoLeadStatus(leadId, nextStatus);
-    if (!res.success) {
-      alert("Error al actualizar estado del lead en el servidor");
-      // Revert if error
-      setLeads(initialLeads);
-    }
   };
 
   const handleDeleteLead = async (leadId: string) => {
@@ -169,22 +149,17 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
     });
   };
 
-  // Drag and drop event handlers
-  const handleDragStart = (id: string) => {
-    setDraggedLeadId(id);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
-  const handleDrop = (e: React.DragEvent, status: Lead["status"]) => {
-    e.preventDefault();
-    if (draggedLeadId) {
-      handleStatusChange(draggedLeadId, status);
-      setDraggedLeadId(null);
-    }
-  };
+  const filteredLeads = leads.filter(lead => {
+    if (!searchTerm) return true;
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      lead.name.toLowerCase().includes(searchLower) ||
+      (lead.email && lead.email.toLowerCase().includes(searchLower)) ||
+      (lead.phone && lead.phone.toLowerCase().includes(searchLower)) ||
+      (lead.vehicle && lead.vehicle.toLowerCase().includes(searchLower)) ||
+      (lead.tags && lead.tags.some(tag => tag.toLowerCase().includes(searchLower)))
+    );
+  });
 
   return (
     <div className={styles.crmContainer}>
@@ -198,103 +173,83 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
         </button>
       </div>
 
-      <div className={styles.kanbanBoard}>
-        {columns.map((col) => {
-          const colLeads = leads.filter(l => l.status === col.status);
-          
-          return (
-            <div 
-              key={col.status} 
-              className={styles.kanbanColumn}
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, col.status)}
-            >
-              <div className={styles.columnHeader}>
-                <h3>{col.title}</h3>
-                <span className={styles.leadCount} style={{ backgroundColor: "rgba(16, 185, 129, 0.1)", color: "#10b981" }}>
-                  {colLeads.length}
-                </span>
-              </div>
+      <div className={styles.searchContainer}>
+        <Search size={18} color="var(--text-color)" style={{ opacity: 0.5 }} />
+        <input 
+          type="text" 
+          placeholder="Buscar por nombre, correo, vehículo o etiqueta..."
+          className={styles.searchInput}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
 
-              <div className={styles.leadsList}>
-                {colLeads.map((lead) => (
-                  <div
-                    key={lead.id}
-                    className={styles.leadCard}
-                    draggable
-                    onDragStart={() => handleDragStart(lead.id)}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <h4 className={styles.leadNameLink}>{lead.name}</h4>
-                      <button 
-                        onClick={() => handleDeleteLead(lead.id)}
-                        style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", opacity: 0.7 }}
-                        title="Eliminar lead"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
+      <div className={styles.contactsList}>
+        {filteredLeads.map((lead) => (
+          <div
+            key={lead.id}
+            className={styles.leadCard}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <h4 className={styles.leadNameLink}>{lead.name}</h4>
+              <button 
+                onClick={() => handleDeleteLead(lead.id)}
+                style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", opacity: 0.7 }}
+                title="Eliminar lead"
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
 
-                    <div className={styles.leadProperty} style={{ color: "#10b981", fontWeight: "600", fontSize: "0.85rem", marginTop: "0.25rem" }}>
-                      {lead.vehicle !== "Sin vehículo" ? `🚗 ${lead.vehicle}` : "👤 Contacto general"}
-                    </div>
+            <div className={styles.leadProperty} style={{ color: "#10b981", fontWeight: "600", fontSize: "0.85rem", marginTop: "0.25rem" }}>
+              {lead.vehicle !== "Sin vehículo" ? `🚗 ${lead.vehicle}` : "👤 Contacto general"}
+            </div>
 
-                    {lead.tags && lead.tags.length > 0 && (
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem", marginTop: "0.5rem" }}>
-                        {lead.tags.map(tag => (
-                          <span key={tag} style={{ backgroundColor: "rgba(16, 185, 129, 0.1)", color: "#10b981", padding: "0.1rem 0.4rem", borderRadius: "4px", fontSize: "0.65rem", fontWeight: "600" }}>
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    {lead.message && (
-                      <p style={{ fontSize: "0.8rem", margin: "0.5rem 0", opacity: 0.8, lineBreak: "anywhere" }}>
-                        "{lead.message}"
-                      </p>
-                    )}
-
-                    <div className={styles.leadContactDetails}>
-                      {lead.phone && (
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.75rem", opacity: 0.7 }}>
-                          <Phone size={10} />
-                          <span>{lead.phone}</span>
-                        </div>
-                      )}
-                      {lead.email && (
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.75rem", opacity: 0.7 }}>
-                          <Mail size={10} />
-                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lead.email}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <select
-                      className={styles.statusSelect}
-                      value={lead.status}
-                      onChange={(e) => handleStatusChange(lead.id, e.target.value as any)}
-                    >
-                      <option value="nuevo">Nuevo</option>
-                      <option value="contactado">Contactado</option>
-                      <option value="test_drive">Test Drive</option>
-                      <option value="negociacion">Negociación</option>
-                      <option value="cerrado">Cerrado/Vendido</option>
-                    </select>
-
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "0.75rem" }}>
-                      <span className={styles.agentBadge}>
-                        <User size={10} />
-                        <span>Asignado</span>
-                      </span>
-                      <span className={styles.leadTime}>{lead.time || "Ahora"}</span>
-                    </div>
-                  </div>
+            {lead.tags && lead.tags.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem", marginTop: "0.5rem" }}>
+                {lead.tags.map(tag => (
+                  <span key={tag} style={{ backgroundColor: "rgba(16, 185, 129, 0.1)", color: "#10b981", padding: "0.1rem 0.4rem", borderRadius: "4px", fontSize: "0.65rem", fontWeight: "600" }}>
+                    {tag}
+                  </span>
                 ))}
               </div>
+            )}
+
+            {lead.message && (
+              <p style={{ fontSize: "0.8rem", margin: "0.5rem 0", opacity: 0.8, lineBreak: "anywhere" }}>
+                "{lead.message}"
+              </p>
+            )}
+
+            <div className={styles.leadContactDetails}>
+              {lead.phone && (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.75rem", opacity: 0.7 }}>
+                  <Phone size={10} />
+                  <span>{lead.phone}</span>
+                </div>
+              )}
+              {lead.email && (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.75rem", opacity: 0.7 }}>
+                  <Mail size={10} />
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lead.email}</span>
+                </div>
+              )}
             </div>
-          );
-        })}
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto", paddingTop: "0.75rem" }}>
+              <span className={styles.agentBadge}>
+                <User size={10} />
+                <span>Asignado</span>
+              </span>
+              <span className={styles.leadTime}>{lead.time || "Ahora"}</span>
+            </div>
+          </div>
+        ))}
+        {filteredLeads.length === 0 && (
+          <div style={{ padding: "2rem", textAlign: "center", opacity: 0.5, gridColumn: "1 / -1" }}>
+            No se encontraron contactos.
+          </div>
+        )}
       </div>
 
       {/* Add Lead Modal */}
