@@ -1031,6 +1031,7 @@ export async function importSelectedMLListings(selectedItems: any[]) {
       } catch(e) {}
 
       syncedPubs.push({
+        id: crypto.randomUUID(),
         agency_id: "00000000-0000-0000-0000-000000000000",
         vehicle_id: matchingVehicle.id,
         channel: 'mercadolibre',
@@ -1360,6 +1361,7 @@ export async function importSocialPost(channel: 'facebook' | 'instagram', postDa
 
   // Crear la publicación en base de datos
   const newPub = {
+    id: crypto.randomUUID(),
     agency_id: "00000000-0000-0000-0000-000000000000",
     vehicle_id: newVehicle.id,
     channel: channel,
