@@ -8,10 +8,21 @@ export async function login(email: string, password?: string) {
     return { success: false, error: "El correo electrónico es requerido." };
   }
 
-  const { data: user, error } = await (supabase.from("users") as any)
+  let { data: user, error } = await (supabase.from("users") as any)
     .select("*")
     .ilike("email", email)
     .maybeSingle();
+
+  // Fallback para el usuario de demostración
+  if ((error || !user) && email.toLowerCase() === "mauricio@automotora.com") {
+    user = {
+      id: "demo-user-id",
+      email: "mauricio@automotora.com",
+      name: "Mauricio Negrin",
+      role: "admin",
+    };
+    error = null;
+  }
 
   if (error || !user) {
     return { success: false, error: "El usuario no existe." };

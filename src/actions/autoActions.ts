@@ -518,7 +518,7 @@ export async function getVehiclePublications() {
 }
 
 // Helper to refresh MercadoLibre Access Token
-export async function refreshMLToken() {
+export async function refreshMLToken(force: boolean = false) {
   const integrations = await getIntegrations();
   const ml = integrations.mercadolibre;
 
@@ -531,10 +531,14 @@ export async function refreshMLToken() {
     return ml.token || null;
   }
 
+
   const expiresAt = ml.expires_at || 0;
-  if (Date.now() < expiresAt - 5 * 60 * 1000) {
+  
+  // Si NO estamos forzando y el token aún tiene más de 5 minutos de vida, lo usamos
+  if (!force && Date.now() < expiresAt - 5 * 60 * 1000) {
     return ml.token || null;
   }
+
 
   try {
     console.log("Renovando Access Token de MercadoLibre en Supabase...");
@@ -848,14 +852,28 @@ export async function syncMercadoLibreListings() {
   }
 
   if (ml.mode === 'production') {
-    const token = await refreshMLToken();
+    let token = await refreshMLToken();
     if (!token) return { success: false, error: "No se pudo renovar token de MercadoLibre" };
 
     try {
-      const userRes = await fetch("https://api.mercadolibre.com/users/me", {
+      let userRes = await fetch("https://api.mercadolibre.com/users/me", {
         headers: { "Authorization": `Bearer ${token}` },
         cache: 'no-store'
       });
+      
+      // === NUEVO: Interceptar token inválido ===
+      if (userRes.status === 401) {
+          console.log("Token de ML rechazado. Forzando renovación automática...");
+          token = await refreshMLToken(true); // Forzamos la renovación
+          if (!token) throw new Error("Token expirado y no se pudo renovar");
+          
+          // Reintentamos la petición con el nuevo token
+          userRes = await fetch("https://api.mercadolibre.com/users/me", {
+            headers: { "Authorization": `Bearer ${token}` },
+            cache: 'no-store'
+          });
+      }
+
       const userData = await userRes.json();
       if (!userRes.ok) throw new Error(userData.message || "Error obteniendo perfil");
 
