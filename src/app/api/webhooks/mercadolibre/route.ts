@@ -39,10 +39,8 @@ export async function POST(request: Request) {
 
         if (fetchRes.ok) {
           const data = await fetchRes.json();
-          // Dependiendo del tópico, el campo de texto puede llamarse distinto
           const text = topic === "questions" ? data.text : (data.text || data.text_plain || "Mensaje recibido");
           const senderId = topic === "questions" ? data.from.id.toString() : (data.from?.user_id?.toString() || data.from?.id?.toString() || "ML_User");
-
           const channel = "mercadolibre";
 
           const { data: existingConvs } = await (supabase as any)
@@ -94,6 +92,9 @@ export async function POST(request: Request) {
             }).eq("id", conversation.id);
           }
           console.log(`Evento de MercadoLibre (${topic}) guardado en el CRM.`);
+        } else {
+          const errData = await fetchRes.json().catch(() => null);
+          console.error("Error al obtener recurso de MercadoLibre en webhook:", errData || fetchRes.statusText);
         }
       }
     }

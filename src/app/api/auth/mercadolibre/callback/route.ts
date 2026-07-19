@@ -61,20 +61,38 @@ export async function GET(request: Request) {
 
     // 2. Guardar las credenciales en Supabase auto_integrations
     const { supabase } = await import("@/lib/supabase");
-    const { error: supaError } = await (supabase.from("auto_integrations") as any)
-      .upsert({
-        channel: "mercadolibre",
-        agency_id: "00000000-0000-0000-0000-000000000000",
-        connected: true,
-        username: username,
-        token: token,
-        refresh_token: refreshToken,
-        expires_at: expiresAt,
-        mode: "production",
-        settings: { user_id: data.user_id },
-        updated_at: new Date().toISOString()
-      }, { onConflict: "channel" });
-      
+    
+    // Primero intentamos buscar si ya existe la integración
+    const { data: existing } = await (supabase.from("auto_integrations") as any)
+      .select("id")
+      .eq("channel", "mercadolibre")
+      .eq("agency_id", "00000000-0000-0000-0000-000000000000")
+      .single();
+
+    const payload = {
+      channel: "mercadolibre",
+      agency_id: "00000000-0000-0000-0000-000000000000",
+      connected: true,
+      username: username,
+      token: token,
+      refresh_token: refreshToken,
+      expires_at: expiresAt,
+      mode: "production",
+      updated_at: new Date().toISOString()
+    };
+
+    let supaError;
+    if (existing) {
+      const { error } = await (supabase.from("auto_integrations") as any)
+        .update(payload)
+        .eq("id", existing.id);
+      supaError = error;
+    } else {
+      const { error } = await (supabase.from("auto_integrations") as any)
+        .insert([payload]);
+      supaError = error;
+    }
+
     if (supaError) {
       console.error("Error saving ML integration to Supabase:", supaError);
       throw new Error("Error al guardar integración en base de datos.");
