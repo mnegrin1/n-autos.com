@@ -1,6 +1,7 @@
 "use server";
 
 import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { revalidatePath } from "next/cache";
 import { vehicleSchema, autoLeadSchema } from "@/lib/schemas";
 
@@ -53,7 +54,7 @@ async function saveUploadedFiles(files: any[]): Promise<{ images: string[], vide
 }
 
 export async function getVehicles(agencyId: string) {
-  const { data, error } = await (supabase.from('vehicles') as any).select('*').eq('agency_id', agencyId);
+  const { data, error } = await (supabaseAdmin.from('vehicles') as any).select('*').eq('agency_id', agencyId);
   if (error) {
     console.error("Error fetching vehicles:", error);
     return [];
@@ -62,7 +63,7 @@ export async function getVehicles(agencyId: string) {
 }
 
 export async function getVehicleById(vehicleId: string) {
-  const { data, error } = await (supabase.from('vehicles') as any).select('*').eq('id', vehicleId).single();
+  const { data, error } = await (supabaseAdmin.from('vehicles') as any).select('*').eq('id', vehicleId).single();
   if (error) {
     console.error("Error fetching vehicle by id:", error);
     return null;
@@ -155,7 +156,7 @@ export async function createVehicle(formData: FormData) {
     youtube_videos: youtubeVideosField,
   };
 
-  const { data, error } = await (supabase.from('vehicles') as any).insert([newVehicle]).select().single();
+  const { data, error } = await (supabaseAdmin.from('vehicles') as any).insert([newVehicle]).select().single();
   if (error) {
     console.error("Error creating vehicle:", error);
     return { success: false, error: "Failed to create vehicle" };
@@ -170,7 +171,7 @@ export async function createVehicle(formData: FormData) {
 }
 
 export async function updateVehicle(vehicleId: string, formData: FormData) {
-  const { data: existingVehicle, error: fetchError } = await (supabase.from('vehicles') as any).select('*').eq('id', vehicleId).single();
+  const { data: existingVehicle, error: fetchError } = await (supabaseAdmin.from('vehicles') as any).select('*').eq('id', vehicleId).single();
   if (fetchError || !existingVehicle) {
     return { success: false, error: "Vehículo no encontrado" };
   }
@@ -273,7 +274,7 @@ export async function updateVehicle(vehicleId: string, formData: FormData) {
     youtube_videos: youtubeVideosField,
   };
 
-  const { data: updatedVehicle, error: updateError } = await (supabase.from('vehicles') as any)
+  const { data: updatedVehicle, error: updateError } = await (supabaseAdmin.from('vehicles') as any)
     .update(updatePayload)
     .eq('id', vehicleId)
     .select()
@@ -293,7 +294,7 @@ export async function updateVehicle(vehicleId: string, formData: FormData) {
 }
 
 export async function deleteVehicle(vehicleId: string) {
-  const { error } = await (supabase.from('vehicles') as any).delete().eq('id', vehicleId);
+  const { error } = await (supabaseAdmin.from('vehicles') as any).delete().eq('id', vehicleId);
   if (error) {
     return { success: false, error: "Vehículo no encontrado o no se pudo eliminar" };
   }
@@ -306,7 +307,7 @@ export async function deleteVehicle(vehicleId: string) {
 }
 
 export async function getAutoLeads(agencyId: string) {
-  const { data, error } = await (supabase.from('auto_leads') as any).select('*').eq('agency_id', agencyId);
+  const { data, error } = await (supabaseAdmin.from('auto_leads') as any).select('*').eq('agency_id', agencyId);
   if (error) {
     console.error("Error fetching leads:", error);
     return [];
@@ -339,7 +340,7 @@ export async function createAutoLead(lead: {
     created_at: new Date().toISOString()
   };
 
-  const { error } = await (supabase.from('auto_leads') as any).insert([newLead]);
+  const { error } = await (supabaseAdmin.from('auto_leads') as any).insert([newLead]);
   if (error) {
     console.error("Error creating auto lead:", error);
     return { success: false, error: error.message || "Error creating lead" };
@@ -352,7 +353,7 @@ export async function createAutoLead(lead: {
 }
 
 export async function updateAutoLeadStatus(leadId: string, status: string) {
-  const { data, error } = await (supabase.from('auto_leads') as any)
+  const { data, error } = await (supabaseAdmin.from('auto_leads') as any)
     .update({ status })
     .eq('id', leadId)
     .select()
@@ -369,7 +370,7 @@ export async function updateAutoLeadStatus(leadId: string, status: string) {
 }
 
 export async function deleteAutoLead(leadId: string) {
-  const { error } = await (supabase.from('auto_leads') as any).delete().eq('id', leadId);
+  const { error } = await (supabaseAdmin.from('auto_leads') as any).delete().eq('id', leadId);
   if (error) {
     return { success: false, error: "Lead no encontrado" };
   }
@@ -381,8 +382,8 @@ export async function deleteAutoLead(leadId: string) {
 }
 
 export async function getAutoStats(agencyId: string) {
-  const { data: agencyVehicles } = await (supabase.from('vehicles') as any).select('status').eq('agency_id', agencyId);
-  const { data: agencyLeads } = await (supabase.from('auto_leads') as any).select('status').eq('agency_id', agencyId);
+  const { data: agencyVehicles } = await (supabaseAdmin.from('vehicles') as any).select('status').eq('agency_id', agencyId);
+  const { data: agencyLeads } = await (supabaseAdmin.from('auto_leads') as any).select('status').eq('agency_id', agencyId);
   
   const vehiclesList = agencyVehicles || [];
   const leadsList = agencyLeads || [];
@@ -429,7 +430,7 @@ export async function getIntegrations() {
   };
 
   try {
-    const { data, error } = await (supabase.from("auto_integrations") as any)
+    const { data, error } = await (supabaseAdmin.from("auto_integrations") as any)
       .select("*")
       .eq("agency_id", "00000000-0000-0000-0000-000000000000");
       
@@ -490,7 +491,7 @@ export async function updateIntegration(
   }
 
   try {
-    await (supabase.from("auto_integrations") as any).upsert({
+    await (supabaseAdmin.from("auto_integrations") as any).upsert({
       channel,
       agency_id: "00000000-0000-0000-0000-000000000000",
       connected,
@@ -513,7 +514,7 @@ export async function updateIntegration(
 }
 
 export async function getVehiclePublications() {
-  const { data, error } = await (supabase.from("auto_vehicle_publications") as any).select("*");
+  const { data, error } = await (supabaseAdmin.from("auto_vehicle_publications") as any).select("*");
   if (error) {
     console.error("Error reading vehicle publications from Supabase", error);
     return [];
@@ -563,7 +564,7 @@ export async function refreshMLToken(force: boolean = false) {
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || "Error al refrescar token");
 
-    await (supabase.from("auto_integrations") as any).update({
+    await (supabaseAdmin.from("auto_integrations") as any).update({
       token: data.access_token,
       refresh_token: data.refresh_token,
       expires_at: Date.now() + (data.expires_in * 1000),
@@ -582,15 +583,13 @@ export async function publishVehicle(
   channel: 'mercadolibre' | 'facebook' | 'instagram'
 ) {
   // 1. Verificar si ya existe en Supabase
-  const { data: existingPubs } = await (supabase
-    .from("auto_vehicle_publications") as any)
+  const { data: existingPubs } = await (supabaseAdmin.from("auto_vehicle_publications") as any)
     .select("*")
     .eq("vehicle_id", vehicleId)
     .eq("channel", channel);
 
   if (existingPubs && existingPubs.length > 0) {
-    await (supabase
-      .from("auto_vehicle_publications") as any)
+    await (supabaseAdmin.from("auto_vehicle_publications") as any)
       .update({ status: 'published' })
       .eq("id", existingPubs[0].id);
     
@@ -696,7 +695,7 @@ export async function publishVehicle(
         published_at: new Date().toISOString()
       };
 
-      await (supabase.from("auto_vehicle_publications") as any).insert([newPub]);
+      await (supabaseAdmin.from("auto_vehicle_publications") as any).insert([newPub]);
       
       revalidatePath("/admin/integrations");
       return { success: true, data: newPub };
@@ -756,7 +755,7 @@ export async function publishVehicle(
         published_at: new Date().toISOString()
       };
 
-      await (supabase.from("auto_vehicle_publications") as any).insert([newPub]);
+      await (supabaseAdmin.from("auto_vehicle_publications") as any).insert([newPub]);
       revalidatePath("/admin/integrations");
       return { success: true, data: newPub };
     } catch (err: any) {
@@ -824,7 +823,7 @@ export async function publishVehicle(
         published_at: new Date().toISOString()
       };
 
-      await (supabase.from("auto_vehicle_publications") as any).insert([newPub]);
+      await (supabaseAdmin.from("auto_vehicle_publications") as any).insert([newPub]);
       revalidatePath("/admin/integrations");
       return { success: true, data: newPub };
     } catch (err: any) {
@@ -837,8 +836,7 @@ export async function publishVehicle(
 }
 
 export async function unpublishVehicle(vehicleId: string, channel: 'mercadolibre' | 'facebook' | 'instagram') {
-  await (supabase
-    .from("auto_vehicle_publications") as any)
+  await (supabaseAdmin.from("auto_vehicle_publications") as any)
     .delete()
     .eq("vehicle_id", vehicleId)
     .eq("channel", channel);
@@ -1003,7 +1001,7 @@ export async function importSelectedMLListings(selectedItems: any[]) {
         };
         
         delete (matchingVehicle as any).id;
-        const { data, error } = await (supabase.from('vehicles') as any).insert([matchingVehicle]).select().single();
+        const { data, error } = await (supabaseAdmin.from('vehicles') as any).insert([matchingVehicle]).select().single();
         if (error) {
           console.error("Error al insertar vehículo:", error, matchingVehicle);
           throw new Error(`Error de Supabase: ${error.message} | Payload: ${JSON.stringify(matchingVehicle).substring(0, 150)}...`);
@@ -1050,7 +1048,7 @@ export async function importSelectedMLListings(selectedItems: any[]) {
     }
 
     for (const pub of syncedPubs) {
-      const { error: pubError } = await (supabase.from("auto_vehicle_publications") as any).upsert(pub, { onConflict: "vehicle_id, channel" });
+      const { error: pubError } = await (supabaseAdmin.from("auto_vehicle_publications") as any).upsert(pub, { onConflict: "vehicle_id, channel" });
       if (pubError) {
          console.error("Error upserting publication:", pubError, pub);
          throw new Error(`Error al guardar publicación: ${pubError.message} | Payload: ${JSON.stringify(pub).substring(0, 150)}...`);
@@ -1070,7 +1068,7 @@ export async function importSelectedMLListings(selectedItems: any[]) {
 // ==========================================
 
 export async function getInboxConversations() {
-  const { data: dbConvs } = await (supabase.from('inbox_conversations') as any).select('*');
+  const { data: dbConvs } = await (supabaseAdmin.from('inbox_conversations') as any).select('*');
   let conversations = dbConvs || [];
 
   try {
@@ -1239,7 +1237,7 @@ export async function sendInboxMessage(conversationId: string, text: string) {
     }
   }
 
-  const { data: conversation, error: fetchErr } = await (supabase.from('inbox_conversations') as any).select('*').eq('id', conversationId).single();
+  const { data: conversation, error: fetchErr } = await (supabaseAdmin.from('inbox_conversations') as any).select('*').eq('id', conversationId).single();
   if (fetchErr || !conversation) {
     return { success: false, error: "Conversación no encontrada" };
   }
@@ -1256,7 +1254,7 @@ export async function sendInboxMessage(conversationId: string, text: string) {
   };
 
   const newMessages = [...(conversation.messages || []), newMsg];
-  const { data: updatedConv, error: updateErr } = await (supabase.from('inbox_conversations') as any)
+  const { data: updatedConv, error: updateErr } = await (supabaseAdmin.from('inbox_conversations') as any)
     .update({ messages: newMessages, last_message: text, last_message_time: timeStr, unread: false })
     .eq('id', conversationId)
     .select()
@@ -1274,7 +1272,7 @@ export async function sendInboxMessage(conversationId: string, text: string) {
 }
 
 export async function simulateLeadReply(conversationId: string, agentMessageText: string) {
-  const { data: conversation, error: fetchErr } = await (supabase.from('inbox_conversations') as any).select('*').eq('id', conversationId).single();
+  const { data: conversation, error: fetchErr } = await (supabaseAdmin.from('inbox_conversations') as any).select('*').eq('id', conversationId).single();
   if (fetchErr || !conversation) {
     return { success: false, error: "Conversación no encontrada" };
   }
@@ -1305,7 +1303,7 @@ export async function simulateLeadReply(conversationId: string, agentMessageText
   };
 
   const newMessages = [...(conversation.messages || []), newMsg];
-  const { data: updatedConv, error: updateErr } = await (supabase.from('inbox_conversations') as any)
+  const { data: updatedConv, error: updateErr } = await (supabaseAdmin.from('inbox_conversations') as any)
     .update({ messages: newMessages, last_message: replyText, last_message_time: timeStr, unread: true })
     .eq('id', conversationId)
     .select()
@@ -1321,13 +1319,13 @@ export async function simulateLeadReply(conversationId: string, agentMessageText
 }
 
 export async function markConversationRead(conversationId: string) {
-  await (supabase.from('inbox_conversations') as any).update({ unread: false }).eq('id', conversationId);
+  await (supabaseAdmin.from('inbox_conversations') as any).update({ unread: false }).eq('id', conversationId);
   revalidatePath("/admin/inbox");
   return { success: true };
 }
 
 export async function updateConversationNotes(conversationId: string, notes: string) {
-  await (supabase.from('inbox_conversations') as any).update({ notes }).eq('id', conversationId);
+  await (supabaseAdmin.from('inbox_conversations') as any).update({ notes }).eq('id', conversationId);
   revalidatePath("/admin/inbox");
   return { success: true };
 }
@@ -1357,7 +1355,7 @@ export async function importSocialPost(channel: 'facebook' | 'instagram', postDa
     };
 
   delete (newVehicle as any).id;
-  const { data: createdVehicle, error: vError } = await (supabase.from('vehicles') as any).insert([newVehicle]).select().single();
+  const { data: createdVehicle, error: vError } = await (supabaseAdmin.from('vehicles') as any).insert([newVehicle]).select().single();
   if (vError || !createdVehicle) {
     console.error("Error creating vehicle:", vError);
     return { success: false, error: "Failed to create vehicle" };
@@ -1378,7 +1376,7 @@ export async function importSocialPost(channel: 'facebook' | 'instagram', postDa
     published_at: postData.date || new Date().toISOString()
   };
 
-  const { error: pubError } = await (supabase.from("auto_vehicle_publications") as any).upsert(newPub, { onConflict: "vehicle_id, channel" });
+  const { error: pubError } = await (supabaseAdmin.from("auto_vehicle_publications") as any).upsert(newPub, { onConflict: "vehicle_id, channel" });
   if (pubError) {
     console.error("Error upserting social publication:", pubError, newPub);
     throw new Error(`Error al guardar publicación: ${pubError.message}`);

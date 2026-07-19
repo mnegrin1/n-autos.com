@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
   leadSchema,
   contactFormSchema,
@@ -15,7 +16,7 @@ import {
 
 // --- CRM & LEADS ---
 export async function getLeads() {
-  const { data, error } = await (supabase.from("leads") as any)
+  const { data, error } = await (supabaseAdmin.from("leads") as any)
     .select("*")
     .order("created_at", { ascending: false });
   if (!error && data) {
@@ -35,7 +36,7 @@ export async function createLead(lead: { name: string, property: string, status:
   }
   const validatedData = validationResult.data;
 
-  const { data, error } = await (supabase.from("leads") as any)
+  const { data, error } = await (supabaseAdmin.from("leads") as any)
     .insert({
       agency_id: "00000000-0000-0000-0000-000000000000",
       name: validatedData.name,
@@ -65,7 +66,7 @@ export async function submitContactForm(leadData: {
   }
   const validatedData = validationResult.data;
 
-  const { data: newLead, error } = await (supabase.from("leads") as any)
+  const { data: newLead, error } = await (supabaseAdmin.from("leads") as any)
     .insert({
       agency_id: "00000000-0000-0000-0000-000000000000",
       name: validatedData.name,
@@ -82,7 +83,7 @@ export async function submitContactForm(leadData: {
   }
 
   if (validatedData.message) {
-    await (supabase.from("conversations") as any).insert({
+    await (supabaseAdmin.from("conversations") as any).insert({
       lead_id: (newLead as any).id,
       body: validatedData.message,
       direction: "inbound",
@@ -97,19 +98,19 @@ export async function submitContactForm(leadData: {
 }
 
 export async function getLeadById(leadId: string) {
-  const { data, error } = await (supabase.from("leads") as any).select("*").eq("id", leadId).single();
+  const { data, error } = await (supabaseAdmin.from("leads") as any).select("*").eq("id", leadId).single();
   if (!error && data) return data as any;
   return null;
 }
 
 export async function getConversation(leadId: string) {
-  const { data, error } = await (supabase.from("conversations") as any).select("*").eq("lead_id", leadId).order("sent_at", { ascending: true });
+  const { data, error } = await (supabaseAdmin.from("conversations") as any).select("*").eq("lead_id", leadId).order("sent_at", { ascending: true });
   if (!error && data) return data as any[];
   return [];
 }
 
 export async function saveOutboundMessage(leadId: string, body: string) {
-  const { data: msg, error } = await (supabase.from("conversations") as any).insert({
+  const { data: msg, error } = await (supabaseAdmin.from("conversations") as any).insert({
     lead_id: leadId,
     body,
     direction: "outbound",
@@ -119,9 +120,9 @@ export async function saveOutboundMessage(leadId: string, body: string) {
 
   if (error) return { success: false, error: "Error saving message" };
 
-  const { data: lead } = await (supabase.from("leads") as any).select("*").eq("id", leadId).single();
+  const { data: lead } = await (supabaseAdmin.from("leads") as any).select("*").eq("id", leadId).single();
   if (lead && (lead.status === "Nuevo" || lead.status === "nuevo")) {
-    await (supabase.from("leads") as any).update({ status: "Contactado" }).eq("id", leadId);
+    await (supabaseAdmin.from("leads") as any).update({ status: "Contactado" }).eq("id", leadId);
   }
 
   revalidatePath("/realstate/admin/messages");
@@ -133,7 +134,7 @@ export async function updateLeadStatus(leadId: string, newStatus: string) {
   let mappedStatus = newStatus.toLowerCase();
   if (mappedStatus === "negociación") mappedStatus = "negociacion";
   
-  const { data, error } = await (supabase.from("leads") as any)
+  const { data, error } = await (supabaseAdmin.from("leads") as any)
     .update({ status: mappedStatus })
     .eq("id", leadId)
     .select()
@@ -154,7 +155,7 @@ export async function updateLead(leadId: string, updates: any) {
     mappedUpdates.status = mappedStatus;
   }
   
-  const { data, error } = await (supabase.from("leads") as any)
+  const { data, error } = await (supabaseAdmin.from("leads") as any)
     .update(mappedUpdates)
     .eq("id", leadId)
     .select()
@@ -169,7 +170,7 @@ export async function updateLead(leadId: string, updates: any) {
 
 // --- AGENTS ---
 export async function getAgents() {
-  const { data, error } = await (supabase.from("users") as any).select("*");
+  const { data, error } = await (supabaseAdmin.from("users") as any).select("*");
   if (!error && data) return data as any[];
   return [];
 }
@@ -181,7 +182,7 @@ export async function createAgent(agent: { name: string, email: string, role: st
   }
   const validatedData = validationResult.data;
 
-  const { data, error } = await (supabase.from("users") as any).insert({
+  const { data, error } = await (supabaseAdmin.from("users") as any).insert({
     name: validatedData.name,
     email: validatedData.email,
     role: validatedData.role,
@@ -197,7 +198,7 @@ export async function createAgent(agent: { name: string, email: string, role: st
 }
 
 export async function updateAgent(agentId: string, updates: any) {
-  const { data, error } = await (supabase.from("users") as any).update(updates).eq("id", agentId).select().single();
+  const { data, error } = await (supabaseAdmin.from("users") as any).update(updates).eq("id", agentId).select().single();
   if (!error && data) {
     revalidatePath("/realstate/admin/agents");
     return { success: true, data: data as any };
@@ -207,7 +208,7 @@ export async function updateAgent(agentId: string, updates: any) {
 
 // --- CALENDAR & EVENTS ---
 export async function getEvents() {
-  const { data, error } = await (supabase.from("events") as any)
+  const { data, error } = await (supabaseAdmin.from("events") as any)
     .select("*")
     .order("event_date", { ascending: true });
   
@@ -231,7 +232,7 @@ export async function createEvent(event: { title: string, start: string, end: st
   }
   const validatedData = validationResult.data;
 
-  const { data, error } = await (supabase.from("events") as any)
+  const { data, error } = await (supabaseAdmin.from("events") as any)
     .insert({
       agency_id: "00000000-0000-0000-0000-000000000000",
       title: validatedData.title,
@@ -259,13 +260,13 @@ export async function createEvent(event: { title: string, start: string, end: st
 
 // --- OFFERS ---
 export async function getOffers() {
-  const { data, error } = await (supabase.from("offers") as any).select("*");
+  const { data, error } = await (supabaseAdmin.from("offers") as any).select("*");
   if (!error && data) return data as any[];
   return [];
 }
 
 export async function updateOfferStatus(offerId: string, status: string) {
-  const { error } = await (supabase.from("offers") as any).update({ status } as any).eq("id", offerId);
+  const { error } = await (supabaseAdmin.from("offers") as any).update({ status } as any).eq("id", offerId);
   if (!error) {
     revalidatePath("/realstate/admin/offers");
     return { success: true };
@@ -276,7 +277,7 @@ export async function updateOfferStatus(offerId: string, status: string) {
 
 // --- TICKETS & SUPPORT ---
 export async function getTickets() {
-  const { data, error } = await (supabase.from("tickets") as any).select("*");
+  const { data, error } = await (supabaseAdmin.from("tickets") as any).select("*");
   if (!error && data) return data as any[];
   return [];
 }
@@ -288,7 +289,7 @@ export async function createTicket(ticket: { title: string, desc: string, priori
   }
   const validatedData = validationResult.data;
 
-  const { data, error } = await (supabase.from("tickets") as any).insert({
+  const { data, error } = await (supabaseAdmin.from("tickets") as any).insert({
     title: validatedData.title,
     desc: validatedData.desc,
     priority: validatedData.priority,
@@ -305,7 +306,7 @@ export async function createTicket(ticket: { title: string, desc: string, priori
 
 // --- GOOGLE CALENDAR OAUTH ---
 export async function getGoogleConfig() {
-  const { data, error } = await (supabase.from("google_config") as any).select("*").single();
+  const { data, error } = await (supabaseAdmin.from("google_config") as any).select("*").single();
   if (!error && data) return data as any;
   return null;
 }
@@ -325,9 +326,9 @@ export async function saveGoogleConfig(clientId: string, clientSecret: string) {
     tokenExpiry: 0,
   };
   
-  const { error: updateError } = await (supabase.from("google_config") as any).update(config as any).neq("id", "0"); 
+  const { error: updateError } = await (supabaseAdmin.from("google_config") as any).update(config as any).neq("id", "0"); 
   if (updateError) {
-    await (supabase.from("google_config") as any).insert(config as any);
+    await (supabaseAdmin.from("google_config") as any).insert(config as any);
   }
 
   revalidatePath("/realstate/admin/calendar");
@@ -335,7 +336,7 @@ export async function saveGoogleConfig(clientId: string, clientSecret: string) {
 }
 
 export async function disconnectGoogle() {
-  const { error } = await (supabase.from("google_config") as any).update({
+  const { error } = await (supabaseAdmin.from("google_config") as any).update({
     accessToken: "",
     refreshToken: "",
     tokenExpiry: 0,
@@ -382,7 +383,7 @@ export async function getGoogleEvents() {
   if (isExpired) {
     token = await refreshGoogleAccessToken(config);
     if (token) {
-      await (supabase.from("google_config") as any).update({
+      await (supabaseAdmin.from("google_config") as any).update({
         accessToken: config.accessToken,
         tokenExpiry: config.tokenExpiry
       } as any).neq("id", "0");
@@ -416,7 +417,7 @@ export async function getGoogleEvents() {
 }
 
 export async function deleteEvent(eventId: string) {
-  const { error } = await (supabase.from("events") as any).delete().eq("id", eventId);
+  const { error } = await (supabaseAdmin.from("events") as any).delete().eq("id", eventId);
   if (!error) {
     revalidatePath("/realstate/admin/calendar");
     return { success: true };
@@ -434,7 +435,7 @@ export async function createGoogleEvent(event: { title: string, start: string, e
   if (isExpired) {
     token = await refreshGoogleAccessToken(config);
     if (token) {
-      await (supabase.from("google_config") as any).update({
+      await (supabaseAdmin.from("google_config") as any).update({
         accessToken: config.accessToken,
         tokenExpiry: config.tokenExpiry
       } as any).neq("id", "0");
@@ -490,7 +491,7 @@ export async function deleteGoogleEvent(gcalId: string) {
   if (isExpired) {
     token = await refreshGoogleAccessToken(config);
     if (token) {
-      await (supabase.from("google_config") as any).update({
+      await (supabaseAdmin.from("google_config") as any).update({
         accessToken: config.accessToken,
         tokenExpiry: config.tokenExpiry
       } as any).neq("id", "0");
@@ -518,7 +519,7 @@ export async function deleteGoogleEvent(gcalId: string) {
 // --- LEAD INTERACTIONS (BITÁCORA) ---
 
 export async function getLeadInteractions(leadId: string) {
-  const { data, error } = await (supabase.from("lead_interactions") as any).select("*").eq("lead_id", leadId).order("created_at", { ascending: false });
+  const { data, error } = await (supabaseAdmin.from("lead_interactions") as any).select("*").eq("lead_id", leadId).order("created_at", { ascending: false });
   if (!error && data) return data as any[];
   return [];
 }
@@ -540,7 +541,7 @@ export async function createLeadInteraction(leadId: string, content: string, typ
     console.error("Error decoding session in createLeadInteraction:", e);
   }
 
-  const { data, error } = await (supabase.from("lead_interactions") as any).insert({
+  const { data, error } = await (supabaseAdmin.from("lead_interactions") as any).insert({
     lead_id: leadId,
     agent_name: agentName,
     type,

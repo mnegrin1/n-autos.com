@@ -41,47 +41,15 @@ export default function AutoAdminLayout({
   const [showNewDropdown, setShowNewDropdown] = useState(false);
   const newDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Estados de Notificaciones
-  const [showBellDropdown, setShowBellDropdown] = useState(false);
-  const bellRef = useRef<HTMLDivElement>(null);
-  const [notifications, setNotifications] = useState<any[]>([
-    {
-      id: "1",
-      type: "calendar",
-      title: "Test Drive programado hoy",
-      desc: "Prueba de manejo con Daniela Rodríguez para Chevrolet Cruze a las 15:30 hs.",
-      time: "Hoy 09:15",
-      unread: true,
-      link: "/admin/calendar"
-    },
-    {
-      id: "2",
-      type: "status",
-      title: "Reserva Confirmada",
-      desc: "Se ha reservado el Ford Mustang GT por Roberto Silva.",
-      time: "Ayer 18:40",
-      unread: true,
-      link: "/admin/crm"
-    },
-    {
-      id: "3",
-      type: "lead",
-      title: "Consulta sin asignar",
-      desc: "Juan Ortiz consultó por financiación de la Toyota Hilux.",
-      time: "Ayer 12:20",
-      unread: false,
-      link: "/admin/crm"
-    }
-  ]);
+  // Dropdown "+ Nuevo"
+  const [showNewDropdown, setShowNewDropdown] = useState(false);
+  const newDropdownRef = useRef<HTMLDivElement>(null);
 
   // Cerrar menús al hacer clic fuera
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setShowDropdown(false);
-      }
-      if (bellRef.current && !bellRef.current.contains(event.target as Node)) {
-        setShowBellDropdown(false);
       }
       if (newDropdownRef.current && !newDropdownRef.current.contains(event.target as Node)) {
         setShowNewDropdown(false);
@@ -122,29 +90,6 @@ export default function AutoAdminLayout({
     const scaleVal = parseFloat(appliedZoom) / 100;
     document.documentElement.style.setProperty("--zoom-scale", scaleVal.toString());
 
-    function handleNewNotification(event: any) {
-      const { type, title, desc, link } = event.detail || {};
-      const newNotif = {
-        id: Date.now().toString(),
-        type: type || "lead",
-        title: title || "Nueva Alerta",
-        desc: desc || "",
-        time: "Hace un momento",
-        unread: true,
-        link: link || "/admin/crm"
-      };
-      setNotifications(prev => [newNotif, ...prev]);
-
-      try {
-        const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-500.wav");
-        audio.volume = 0.2;
-        audio.play();
-      } catch (e) {}
-    }
-    window.addEventListener("new-notification" as any, handleNewNotification);
-    return () => {
-      window.removeEventListener("new-notification" as any, handleNewNotification);
-    };
   }, []);
 
   // Cerrar menú móvil al cambiar de ruta
@@ -159,15 +104,11 @@ export default function AutoAdminLayout({
     }
   };
 
-  const unreadCount = notifications.filter(n => n.unread).length;
-
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
-  };
-
-  const handleNotificationClick = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, unread: false } : n));
-    setShowBellDropdown(false);
+  const handleLogout = async () => {
+    if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
+      await logout();
+      window.location.href = "/realstate/admin/login"; // Redirect to shared login
+    }
   };
 
   return (
@@ -383,6 +324,102 @@ export default function AutoAdminLayout({
             Configuración
           </Link>
         </nav>
+
+        {/* Footer del Sidebar: Tema, Configuración y Usuario */}
+        <div style={{ marginTop: "auto", padding: "1rem", borderTop: "1px solid var(--border-color)", display: "flex", flexDirection: "column", gap: "1rem" }}>
+          
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 0.25rem" }}>
+            <button 
+              className={styles.themeBtn}
+              onClick={() => {
+                const themes = ['light', 'dark-dim', 'dark-black'];
+                const nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length;
+                const nextTheme = themes[nextIndex];
+                localStorage.setItem('crm-theme', nextTheme);
+                const pattern = localStorage.getItem("crm-bg-pattern") || "solid";
+                document.documentElement.className = "";
+                document.documentElement.classList.add('theme-' + nextTheme);
+                if (pattern === "topography") {
+                  document.documentElement.classList.add("bg-pattern-topography");
+                }
+                setCurrentTheme(nextTheme);
+              }}
+              title="Cambiar Tema"
+              style={{ cursor: "pointer", background: "none", border: "none", color: "var(--text-color)", display: "flex", padding: 0 }}
+            >
+              {currentTheme === "light" && <Sun size={18} />}
+              {currentTheme === "dark-dim" && <MoonStar size={18} />}
+              {currentTheme === "dark-black" && <Moon size={18} />}
+            </button>
+
+            <Link href="/admin/settings" style={{ color: "var(--text-color)", display: "flex" }} title="Configuración">
+              <Settings size={18} />
+            </Link>
+          </div>
+
+          <div 
+            ref={dropdownRef}
+            style={{ display: "flex", alignItems: "center", gap: "0.75rem", cursor: "pointer", position: "relative", padding: "0.5rem", borderRadius: "8px", transition: "background-color 0.2s" }}
+            onClick={() => setShowDropdown(!showDropdown)}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--primary-light)"}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+          >
+            <div className={styles.avatar} style={{ width: "32px", height: "32px", fontSize: "0.85rem" }}>MN</div>
+            <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+              <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-color)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Mauricio Negrin</span>
+            </div>
+            <ChevronDown size={14} style={{ marginLeft: "auto", color: "var(--text-color)", opacity: 0.7 }} />
+
+            {showDropdown && (
+              <div 
+                className={styles.dropdownMenu} 
+                style={{ 
+                  bottom: "100%", 
+                  top: "auto", 
+                  left: 0, 
+                  marginBottom: "0.5rem", 
+                  width: "100%",
+                  backgroundColor: "var(--surface-color)",
+                  border: "1px solid var(--border-color)",
+                  borderRadius: "12px",
+                  boxShadow: "var(--shadow-lg)",
+                  padding: "0.5rem",
+                  position: "absolute",
+                  zIndex: 1000
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div style={{ padding: "0.5rem", borderBottom: "1px solid var(--border-color)", marginBottom: "0.5rem" }}>
+                  <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-color)", opacity: 0.7, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>mauricio@automotora.com</p>
+                  <p style={{ margin: 0, fontSize: "0.75rem", fontWeight: 600, color: "var(--primary)", marginTop: "2px" }}>Administrador</p>
+                </div>
+                
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                  <Link 
+                    href="/admin/settings" 
+                    onClick={() => setShowDropdown(false)}
+                    style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-color)", textDecoration: "none", padding: "0.5rem", borderRadius: "6px", transition: "background-color 0.2s" }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--primary-light)"}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                  >
+                    <Settings size={14} /> Configuración
+                  </Link>
+                  <button 
+                    onClick={() => {
+                      setShowDropdown(false);
+                      handleLogout();
+                    }}
+                    style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", fontWeight: 600, color: "var(--error, #ef4444)", background: "none", border: "none", width: "100%", textAlign: "left", padding: "0.5rem", borderRadius: "6px", cursor: "pointer", transition: "background-color 0.2s" }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(239, 68, 68, 0.08)"}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                  >
+                    <LogOut size={14} /> Cerrar Sesión
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </aside>
 
       <main className={styles.mainContent}>
@@ -397,184 +434,7 @@ export default function AutoAdminLayout({
             </button>
           </div>
           <div className={styles.topbarActions}>
-            {/* Nuevo Vehículo button removed from here */}
-
-            {/* Campana de Notificaciones */}
-            <div className={styles.bellWrapper} ref={bellRef}>
-              <button 
-                className={styles.bellBtn} 
-                onClick={() => setShowBellDropdown(!showBellDropdown)}
-                title="Centro de Alertas"
-                type="button"
-              >
-                <Bell size={20} />
-                {unreadCount > 0 && <span className={styles.bellBadge}>{unreadCount}</span>}
-              </button>
-
-              {showBellDropdown && (
-                <div className={styles.bellDropdown}>
-                  <div className={styles.bellHeader}>
-                    <span>Alertas Recientes</span>
-                    {unreadCount > 0 && (
-                      <button onClick={markAllAsRead} className={styles.markReadBtn}>
-                        Marcar todas leídas
-                      </button>
-                    )}
-                  </div>
-                  <div className={styles.bellList}>
-                    {notifications.length === 0 ? (
-                      <div className={styles.bellEmpty}>Sin alertas nuevas</div>
-                    ) : (
-                      notifications.map((n) => (
-                        <Link 
-                          key={n.id} 
-                          href={n.link} 
-                          className={`${styles.bellItem} ${n.unread ? styles.bellItemUnread : ""}`}
-                          onClick={() => handleNotificationClick(n.id)}
-                        >
-                          <div className={styles.bellItemTitle}>
-                            <span>{n.title}</span>
-                            <span className={styles.bellItemTime}>{n.time}</span>
-                          </div>
-                          <p className={styles.bellItemDesc}>{n.desc}</p>
-                        </Link>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Selector de Tema Rápido con Iconos Dinámicos */}
-            <div className={styles.themeSelectorTopbar}>
-              <button 
-                className={styles.themeBtn}
-                onClick={() => {
-                  const themes = ['light', 'dark-dim', 'dark-black'];
-                  const nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length;
-                  const nextTheme = themes[nextIndex];
-                  localStorage.setItem('crm-theme', nextTheme);
-                  const pattern = localStorage.getItem("crm-bg-pattern") || "solid";
-              document.documentElement.className = "";
-              document.documentElement.classList.add('theme-' + nextTheme);
-              if (pattern === "topography") {
-                document.documentElement.classList.add("bg-pattern-topography");
-              }
-              setCurrentTheme(nextTheme);
-                }}
-                title="Cambiar Tema"
-                style={{ cursor: "pointer" }}
-              >
-                {currentTheme === "light" && <Sun size={20} />}
-                {currentTheme === "dark-dim" && <MoonStar size={20} />}
-                {currentTheme === "dark-black" && <Moon size={20} />}
-              </button>
-            </div>
-
-            {/* Contenedor del Menú de Usuario (Avatar circular con efecto hover) */}
-            <div className={styles.userMenuWrapper} ref={dropdownRef}>
-              <div 
-                className={styles.avatar} 
-                onClick={() => setShowDropdown(!showDropdown)}
-                title="Perfil y Configuración"
-                style={{ 
-                  cursor: "pointer", 
-                  userSelect: "none", 
-                  transition: "transform 0.2s ease, opacity 0.2s ease" 
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "scale(1.05)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "scale(1)";
-                }}
-              >
-                MN
-              </div>
-
-              {showDropdown && (
-                <div className={styles.dropdownMenu}>
-                  <div className={styles.menuHeader}>
-                    <h4>Mauricio Negrin</h4>
-                    <p>mauricio@automotora.com</p>
-                    <p style={{ fontWeight: 600, color: "var(--primary)", marginTop: "2px" }}>Administrador</p>
-                  </div>
-                  
-                  <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: "0.5rem", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                    <Link 
-                      href="/admin/settings" 
-                      onClick={() => setShowDropdown(false)}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.5rem",
-                        fontSize: "0.85rem",
-                        fontWeight: 600,
-                        color: "var(--text-color)",
-                        textDecoration: "none",
-                        padding: "0.5rem",
-                        borderRadius: "6px",
-                        transition: "background-color 0.2s"
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--primary-light)"}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-                    >
-                      <Settings size={14} />
-                      Configuración
-                    </Link>
-                    <Link 
-                      href="/" 
-                      onClick={() => setShowDropdown(false)}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.5rem",
-                        fontSize: "0.85rem",
-                        fontWeight: 600,
-                        color: "var(--text-color)",
-                        textDecoration: "none",
-                        padding: "0.5rem",
-                        borderRadius: "6px",
-                        transition: "background-color 0.2s"
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--primary-light)"}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-                    >
-                      <LayoutDashboard size={14} />
-                      Volver al Hub
-                    </Link>
-                    <button 
-                      onClick={() => {
-                        setShowDropdown(false);
-                        handleLogout();
-                      }}
-                      className={styles.logoutBtn}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.5rem",
-                        fontSize: "0.85rem",
-                        fontWeight: 600,
-                        color: "var(--error, #ef4444)",
-                        background: "none",
-                        border: "none",
-                        width: "100%",
-                        textAlign: "left",
-                        padding: "0.5rem",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                        transition: "background-color 0.2s"
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(239, 68, 68, 0.08)"}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-                    >
-                      <LogOut size={14} />
-                      Cerrar Sesión
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* User profile, theme and notifications removed from here and moved to sidebar bottom */}
           </div>
         </header>
 
