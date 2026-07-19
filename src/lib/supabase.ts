@@ -7,6 +7,9 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'mock-anon-
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   global: {
     // Inyectamos explícitamente el fetch nativo del entorno para evitar el Error 1016 de Cloudflare (O2O).
-    fetch: (...args) => fetch(...args),
+    // Y forzamos no-store para evitar problemas de caché agresiva de Next.js
+    fetch: (url, options = {}) => {
+      return fetch(url, { ...options, cache: 'no-store' });
+    }
   }
 });

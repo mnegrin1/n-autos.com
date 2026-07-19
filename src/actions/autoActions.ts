@@ -339,7 +339,7 @@ export async function createAutoLead(lead: {
     created_at: new Date().toISOString()
   };
 
-  const { data, error } = await (supabase.from('auto_leads') as any).insert([newLead]);
+  const { data, error } = await (supabase.from('auto_leads') as any).insert([newLead]).select().single();
   if (error) {
     console.error("Error creating auto lead:", error);
     return { success: false, error: "Error creating lead" };
@@ -349,7 +349,7 @@ export async function createAutoLead(lead: {
   revalidatePath("/admin");
   revalidatePath("/admin/crm");
 
-  return { success: true, data: createdLead || newLead };
+  return { success: true, data: createdLead };
 }
 
 export async function updateAutoLeadStatus(leadId: string, status: string) {
