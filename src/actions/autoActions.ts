@@ -325,6 +325,7 @@ export async function createAutoLead(lead: {
   tags?: string[];
 }) {
   const newLead = {
+    id: crypto.randomUUID(),
     agency_id: lead.agencyId || "00000000-0000-0000-0000-000000000000",
     name: lead.name,
     email: lead.email || "",
@@ -339,17 +340,16 @@ export async function createAutoLead(lead: {
     created_at: new Date().toISOString()
   };
 
-  const { data, error } = await (supabase.from('auto_leads') as any).insert([newLead]).select().single();
+  const { error } = await (supabase.from('auto_leads') as any).insert([newLead]);
   if (error) {
     console.error("Error creating auto lead:", error);
-    return { success: false, error: "Error creating lead" };
+    return { success: false, error: error.message || "Error creating lead" };
   }
-  const createdLead = data;
 
   revalidatePath("/admin");
   revalidatePath("/admin/crm");
 
-  return { success: true, data: createdLead };
+  return { success: true, data: newLead };
 }
 
 export async function updateAutoLeadStatus(leadId: string, status: string) {
@@ -1127,7 +1127,7 @@ export async function getInboxConversations() {
                     id: `ml-msg-q-${q.id}`,
                     sender: 'lead' as const,
                     text: q.text,
-                    time: new Date(q.date_created).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    time: new Date(q.date_created).toISOString(),
                     status: 'read' as const
                   }
                 ];
@@ -1137,7 +1137,7 @@ export async function getInboxConversations() {
                     id: `ml-msg-a-${q.id}`,
                     sender: 'agent' as const,
                     text: q.answer.text,
-                    time: new Date(q.answer.date_created).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    time: new Date(q.answer.date_created).toISOString(),
                     status: 'read' as const
                   });
                 }
@@ -1152,7 +1152,7 @@ export async function getInboxConversations() {
                   lead_avatar: "ML",
                   channel: 'mercadolibre' as const,
                   last_message: lastMessage,
-                  last_message_time: new Date(lastTime).toLocaleDateString([], { day: '2-digit', month: '2-digit' }) + " " + new Date(lastTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  last_message_time: new Date(lastTime).toISOString(),
                   unread: q.status === "UNANSWERED",
                   vehicle_id: vehicleId,
                   messages,
@@ -1209,7 +1209,7 @@ export async function sendInboxMessage(conversationId: string, text: string) {
       revalidatePath("/admin/inbox");
 
       const now = new Date();
-      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const timeStr = now.toISOString();
       return {
         success: true,
         conversation: {
@@ -1246,7 +1246,7 @@ export async function sendInboxMessage(conversationId: string, text: string) {
   }
 
   const now = new Date();
-  const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const timeStr = now.toISOString();
 
   const newMsg = {
     id: `msg-${Date.now()}`,
@@ -1295,7 +1295,7 @@ export async function simulateLeadReply(conversationId: string, agentMessageText
   }
 
   const now = new Date();
-  const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const timeStr = now.toISOString();
 
   const newMsg = {
     id: `msg-${Date.now()}-lead`,

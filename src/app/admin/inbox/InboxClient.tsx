@@ -341,7 +341,16 @@ export default function InboxClient({
                     <div className={styles.chatMeta}>
                       <div className={styles.chatItemRow}>
                         <h4 className={styles.leadName}>{c.lead_name}</h4>
-                        <span className={styles.chatTime}>{c.last_message_time}</span>
+                        <span className={styles.chatTime}>{(() => {
+                          const d = new Date(c.last_message_time);
+                          if (!isNaN(d.getTime()) && c.last_message_time.includes('T')) {
+                            const diffMins = Math.floor((Date.now() - d.getTime()) / 60000);
+                            if (diffMins < 60) return `hace ${diffMins || 1}m`;
+                            if (diffMins < 1440) return `${d.toLocaleTimeString('es-UY', {hour:'2-digit', minute:'2-digit'})}`;
+                            return d.toLocaleDateString('es-UY', {day:'2-digit', month:'2-digit'});
+                          }
+                          return c.last_message_time;
+                        })()}</span>
                       </div>
                       <div className={styles.chatItemRow}>
                         <p className={styles.lastMsgPreview}>{c.last_message}</p>
@@ -398,7 +407,15 @@ export default function InboxClient({
                       <div className={`${styles.bubble} ${isAgent ? styles.bubbleAgent : styles.bubbleLead}`}>
                         <p style={{ margin: 0, fontSize: '0.9rem', lineHeight: '1.4' }}>{m.text}</p>
                         <div className={styles.bubbleFooter}>
-                          <span>{m.time}</span>
+                          <span>{(() => {
+                            const d = new Date(m.time);
+                            if (!isNaN(d.getTime()) && m.time.includes('T')) {
+                              const diffMins = Math.floor((Date.now() - d.getTime()) / 60000);
+                              let relative = diffMins < 1 ? 'ahora' : diffMins < 60 ? `hace ${diffMins} min` : diffMins < 1440 ? `hace ${Math.floor(diffMins/60)} h` : `hace ${Math.floor(diffMins/1440)} d`;
+                              return `${d.toLocaleDateString('es-UY', {day:'2-digit', month:'2-digit'})} ${d.toLocaleTimeString('es-UY', {hour:'2-digit', minute:'2-digit'})} (${relative})`;
+                            }
+                            return m.time;
+                          })()}</span>
                           {isAgent && (
                             <span>
                               {m.status === 'sent' && <Check size={12} />}

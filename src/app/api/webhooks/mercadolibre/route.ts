@@ -79,12 +79,7 @@ export async function POST(request: Request) {
           let conversation = existingConvs && existingConvs.length > 0 ? existingConvs[0] : null;
 
           const msgDate = data.date_created ? new Date(data.date_created) : new Date();
-          const timeStr = msgDate.toLocaleTimeString('en-US', {
-            hour: '2-digit', 
-            minute: '2-digit',
-            timeZone: 'America/Montevideo',
-            hour12: true
-          });
+          const timeStr = msgDate.toISOString();
 
           if (!conversation) {
             const newConv = {

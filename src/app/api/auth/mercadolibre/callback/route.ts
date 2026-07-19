@@ -114,12 +114,7 @@ export async function GET(request: Request) {
               const senderId = q.from.id.toString();
               const channel = "mercadolibre";
               const msgDate = q.date_created ? new Date(q.date_created) : new Date();
-              const timeStr = msgDate.toLocaleTimeString('en-US', {
-                hour: '2-digit', 
-                minute: '2-digit',
-                timeZone: 'America/Montevideo',
-                hour12: true
-              });
+              const timeStr = msgDate.toISOString();
               
               let senderName = `Usuario ML (${senderId})`;
               try {
