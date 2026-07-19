@@ -51,6 +51,7 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
   });
   const [tagInput, setTagInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
 
   const [isPending, startTransition] = useTransition();
 
@@ -162,6 +163,32 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
     );
   });
 
+  const toggleSelectAll = () => {
+    if (selectedLeads.length === filteredLeads.length && filteredLeads.length > 0) {
+      setSelectedLeads([]);
+    } else {
+      setSelectedLeads(filteredLeads.map(l => l.id));
+    }
+  };
+
+  const toggleSelectLead = (id: string) => {
+    if (selectedLeads.includes(id)) {
+      setSelectedLeads(prev => prev.filter(l => l !== id));
+    } else {
+      setSelectedLeads(prev => [...prev, id]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (confirm(`¿Estás seguro de que deseas eliminar ${selectedLeads.length} contactos?`)) {
+      for (const id of selectedLeads) {
+        await deleteAutoLead(id);
+      }
+      setLeads(prev => prev.filter(l => !selectedLeads.includes(l.id)));
+      setSelectedLeads([]);
+    }
+  };
+
   return (
     <div className={styles.crmContainer}>
       <div className={styles.header}>
@@ -185,79 +212,90 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
         />
       </div>
 
-      <div className={styles.contactsList}>
-        {filteredLeads.map((lead) => (
-          <div
-            key={lead.id}
-            className={styles.leadCard}
-          >
-            {/* Columna 1: Info Básica */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-              <h4 className={styles.leadNameLink}>{lead.name}</h4>
-              <div className={styles.leadContactDetails} style={{ borderTop: "none", margin: 0, padding: 0 }}>
-                {lead.phone && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.75rem", opacity: 0.7 }}>
-                    <Phone size={10} />
-                    <span>{lead.phone}</span>
-                  </div>
-                )}
-                {lead.email && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.75rem", opacity: 0.7 }}>
-                    <Mail size={10} />
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lead.email}</span>
-                  </div>
-                )}
-              </div>
-            </div>
+      <div className={styles.tableContainer}>
+        <div className={styles.tableHeader}>
+          <input 
+            type="checkbox" 
+            className={styles.checkbox} 
+            checked={filteredLeads.length > 0 && selectedLeads.length === filteredLeads.length}
+            onChange={toggleSelectAll}
+          />
+          <span>Date registered</span>
+          <span>Contact Info</span>
+          <span>Tags</span>
+          <span></span>
+        </div>
+        
+        <div className={styles.contactsList} style={{ paddingBottom: 0, gap: 0 }}>
+          {filteredLeads.map((lead) => {
+            const date = lead.created_at ? new Date(lead.created_at) : new Date();
+            const formattedDate = date.toLocaleDateString('es-UY', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const formattedTime = date.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-            {/* Columna 2: Vehículo, Mensaje y Etiquetas */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-              <div className={styles.leadProperty} style={{ color: "var(--text-color)", fontWeight: "600", fontSize: "0.85rem", margin: 0 }}>
-                {lead.vehicle !== "Sin vehículo" ? `🚗 ${lead.vehicle}` : "👤 Contacto general"}
-              </div>
-              {lead.message && (
-                <p style={{ fontSize: "0.8rem", margin: 0, opacity: 0.8, lineBreak: "anywhere", WebkitLineClamp: 2, display: "-webkit-box", WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                  "{lead.message}"
-                </p>
-              )}
-              {lead.tags && lead.tags.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem" }}>
-                  {lead.tags.map(tag => (
-                    <span key={tag} style={{ backgroundColor: "var(--text-color)", color: "var(--bg-color)", padding: "0.1rem 0.4rem", borderRadius: "4px", fontSize: "0.65rem", fontWeight: "600" }}>
-                      {tag}
-                    </span>
-                  ))}
+            return (
+              <div key={lead.id} className={styles.tableRow} style={{ backgroundColor: selectedLeads.includes(lead.id) ? 'var(--primary-light)' : undefined }}>
+                <input 
+                  type="checkbox" 
+                  className={styles.checkbox}
+                  checked={selectedLeads.includes(lead.id)}
+                  onChange={() => toggleSelectLead(lead.id)}
+                />
+                <div className={styles.dateText}>
+                  <span>{formattedDate}</span>
+                  <small>{formattedTime}</small>
                 </div>
-              )}
-            </div>
+                
+                <div className={styles.avatarCell}>
+                  <div className={styles.avatar}>
+                    <User size={16} />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    <span className={styles.emailText}>{lead.email || "Sin email"}</span>
+                    <span className={styles.nameText}>{lead.name} {lead.phone ? `• ${lead.phone}` : ""}</span>
+                  </div>
+                </div>
 
-            {/* Columna 3: Fecha y Agente */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", alignItems: "flex-end" }}>
-              <span className={styles.leadTime}>{lead.time || "Ahora"}</span>
-              <span className={styles.agentBadge} style={{ margin: 0 }}>
-                <User size={10} />
-                <span>Asignado</span>
-              </span>
-            </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem" }}>
+                  {lead.tags && lead.tags.length > 0 ? lead.tags.map(tag => (
+                    <span key={tag} className={styles.tagPill}>{tag}</span>
+                  )) : <span style={{ opacity: 0.5, fontSize: "0.8rem" }}>-</span>}
+                </div>
 
-            {/* Columna 4: Acciones */}
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button 
-                onClick={() => handleDeleteLead(lead.id)}
-                style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", opacity: 0.7 }}
-                title="Eliminar lead"
-              >
-                <Trash2 size={16} />
-              </button>
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <button 
+                    onClick={() => handleDeleteLead(lead.id)}
+                    style={{ background: "none", border: "none", color: "var(--danger, #ef4444)", cursor: "pointer", opacity: 0.7 }}
+                    title="Eliminar lead"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          {filteredLeads.length === 0 && (
+            <div style={{ padding: "3rem", textAlign: "center", opacity: 0.5 }}>
+              No se encontraron contactos.
             </div>
-          </div>
-        ))}
-        {filteredLeads.length === 0 && (
-          <div style={{ padding: "2rem", textAlign: "center", opacity: 0.5, gridColumn: "1 / -1" }}>
-            No se encontraron contactos.
-          </div>
-        )}
+          )}
+        </div>
       </div>
+
+      {selectedLeads.length > 0 && (
+        <div className={styles.actionBar}>
+          <div className={styles.selectedText}>
+            Selected contacts: {selectedLeads.length}
+          </div>
+          <div style={{ display: "flex", gap: "1rem" }}>
+            <button 
+              onClick={handleBulkDelete}
+              style={{ backgroundColor: "var(--danger, #ef4444)", color: "white", padding: "0.5rem 1.5rem", borderRadius: "8px", border: "none", fontWeight: "600", cursor: "pointer" }}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Add Lead Modal */}
       {showAddModal && (

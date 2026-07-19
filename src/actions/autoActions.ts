@@ -307,7 +307,10 @@ export async function deleteVehicle(vehicleId: string) {
 }
 
 export async function getAutoLeads(agencyId: string) {
-  const { data, error } = await (supabaseAdmin.from('auto_leads') as any).select('*').eq('agency_id', agencyId);
+  const { data, error } = await (supabaseAdmin.from('auto_leads') as any)
+    .select('*')
+    .eq('agency_id', agencyId)
+    .order('created_at', { ascending: false });
   if (error) {
     console.error("Error fetching leads:", error);
     return [];

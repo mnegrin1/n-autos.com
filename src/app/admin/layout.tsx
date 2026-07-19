@@ -308,56 +308,63 @@ export default function AutoAdminLayout({
             <Share2 size={16} />
             Publicaciones / Canales
           </Link>
-          <Link href="/admin/settings" className={`${styles.navLink} ${pathname.startsWith("/admin/settings") ? styles.activeNavLink : ""}`}>
-            <Settings size={16} />
-            Configuración
-          </Link>
         </nav>
 
         {/* Footer del Sidebar: Tema, Configuración y Usuario */}
-        <div style={{ marginTop: "auto", padding: "1rem", borderTop: "1px solid var(--border-color)", display: "flex", flexDirection: "column", gap: "1rem" }}>
+        <div style={{ marginTop: "auto", padding: "1rem", borderTop: "1px solid var(--border-color)", display: "flex", flexDirection: "column" }}>
           
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 0.25rem" }}>
-            <button 
-              className={styles.themeBtn}
-              onClick={() => {
-                const themes = ['light', 'dark-dim', 'dark-black'];
-                const nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length;
-                const nextTheme = themes[nextIndex];
-                localStorage.setItem('crm-theme', nextTheme);
-                const pattern = localStorage.getItem("crm-bg-pattern") || "solid";
-                document.documentElement.className = "";
-                document.documentElement.classList.add('theme-' + nextTheme);
-                if (pattern === "topography") {
-                  document.documentElement.classList.add("bg-pattern-topography");
-                }
-                setCurrentTheme(nextTheme);
-              }}
-              title="Cambiar Tema"
-              style={{ cursor: "pointer", background: "none", border: "none", color: "var(--text-color)", display: "flex", padding: 0 }}
-            >
-              {currentTheme === "light" && <Sun size={18} />}
-              {currentTheme === "dark-dim" && <MoonStar size={18} />}
-              {currentTheme === "dark-black" && <Moon size={18} />}
-            </button>
-
-            <Link href="/admin/settings" style={{ color: "var(--text-color)", display: "flex" }} title="Configuración">
-              <Settings size={18} />
-            </Link>
-          </div>
-
           <div 
-            ref={dropdownRef}
-            style={{ display: "flex", alignItems: "center", gap: "0.75rem", cursor: "pointer", position: "relative", padding: "0.5rem", borderRadius: "8px", transition: "background-color 0.2s" }}
-            onClick={() => setShowDropdown(!showDropdown)}
+            style={{ display: "flex", alignItems: "center", position: "relative", padding: "0.5rem", borderRadius: "8px", transition: "background-color 0.2s" }}
             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--primary-light)"}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
           >
-            <div className={styles.avatar} style={{ width: "32px", height: "32px", fontSize: "0.85rem" }}>MN</div>
-            <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
-              <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-color)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Mauricio Negrin</span>
+            <div 
+              style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", flex: 1, minWidth: 0 }}
+              onClick={() => setShowDropdown(!showDropdown)}
+              ref={dropdownRef}
+            >
+              <div className={styles.avatar} style={{ width: "32px", height: "32px", fontSize: "0.85rem", flexShrink: 0 }}>MN</div>
+              <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-color)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Mauricio Negrin</span>
+              </div>
             </div>
-            <ChevronDown size={14} style={{ marginLeft: "auto", color: "var(--text-color)", opacity: 0.7 }} />
+
+            <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", paddingLeft: "0.5rem" }}>
+              <button 
+                className={styles.themeBtn}
+                onClick={() => {
+                  const themes = ['light', 'dark-dim', 'dark-black'];
+                  const nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length;
+                  const nextTheme = themes[nextIndex];
+                  localStorage.setItem('crm-theme', nextTheme);
+                  const pattern = localStorage.getItem("crm-bg-pattern") || "solid";
+                  document.documentElement.className = "";
+                  document.documentElement.classList.add('theme-' + nextTheme);
+                  if (pattern === "topography") {
+                    document.documentElement.classList.add("bg-pattern-topography");
+                  }
+                  setCurrentTheme(nextTheme);
+                }}
+                title="Cambiar Tema"
+                style={{ cursor: "pointer", background: "none", border: "none", color: "var(--text-color)", display: "flex", padding: "0.35rem", borderRadius: "6px" }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(128,128,128,0.1)"}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+              >
+                {currentTheme === "light" && <Sun size={15} />}
+                {currentTheme === "dark-dim" && <MoonStar size={15} />}
+                {currentTheme === "dark-black" && <Moon size={15} />}
+              </button>
+
+              <Link 
+                href="/admin/settings" 
+                style={{ color: "var(--text-color)", display: "flex", padding: "0.35rem", borderRadius: "6px" }} 
+                title="Configuración"
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(128,128,128,0.1)"}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+              >
+                <Settings size={15} />
+              </Link>
+            </div>
 
             {showDropdown && (
               <div 
