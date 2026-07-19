@@ -41,10 +41,6 @@ export default function AutoAdminLayout({
   const [showNewDropdown, setShowNewDropdown] = useState(false);
   const newDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Dropdown "+ Nuevo"
-  const [showNewDropdown, setShowNewDropdown] = useState(false);
-  const newDropdownRef = useRef<HTMLDivElement>(null);
-
   // Cerrar menús al hacer clic fuera
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -96,13 +92,6 @@ export default function AutoAdminLayout({
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [pathname]);
-
-  const handleLogout = async () => {
-    if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
-      await logout();
-      window.location.href = "/realstate/admin/login"; // Redirect to shared login
-    }
-  };
 
   const handleLogout = async () => {
     if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
