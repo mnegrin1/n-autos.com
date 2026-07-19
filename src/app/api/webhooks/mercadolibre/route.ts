@@ -43,6 +43,32 @@ export async function POST(request: Request) {
           const senderId = topic === "questions" ? data.from.id.toString() : (data.from?.user_id?.toString() || data.from?.id?.toString() || "ML_User");
           const channel = "mercadolibre";
 
+          let senderName = `Usuario ML (${senderId})`;
+          try {
+            const userRes = await fetch(`https://api.mercadolibre.com/users/${senderId}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (userRes.ok) {
+              const userData = await userRes.json();
+              senderName = userData.nickname || senderName;
+            }
+          } catch (e) {
+             console.error("Error al obtener nombre del usuario de ML:", e);
+          }
+
+          if (data.item_id) {
+             const pubId = `pub-${data.item_id}`;
+             const { data: pubData } = await (supabase.from("auto_vehicle_publications") as any)
+                .select("id, questions_count")
+                .eq("id", pubId)
+                .single();
+             if (pubData) {
+                await (supabase.from("auto_vehicle_publications") as any)
+                   .update({ questions_count: (pubData.questions_count || 0) + 1 })
+                   .eq("id", pubId);
+             }
+          }
+
           const { data: existingConvs } = await (supabase as any)
             .from("inbox_conversations")
             .select("*")
@@ -59,7 +85,7 @@ export async function POST(request: Request) {
             const newConv = {
               id: `conv-ml-${Date.now()}`,
               agency_id: agencyId,
-              lead_name: `Usuario ML (${senderId})`,
+              lead_name: senderName,
               lead_avatar: "ML",
               channel: channel,
               last_message: text,
