@@ -78,8 +78,13 @@ export async function POST(request: Request) {
 
           let conversation = existingConvs && existingConvs.length > 0 ? existingConvs[0] : null;
 
-          const now = new Date();
-          const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const msgDate = data.date_created ? new Date(data.date_created) : new Date();
+          const timeStr = msgDate.toLocaleTimeString('en-US', {
+            hour: '2-digit', 
+            minute: '2-digit',
+            timeZone: 'America/Montevideo',
+            hour12: true
+          });
 
           if (!conversation) {
             const newConv = {
@@ -111,6 +116,7 @@ export async function POST(request: Request) {
             }];
             
             await (supabase.from("inbox_conversations") as any).update({
+              lead_name: senderName,
               last_message: text,
               last_message_time: timeStr,
               unread: true,
