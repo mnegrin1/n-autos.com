@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect } from "react";
 import styles from "./settings.module.css";
 import { updateAgencySettings } from "@/actions/agencyActions";
 import { Save, CheckCircle, Palette, HelpCircle } from "lucide-react";
+import IntegrationsClient from "../integrations/IntegrationsClient";
 
 interface Agency {
   id: string;
@@ -18,11 +19,26 @@ interface Agency {
 
 interface SettingsFormProps {
   initialAgency: Agency;
+  initialVehicles?: any[];
+  initialIntegrations?: any[];
+  initialPublications?: any[];
+  appId?: string;
+  appUrl?: string;
+  errorMsg?: string;
+  successMsg?: string;
 }
 
-export default function SettingsForm({ initialAgency }: SettingsFormProps) {
+export default function SettingsForm({ 
+  initialAgency,
+  initialVehicles = [],
+  initialIntegrations = [],
+  initialPublications = [],
+  appId = "",
+  appUrl = "http://localhost:3000",
+  errorMsg,
+  successMsg
+}: SettingsFormProps) {
   const [agency, setAgency] = useState<Agency>(initialAgency);
-  const [activeTab, setActiveTab] = useState("comercial");
   const [name, setName] = useState(agency.name);
   const [whatsapp, setWhatsapp] = useState(agency.whatsapp || "");
   const [primaryColor, setPrimaryColor] = useState(agency.primary_color || "#10b981");
@@ -131,38 +147,11 @@ export default function SettingsForm({ initialAgency }: SettingsFormProps) {
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: "1.5rem", borderBottom: "1px solid var(--border-color)", marginTop: "1.5rem", overflowX: "auto" }}>
-        <button 
-          onClick={() => setActiveTab("comercial")}
-          style={{ padding: "0.75rem 0", background: "none", border: "none", borderBottom: activeTab === "comercial" ? "2px solid var(--primary)" : "2px solid transparent", color: activeTab === "comercial" ? "var(--primary)" : "var(--text-color)", fontWeight: activeTab === "comercial" ? 700 : 500, cursor: "pointer", opacity: activeTab === "comercial" ? 1 : 0.6, whiteSpace: "nowrap" }}
-        >
-          Información Comercial
-        </button>
-        <button 
-          onClick={() => setActiveTab("preferencias")}
-          style={{ padding: "0.75rem 0", background: "none", border: "none", borderBottom: activeTab === "preferencias" ? "2px solid var(--primary)" : "2px solid transparent", color: activeTab === "preferencias" ? "var(--primary)" : "var(--text-color)", fontWeight: activeTab === "preferencias" ? 700 : 500, cursor: "pointer", opacity: activeTab === "preferencias" ? 1 : 0.6, whiteSpace: "nowrap" }}
-        >
-          Preferencias del Panel
-        </button>
-        <button 
-          onClick={() => setActiveTab("notificaciones")}
-          style={{ padding: "0.75rem 0", background: "none", border: "none", borderBottom: activeTab === "notificaciones" ? "2px solid var(--primary)" : "2px solid transparent", color: activeTab === "notificaciones" ? "var(--primary)" : "var(--text-color)", fontWeight: activeTab === "notificaciones" ? 700 : 500, cursor: "pointer", opacity: activeTab === "notificaciones" ? 1 : 0.6, whiteSpace: "nowrap" }}
-        >
-          Notificaciones y Alertas
-        </button>
-        <button 
-          onClick={() => setActiveTab("integraciones")}
-          style={{ padding: "0.75rem 0", background: "none", border: "none", borderBottom: activeTab === "integraciones" ? "2px solid var(--primary)" : "2px solid transparent", color: activeTab === "integraciones" ? "var(--primary)" : "var(--text-color)", fontWeight: activeTab === "integraciones" ? 700 : 500, cursor: "pointer", opacity: activeTab === "integraciones" ? 1 : 0.6, whiteSpace: "nowrap" }}
-        >
-          Integraciones
-        </button>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: "2rem", marginTop: "2rem" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "3rem", marginTop: "2rem", paddingBottom: "4rem" }}>
         
         {/* Dealership Details Form */}
-        {activeTab === "comercial" && (
-        <form onSubmit={handleSaveAgency} style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", borderRadius: "16px", padding: "2rem", boxShadow: "var(--shadow-sm)", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <form onSubmit={handleSaveAgency} style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", borderRadius: "16px", padding: "2rem", boxShadow: "var(--shadow-sm)", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
           <h3 style={{ fontSize: "1.1rem", fontWeight: "700", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem", margin: 0 }}>
             Información Comercial
           </h3>
@@ -226,10 +215,12 @@ export default function SettingsForm({ initialAgency }: SettingsFormProps) {
             </button>
           </div>
         </form>
-        )}
+        </div>
+
+        <div style={{ height: "1px", backgroundColor: "var(--border-color)", margin: "0 1rem" }} />
 
         {/* User Preferences Card */}
-        {activeTab === "preferencias" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
         <div style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", borderRadius: "16px", padding: "2rem", boxShadow: "var(--shadow-sm)", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
           <h3 style={{ fontSize: "1.1rem", fontWeight: "700", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
             <Palette size={16} /> Preferencias del Panel
@@ -350,10 +341,12 @@ export default function SettingsForm({ initialAgency }: SettingsFormProps) {
             </>
           )}
         </div>
-        )}
+        </div>
+
+        <div style={{ height: "1px", backgroundColor: "var(--border-color)", margin: "0 1rem" }} />
 
         {/* Notificaciones Placeholder */}
-        {activeTab === "notificaciones" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           <div style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", borderRadius: "16px", padding: "2rem", boxShadow: "var(--shadow-sm)", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             <h3 style={{ fontSize: "1.1rem", fontWeight: "700", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
               Alertas y Comunicaciones
@@ -363,20 +356,24 @@ export default function SettingsForm({ initialAgency }: SettingsFormProps) {
               Módulo en construcción
             </div>
           </div>
-        )}
+        </div>
+
+        <div style={{ height: "1px", backgroundColor: "var(--border-color)", margin: "0 1rem" }} />
 
         {/* Integraciones Placeholder */}
-        {activeTab === "integraciones" && (
-          <div style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", borderRadius: "16px", padding: "2rem", boxShadow: "var(--shadow-sm)", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-            <h3 style={{ fontSize: "1.1rem", fontWeight: "700", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              Integraciones de Terceros
-            </h3>
-            <p style={{ opacity: 0.7, fontSize: "0.9rem" }}>Conecta tu cuenta con MercadoLibre, Facebook Ads, Instagram, Google Analytics y más.</p>
-            <div style={{ padding: "2rem", textAlign: "center", border: "1px dashed var(--border-color)", borderRadius: "8px", opacity: 0.5 }}>
-              Módulo en construcción
-            </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+            <IntegrationsClient 
+              initialVehicles={initialVehicles} 
+              initialIntegrations={initialIntegrations} 
+              initialPublications={initialPublications} 
+              appId={appId}
+              appUrl={appUrl}
+              errorMsg={errorMsg}
+              successMsg={successMsg}
+            />
           </div>
-        )}
+        </div>
 
       </div>
     </div>

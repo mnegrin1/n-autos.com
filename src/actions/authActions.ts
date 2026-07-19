@@ -57,7 +57,12 @@ export async function login(email: string, password?: string) {
 
 export async function logout() {
   const cookieStore = await cookies();
-  cookieStore.delete("admin-session");
+  cookieStore.set("admin-session", "", {
+    path: "/",
+    maxAge: 0,
+    expires: new Date(0)
+  });
+  cookieStore.delete({ name: "admin-session", path: "/" });
   return { success: true };
 }
 

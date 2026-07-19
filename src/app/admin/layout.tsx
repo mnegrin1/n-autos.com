@@ -304,10 +304,6 @@ export default function AutoAdminLayout({
             <Users size={16} />
             Contactos
           </Link>
-          <Link href="/admin/integrations" className={`${styles.navLink} ${pathname.startsWith("/admin/integrations") ? styles.activeNavLink : ""}`}>
-            <Share2 size={16} />
-            Publicaciones / Canales
-          </Link>
         </nav>
 
         {/* Footer del Sidebar: Tema, Configuración y Usuario */}
@@ -330,6 +326,15 @@ export default function AutoAdminLayout({
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", paddingLeft: "0.5rem" }}>
+              <Link 
+                href="/admin/settings"
+                title="Configuración"
+                style={{ cursor: "pointer", color: "var(--text-color)", display: "flex", padding: "0.35rem", borderRadius: "6px", textDecoration: "none" }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(128,128,128,0.1)"}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+              >
+                <Settings size={15} />
+              </Link>
               <button 
                 className={styles.themeBtn}
                 onClick={() => {
@@ -354,16 +359,15 @@ export default function AutoAdminLayout({
                 {currentTheme === "dark-dim" && <MoonStar size={15} />}
                 {currentTheme === "dark-black" && <Moon size={15} />}
               </button>
-
-              <Link 
-                href="/admin/settings" 
-                style={{ color: "var(--text-color)", display: "flex", padding: "0.35rem", borderRadius: "6px" }} 
-                title="Configuración"
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(128,128,128,0.1)"}
+              <button 
+                onClick={handleLogout}
+                title="Cerrar Sesión"
+                style={{ cursor: "pointer", background: "none", border: "none", color: "var(--danger, #ef4444)", display: "flex", padding: "0.35rem", borderRadius: "6px" }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(239,68,68,0.1)"}
                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
               >
-                <Settings size={15} />
-              </Link>
+                <LogOut size={15} />
+              </button>
             </div>
 
             {showDropdown && (
