@@ -285,6 +285,7 @@ export default function IntegrationsClient({
         {renderConnectionButton('mercadolibre', 'MercadoLibre', { connected: integrations.mercadolibre.connected, name: integrations.mercadolibre.username })}
         {renderConnectionButton('facebook', 'Facebook', { connected: integrations.facebook.connected, name: integrations.facebook.pageName })}
         {renderConnectionButton('instagram', 'Instagram', { connected: integrations.instagram.connected, name: integrations.instagram.handle })}
+        {renderConnectionButton('whatsapp', 'WhatsApp', { connected: integrations.whatsapp.connected, name: integrations.whatsapp.phoneNumber })}
       </div>
 
       {/* Main Content: Active Publications */}
