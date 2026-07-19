@@ -38,6 +38,7 @@ export async function login(email: string, password?: string) {
     email: user.email,
     name: user.name,
     role: user.role,
+    agency_id: user.agency_id,
   };
   const bytes = new TextEncoder().encode(JSON.stringify(sessionData));
   const binString = Array.from(bytes, (byte) => String.fromCharCode(byte)).join("");

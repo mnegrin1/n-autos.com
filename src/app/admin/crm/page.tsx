@@ -6,9 +6,9 @@ import { getCurrentUser } from "@/actions/authActions"; // reuse auth session
 export const dynamic = "force-dynamic";
 
 export default async function AutoCRMPage() {
-  const allLeads = await getAutoLeads("00000000-0000-0000-0000-000000000000");
-  const allAgents = await getAgents();
   const currentUser = await getCurrentUser();
+  const allLeads = await getAutoLeads(currentUser?.agency_id || "00000000-0000-0000-0000-000000000000");
+  const allAgents = await getAgents();
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>

@@ -315,7 +315,7 @@ export async function getAutoLeads(agencyId: string) {
 }
 
 export async function createAutoLead(lead: {
-  agencyId: string;
+  agencyId?: string;
   name: string;
   email?: string;
   phone?: string;
@@ -325,7 +325,7 @@ export async function createAutoLead(lead: {
   tags?: string[];
 }) {
   const newLead = {
-    agency_id: lead.agencyId,
+    agency_id: lead.agencyId || "00000000-0000-0000-0000-000000000000",
     name: lead.name,
     email: lead.email || "",
     phone: lead.phone || "",
