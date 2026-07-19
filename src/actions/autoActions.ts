@@ -147,6 +147,7 @@ export async function createVehicle(formData: FormData) {
   }
 
   const newVehicle = {
+    id: crypto.randomUUID(),
     agency_id: "00000000-0000-0000-0000-000000000000",
     ...validated,
     images: finalImages.length > 0 ? finalImages : ["https://images.unsplash.com/photo-1552519507-da3b142c6e3d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"],
@@ -314,6 +315,7 @@ export async function getAutoLeads(agencyId: string) {
 }
 
 export async function createAutoLead(lead: {
+  agencyId: string;
   name: string;
   email?: string;
   phone?: string;
@@ -323,7 +325,7 @@ export async function createAutoLead(lead: {
   tags?: string[];
 }) {
   const newLead = {
-    agency_id: "00000000-0000-0000-0000-000000000000",
+    agency_id: lead.agencyId,
     name: lead.name,
     email: lead.email || "",
     phone: lead.phone || "",
@@ -333,10 +335,11 @@ export async function createAutoLead(lead: {
     status: "nuevo",
     tags: lead.tags || [],
     time: "Ahora",
-    assigned_agent_id: null // default assign removed since "agent-1" is not a valid UUID
+    assigned_agent_id: null,
+    created_at: new Date().toISOString()
   };
 
-  const { data, error } = await (supabase.from('auto_leads') as any).insert([newLead]).select().single();
+  const { data, error } = await (supabase.from('auto_leads') as any).insert([newLead]);
   if (error) {
     console.error("Error creating auto lead:", error);
     return { success: false, error: "Error creating lead" };

@@ -71,6 +71,7 @@ export async function GET(request: Request) {
         refresh_token: refreshToken,
         expires_at: expiresAt,
         mode: "production",
+        settings: { user_id: data.user_id },
         updated_at: new Date().toISOString()
       }, { onConflict: "channel" });
       

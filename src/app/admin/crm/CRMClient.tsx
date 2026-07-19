@@ -123,6 +123,7 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
 
     startTransition(async () => {
       const res = await createAutoLead({
+        agencyId: currentUser.agency_id,
         name: newLeadForm.name,
         email: newLeadForm.email,
         phone: newLeadForm.phone,
@@ -168,7 +169,7 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
           <h1>Contactos CRM</h1>
           <p>Gestión de clientes y seguimiento de embudo en tiempo real.</p>
         </div>
-        <button className="btn-primary" style={{ backgroundColor: "#10b981", borderColor: "#10b981", display: "flex", alignItems: "center", gap: "0.25rem" }} onClick={handleOpenAddModal}>
+        <button className="btn-primary" style={{ backgroundColor: "var(--text-color)", borderColor: "var(--text-color)", color: "var(--bg-color)", display: "flex", alignItems: "center", gap: "0.25rem" }} onClick={handleOpenAddModal}>
           <Plus size={16} /> Nuevo Contacto
         </button>
       </div>
@@ -190,58 +191,64 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
             key={lead.id}
             className={styles.leadCard}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            {/* Columna 1: Info Básica */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
               <h4 className={styles.leadNameLink}>{lead.name}</h4>
+              <div className={styles.leadContactDetails} style={{ borderTop: "none", margin: 0, padding: 0 }}>
+                {lead.phone && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.75rem", opacity: 0.7 }}>
+                    <Phone size={10} />
+                    <span>{lead.phone}</span>
+                  </div>
+                )}
+                {lead.email && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.75rem", opacity: 0.7 }}>
+                    <Mail size={10} />
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lead.email}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Columna 2: Vehículo, Mensaje y Etiquetas */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <div className={styles.leadProperty} style={{ color: "var(--text-color)", fontWeight: "600", fontSize: "0.85rem", margin: 0 }}>
+                {lead.vehicle !== "Sin vehículo" ? `🚗 ${lead.vehicle}` : "👤 Contacto general"}
+              </div>
+              {lead.message && (
+                <p style={{ fontSize: "0.8rem", margin: 0, opacity: 0.8, lineBreak: "anywhere", WebkitLineClamp: 2, display: "-webkit-box", WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                  "{lead.message}"
+                </p>
+              )}
+              {lead.tags && lead.tags.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem" }}>
+                  {lead.tags.map(tag => (
+                    <span key={tag} style={{ backgroundColor: "var(--text-color)", color: "var(--bg-color)", padding: "0.1rem 0.4rem", borderRadius: "4px", fontSize: "0.65rem", fontWeight: "600" }}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Columna 3: Fecha y Agente */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", alignItems: "flex-end" }}>
+              <span className={styles.leadTime}>{lead.time || "Ahora"}</span>
+              <span className={styles.agentBadge} style={{ margin: 0 }}>
+                <User size={10} />
+                <span>Asignado</span>
+              </span>
+            </div>
+
+            {/* Columna 4: Acciones */}
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
               <button 
                 onClick={() => handleDeleteLead(lead.id)}
                 style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", opacity: 0.7 }}
                 title="Eliminar lead"
               >
-                <Trash2 size={13} />
+                <Trash2 size={16} />
               </button>
-            </div>
-
-            <div className={styles.leadProperty} style={{ color: "#10b981", fontWeight: "600", fontSize: "0.85rem", marginTop: "0.25rem" }}>
-              {lead.vehicle !== "Sin vehículo" ? `🚗 ${lead.vehicle}` : "👤 Contacto general"}
-            </div>
-
-            {lead.tags && lead.tags.length > 0 && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem", marginTop: "0.5rem" }}>
-                {lead.tags.map(tag => (
-                  <span key={tag} style={{ backgroundColor: "rgba(16, 185, 129, 0.1)", color: "#10b981", padding: "0.1rem 0.4rem", borderRadius: "4px", fontSize: "0.65rem", fontWeight: "600" }}>
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {lead.message && (
-              <p style={{ fontSize: "0.8rem", margin: "0.5rem 0", opacity: 0.8, lineBreak: "anywhere" }}>
-                "{lead.message}"
-              </p>
-            )}
-
-            <div className={styles.leadContactDetails}>
-              {lead.phone && (
-                <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.75rem", opacity: 0.7 }}>
-                  <Phone size={10} />
-                  <span>{lead.phone}</span>
-                </div>
-              )}
-              {lead.email && (
-                <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.75rem", opacity: 0.7 }}>
-                  <Mail size={10} />
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lead.email}</span>
-                </div>
-              )}
-            </div>
-
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto", paddingTop: "0.75rem" }}>
-              <span className={styles.agentBadge}>
-                <User size={10} />
-                <span>Asignado</span>
-              </span>
-              <span className={styles.leadTime}>{lead.time || "Ahora"}</span>
             </div>
           </div>
         ))}
@@ -348,9 +355,9 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
                 />
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginTop: "0.35rem" }}>
                   {newLeadForm.tags.map(tag => (
-                    <span key={tag} style={{ display: "flex", alignItems: "center", gap: "0.25rem", backgroundColor: "rgba(16, 185, 129, 0.1)", color: "#10b981", padding: "0.2rem 0.5rem", borderRadius: "4px", fontSize: "0.75rem", fontWeight: "600" }}>
+                    <span key={tag} style={{ display: "flex", alignItems: "center", gap: "0.25rem", backgroundColor: "var(--text-color)", color: "var(--bg-color)", padding: "0.2rem 0.5rem", borderRadius: "4px", fontSize: "0.75rem", fontWeight: "600" }}>
                       {tag}
-                      <button type="button" onClick={() => handleRemoveTag(tag)} style={{ background: "none", border: "none", color: "#10b981", cursor: "pointer", padding: 0, display: "flex" }}>
+                      <button type="button" onClick={() => handleRemoveTag(tag)} style={{ background: "none", border: "none", color: "var(--bg-color)", cursor: "pointer", padding: 0, display: "flex" }}>
                         <X size={12} />
                       </button>
                     </span>
@@ -379,7 +386,7 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
                 </button>
                 <button 
                   type="submit" 
-                  style={{ backgroundColor: "#10b981", border: "none", padding: "0.65rem 1.25rem", borderRadius: "8px", fontWeight: "600", color: "white", cursor: "pointer" }}
+                  style={{ backgroundColor: "var(--text-color)", border: "none", padding: "0.65rem 1.25rem", borderRadius: "8px", fontWeight: "600", color: "var(--bg-color)", cursor: "pointer" }}
                   disabled={isPending}
                 >
                   {isPending ? "Creando..." : "Crear Contacto"}

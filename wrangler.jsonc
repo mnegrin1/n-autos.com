@@ -9,5 +9,15 @@
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
+  },
+  "vars": {
+    "NEXT_PUBLIC_SUPABASE_URL": "https://joadvlatdeyamtspvruu.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpvYWR2bGF0ZGV5YW10c3B2cnV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyNzc5MDQsImV4cCI6MjA5OTg1MzkwNH0.ZLFeBWKReUnDL6HLp0EUbmZ2Exxqs_3Bkx_7rxwenUg",
+    "MERCADOLIBRE_APP_ID": "1597556409269940",
+    "MERCADOLIBRE_SECRET_KEY": "1528nXtaAADpVucpTKhwz5rseuXvZwz0",
+    "NEXT_PUBLIC_APP_URL": "https://prueba.n-sistemas.com",
+    "META_APP_ID": "2232885130828255",
+    "META_APP_SECRET": "b49fe148c8d7d4ff58a032c811382b08",
+    "META_VERIFY_TOKEN": "your_custom_verify_token"
   }
 }

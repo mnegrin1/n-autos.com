@@ -327,3 +327,39 @@ CREATE POLICY "Gestionar developments de la propia agencia" ON developments FOR 
 CREATE POLICY "Gestionar lots de la propia agencia" ON lots FOR ALL TO authenticated USING (agency_id = get_auth_user_agency()) WITH CHECK (agency_id = get_auth_user_agency());
 CREATE POLICY "Gestionar notifications de la propia agencia" ON notifications FOR ALL TO authenticated USING (agency_id = get_auth_user_agency()) WITH CHECK (agency_id = get_auth_user_agency());
 CREATE POLICY "Gestionar payments de la propia agencia" ON payments FOR ALL TO authenticated USING (agency_id = get_auth_user_agency()) WITH CHECK (agency_id = get_auth_user_agency());
+
+-- =========================================================================
+-- 10. TABLA DE INBOX / CHAT / CRM CONVERSATIONS
+-- =========================================================================
+
+CREATE TABLE inbox_conversations (
+    id VARCHAR(255) PRIMARY KEY,
+    agency_id UUID REFERENCES agencies(id) ON DELETE CASCADE,
+    lead_name VARCHAR(255),
+    lead_avatar VARCHAR(50),
+    channel VARCHAR(50),
+    last_message TEXT,
+    last_message_time VARCHAR(50),
+    unread BOOLEAN DEFAULT true,
+    messages JSONB DEFAULT '[]'::jsonb,
+    channel_sender_id VARCHAR(255),
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- RLS Policies for inbox_conversations
+ALTER TABLE inbox_conversations ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Gestionar inbox de la propia agencia" ON inbox_conversations
+  FOR ALL TO authenticated
+  USING (agency_id = get_auth_user_agency())
+  WITH CHECK (agency_id = get_auth_user_agency());
+
+-- Permitir la inserción/actualización desde los webhooks (sin autenticar)
+-- Nota: En producción, es recomendable que los webhooks usen Service Role Key,
+-- pero para desarrollo y simplificación:
+CREATE POLICY "Permitir webhooks públicos a inbox_conversations" ON inbox_conversations
+  FOR ALL TO anon
+  USING (true)
+  WITH CHECK (true);

@@ -54,6 +54,7 @@ export default function VehicleDetailClient({ vehicle, agencyName, whatsappPhone
 
     startTransition(async () => {
       const res = await createAutoLead({
+        agencyId: vehicle.agency_id,
         name: formState.name,
         email: formState.email,
         phone: formState.phone,
