@@ -98,6 +98,59 @@ export async function GET(request: Request) {
       throw new Error("Error al guardar integración en base de datos.");
     } else {
       console.log("Integración de ML guardada en Supabase correctamente.");
+
+      // Fetch historial de mensajes sin responder
+      try {
+        const qRes = await fetch("https://api.mercadolibre.com/my/received_questions/search?status=UNANSWERED", {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        
+        if (qRes.ok) {
+           const qData = await qRes.json();
+           const questions = qData.questions || [];
+           
+           for (const q of questions) {
+              const text = q.text;
+              const senderId = q.from.id.toString();
+              const channel = "mercadolibre";
+              const timeStr = new Date(q.date_created || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              
+              const { data: existingConvs } = await (supabase.from("inbox_conversations") as any)
+                .select("id")
+                .eq("channel", channel)
+                .eq("channel_sender_id", senderId)
+                .limit(1);
+                
+              if (!existingConvs || existingConvs.length === 0) {
+                 const newConv = {
+                    id: `conv-ml-${Date.now()}-${senderId}`,
+                    agency_id: "00000000-0000-0000-0000-000000000000",
+                    lead_name: `Usuario ML (${senderId})`,
+                    lead_avatar: "ML",
+                    channel: channel,
+                    last_message: text,
+                    last_message_time: timeStr,
+                    unread: true,
+                    messages: [{
+                      id: `msg-${Date.now()}-${q.id}`,
+                      sender: 'lead',
+                      text: text,
+                      time: timeStr,
+                      status: 'read'
+                    }],
+                    channel_sender_id: senderId
+                 };
+                 await (supabase.from("inbox_conversations") as any).insert([newConv]);
+              }
+           }
+           console.log(`Se importaron ${questions.length} preguntas sin responder de MercadoLibre.`);
+        } else {
+           const errData = await qRes.json().catch(() => null);
+           console.error("Error al importar preguntas:", errData);
+        }
+      } catch (err) {
+         console.error("Excepción al importar preguntas del historial de ML:", err);
+      }
     }
 
     // 3. Redirigir con éxito
