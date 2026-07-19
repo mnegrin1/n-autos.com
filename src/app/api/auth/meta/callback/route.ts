@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
     const pageAccessToken = page.access_token;
     
     // 6. Guardar en Supabase para Facebook capturando los errores de Base de Datos
-    const { error: supaFbError } = await (supabase as any).from("auto_integrations").upsert({
+    const { error: supaFbError } = await (supabaseAdmin as any).from("auto_integrations").upsert({
       channel: "facebook",
       agency_id: "00000000-0000-0000-0000-000000000000",
       connected: true,
@@ -76,7 +76,7 @@ export async function GET(request: Request) {
       const igRes = await fetch(`https://graph.facebook.com/v19.0/${igId}?fields=username&access_token=${pageAccessToken}`);
       const igData = await igRes.json();
       const igUsername = igData.username || igId;
-      const { error: supaIgError } = await (supabase as any).from("auto_integrations").upsert({
+      const { error: supaIgError } = await (supabaseAdmin as any).from("auto_integrations").upsert({
         channel: "instagram",
         agency_id: "00000000-0000-0000-0000-000000000000",
         connected: true,

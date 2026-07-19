@@ -1019,6 +1019,18 @@ export async function importSelectedMLListings(selectedItems: any[]) {
           return attr ? attr.value_name : def;
         };
 
+        let extractedImages = [];
+        if (itemData.pictures && itemData.pictures.length > 0) {
+          extractedImages = itemData.pictures
+            .map((p: any) => p.secure_url || p.url)
+            .filter(Boolean)
+            .slice(0, 15);
+        } else {
+          extractedImages = [
+            itemData.secure_thumbnail || itemData.thumbnail || "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
+          ];
+        }
+
         matchingVehicle = {
           agency_id: "00000000-0000-0000-0000-000000000000",
           brand: getAttr("BRAND", "Auto"),
@@ -1034,9 +1046,7 @@ export async function importSelectedMLListings(selectedItems: any[]) {
           doors: parseInt(getAttr("DOORS", "4")) || 4,
           plate: "",
           description: "Importado automáticamente desde MercadoLibre.",
-          images: [
-            itemData.pictures?.[0]?.secure_url || itemData.secure_thumbnail || itemData.thumbnail || "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"
-          ],
+          images: extractedImages,
           status: "disponible",
         };
         

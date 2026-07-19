@@ -300,6 +300,10 @@ export default function AutoAdminLayout({
             <MessageSquare size={16} />
             Bandeja de Entrada
           </Link>
+          <Link href="/admin/publications" className={`${styles.navLink} ${pathname.startsWith("/admin/publications") ? styles.activeNavLink : ""}`}>
+            <Share2 size={16} />
+            Publicaciones Activas
+          </Link>
           <Link href="/admin/crm" className={`${styles.navLink} ${pathname.startsWith("/admin/crm") ? styles.activeNavLink : ""}`}>
             <Users size={16} />
             Contactos
@@ -358,15 +362,6 @@ export default function AutoAdminLayout({
                 {currentTheme === "light" && <Sun size={15} />}
                 {currentTheme === "dark-dim" && <MoonStar size={15} />}
                 {currentTheme === "dark-black" && <Moon size={15} />}
-              </button>
-              <button 
-                onClick={handleLogout}
-                title="Cerrar Sesión"
-                style={{ cursor: "pointer", background: "none", border: "none", color: "var(--danger, #ef4444)", display: "flex", padding: "0.35rem", borderRadius: "6px" }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(239,68,68,0.1)"}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-              >
-                <LogOut size={15} />
               </button>
             </div>
 
