@@ -1,6 +1,6 @@
 
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 // GET: Verificación del Webhook por parte de Meta
 export async function GET(request: Request) {
@@ -31,6 +31,7 @@ export async function POST(request: Request) {
     // Validar el origen (Messenger de página de Facebook o Instagram Direct)
     const isPage = body.object === "page";
     const isInstagram = body.object === "instagram";
+    const isWhatsApp = body.object === "whatsapp_business_account";
 
     if (isPage || isInstagram) {
       const entry = body.entry?.[0];
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
         const messageText = messaging.message.text;
         const channel = isPage ? "facebook" : "instagram";
 
-        const { data: existingConvs } = await (supabase as any)
+        const { data: existingConvs } = await (supabaseAdmin as any)
           .from("inbox_conversations")
           .select("*")
           .eq("channel", channel)
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
             }],
             channel_sender_id: senderId
           };
-          await (supabase.from("inbox_conversations") as any).insert(newConv);
+          await (supabaseAdmin.from("inbox_conversations") as any).insert(newConv);
         } else {
           const newMessages = [...(conversation.messages || []), {
             id: `msg-${Date.now()}`,
@@ -82,7 +83,7 @@ export async function POST(request: Request) {
             status: 'read'
           }];
           
-          await (supabase.from("inbox_conversations") as any).update({
+          await (supabaseAdmin.from("inbox_conversations") as any).update({
             last_message: messageText,
             last_message_time: timeStr,
             unread: true,
@@ -90,6 +91,70 @@ export async function POST(request: Request) {
           }).eq("id", conversation.id);
         }
         console.log(`Mensaje de ${channel} registrado en el CRM.`);
+      }
+    } else if (isWhatsApp) {
+      const entry = body.entry?.[0];
+      const changes = entry?.changes?.[0];
+      const value = changes?.value;
+      
+      if (value && value.messages && value.messages.length > 0) {
+        const message = value.messages[0];
+        const contact = value.contacts?.[0];
+        
+        if (message.type === "text") {
+          const senderId = message.from;
+          const messageText = message.text.body;
+          const contactName = contact?.profile?.name || `Cliente WA (${senderId.slice(-4)})`;
+          
+          const { data: existingConvs } = await (supabaseAdmin as any)
+            .from("inbox_conversations")
+            .select("*")
+            .eq("channel", "whatsapp")
+            .eq("channel_sender_id", senderId)
+            .limit(1);
+
+          let conversation = existingConvs && existingConvs.length > 0 ? existingConvs[0] : null;
+
+          const now = new Date();
+          const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+          if (!conversation) {
+            const newConv = {
+              id: `conv-wa-${Date.now()}`,
+              lead_name: contactName,
+              lead_avatar: "WA",
+              channel: "whatsapp",
+              last_message: messageText,
+              last_message_time: timeStr,
+              unread: true,
+              messages: [{
+                id: `msg-${Date.now()}`,
+                sender: 'lead',
+                text: messageText,
+                time: timeStr,
+                status: 'read'
+              }],
+              channel_sender_id: senderId
+            };
+            await (supabaseAdmin.from("inbox_conversations") as any).insert(newConv);
+          } else {
+            const newMessages = [...(conversation.messages || []), {
+              id: `msg-${Date.now()}`,
+              sender: 'lead',
+              text: messageText,
+              time: timeStr,
+              status: 'read'
+            }];
+            
+            await (supabaseAdmin.from("inbox_conversations") as any).update({
+              last_message: messageText,
+              last_message_time: timeStr,
+              unread: true,
+              messages: newMessages
+            }).eq("id", conversation.id);
+          }
+          console.log(`Mensaje de whatsapp registrado en el CRM.`);
+        }
       }
     }
 

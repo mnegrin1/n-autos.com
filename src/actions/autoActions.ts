@@ -1437,3 +1437,41 @@ export async function importSocialPost(channel: 'facebook' | 'instagram', postDa
   
   return { success: true, vehicle: newVehicle, publication: newPub };
 }
+
+export async function sendWhatsAppMessage(toPhone: string, text: string) {
+  // Asegúrate de tener estas variables en tu .env.local
+  // WHATSAPP_TOKEN=tu_token_permanente
+  // WHATSAPP_PHONE_ID=el_id_del_numero_de_twilio_en_meta
+  const token = process.env.WHATSAPP_TOKEN;
+  const phoneId = process.env.WHATSAPP_PHONE_ID;
+
+  if (!token || !phoneId) {
+    return { success: false, error: "Faltan credenciales de WhatsApp (WHATSAPP_TOKEN o WHATSAPP_PHONE_ID) en las variables de entorno." };
+  }
+
+  try {
+    const response = await fetch(`https://graph.facebook.com/v19.0/${phoneId}/messages`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to: toPhone,
+        type: "text",
+        text: { body: text }
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error?.message || "Error al enviar mensaje por WhatsApp");
+    }
+
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("Error en sendWhatsAppMessage:", error);
+    return { success: false, error: error.message };
+  }
+}
