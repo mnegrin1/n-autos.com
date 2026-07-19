@@ -355,6 +355,43 @@ export async function createAutoLead(lead: {
   return { success: true, data: newLead };
 }
 
+export async function bulkCreateAutoLeads(leadsData: {
+  agencyId?: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  vehicle?: string;
+  vehicleId?: string;
+  message?: string;
+  tags?: string[];
+}[]) {
+  const newLeads = leadsData.map(lead => ({
+    agency_id: lead.agencyId || "00000000-0000-0000-0000-000000000000",
+    name: lead.name,
+    email: lead.email || "",
+    phone: lead.phone || "",
+    vehicle: lead.vehicle || "Sin vehículo",
+    vehicle_id: lead.vehicleId || null,
+    message: lead.message || "Contacto importado.",
+    status: "nuevo",
+    tags: lead.tags || [],
+    time: "Ahora",
+    assigned_agent_id: null,
+    created_at: new Date().toISOString()
+  }));
+
+  const { error } = await (supabaseAdmin.from('auto_leads') as any).insert(newLeads);
+  if (error) {
+    console.error("Error bulk creating auto leads:", error);
+    return { success: false, error: error.message || "Error bulk creating leads" };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/crm");
+
+  return { success: true };
+}
+
 export async function updateAutoLeadStatus(leadId: string, status: string) {
   const { data, error } = await (supabaseAdmin.from('auto_leads') as any)
     .update({ status })

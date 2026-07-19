@@ -96,7 +96,7 @@ export default function AutoAdminLayout({
   const handleLogout = async () => {
     if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
       await logout();
-      window.location.href = "/realstate/admin/login"; // Redirect to shared login
+      window.location.href = "/admin/login"; // Redirect to admin login
     }
   };
 
@@ -177,8 +177,8 @@ export default function AutoAdminLayout({
                 justifyContent: "center",
                 gap: "0.5rem",
                 cursor: "pointer",
-                backgroundColor: "var(--primary)",
-                color: "white",
+                backgroundColor: "var(--text-color)",
+                color: "var(--bg-color)",
                 border: "none",
                 outline: "none",
                 boxShadow: "0 2px 4px rgba(0, 0, 0, 0.15)"

@@ -2,10 +2,12 @@
 
 import { useState, useTransition, useEffect } from "react";
 import styles from "./crm.module.css";
-import { updateAutoLeadStatus, deleteAutoLead, createAutoLead } from "@/actions/autoActions";
+import { updateAutoLeadStatus, deleteAutoLead, createAutoLead, bulkCreateAutoLeads } from "@/actions/autoActions";
 import { getVehicles } from "@/actions/autoActions";
-import { Phone, Mail, User, Plus, Trash2, Calendar, MessageSquare, X, Search } from "lucide-react";
+import { Phone, Mail, User, Plus, Trash2, Calendar, MessageSquare, X, Search, Upload } from "lucide-react";
+import * as xlsx from "xlsx";
 import { useSearchParams, useRouter } from "next/navigation";
+import { useRef } from "react";
 
 interface Lead {
   id: string;
@@ -52,11 +54,81 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
   const [tagInput, setTagInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   const [isPending, startTransition] = useTransition();
 
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const workbook = xlsx.read(bstr, { type: "binary" });
+        const wsname = workbook.SheetNames[0];
+        const ws = workbook.Sheets[wsname];
+        const data = xlsx.utils.sheet_to_json(ws, { header: 1 }) as any[][];
+        
+        if (data.length < 2) {
+          alert("El archivo no contiene suficientes datos.");
+          return;
+        }
+
+        const headers = data[0].map((h: string) => h ? h.toString().toLowerCase().trim() : "");
+        const rows = data.slice(1);
+        
+        const nameIdx = headers.findIndex((h: string) => h.includes("nombre") || h.includes("name") || h.includes("cliente"));
+        const emailIdx = headers.findIndex((h: string) => h.includes("correo") || h.includes("email"));
+        const phoneIdx = headers.findIndex((h: string) => h.includes("telefono") || h.includes("teléfono") || h.includes("phone") || h.includes("celular"));
+        const vehicleIdx = headers.findIndex((h: string) => h.includes("vehiculo") || h.includes("vehículo") || h.includes("vehicle") || h.includes("auto"));
+        
+        if (nameIdx === -1) {
+          alert("No se encontró una columna válida para el 'Nombre'.");
+          return;
+        }
+
+        const newLeadsData = rows.map((row) => {
+          if (!row[nameIdx]) return null;
+          return {
+            agencyId: currentUser.agency_id,
+            name: String(row[nameIdx] || ""),
+            email: emailIdx !== -1 ? String(row[emailIdx] || "") : "",
+            phone: phoneIdx !== -1 ? String(row[phoneIdx] || "") : "",
+            vehicle: vehicleIdx !== -1 ? String(row[vehicleIdx] || "Sin vehículo") : "Sin vehículo",
+            message: "Importado desde archivo",
+            tags: ["Importado"]
+          };
+        }).filter(Boolean) as any[];
+
+        if (newLeadsData.length === 0) {
+          alert("No se encontraron contactos válidos en el archivo.");
+          return;
+        }
+
+        const res = await bulkCreateAutoLeads(newLeadsData);
+        if (res.success) {
+          alert(`Se importaron ${newLeadsData.length} contactos exitosamente.`);
+          window.location.reload();
+        } else {
+          alert("Ocurrió un error al importar los contactos.");
+        }
+      } catch (err) {
+        console.error("Error parsing file:", err);
+        alert("Hubo un error al procesar el archivo.");
+      } finally {
+        setIsImporting(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
 
   useEffect(() => {
     const action = searchParams.get("action");
@@ -196,9 +268,27 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
           <h1>Contactos CRM</h1>
           <p>Gestión de clientes y seguimiento de embudo en tiempo real.</p>
         </div>
-        <button className="btn-primary" style={{ backgroundColor: "var(--text-color)", borderColor: "var(--text-color)", color: "var(--bg-color)", display: "flex", alignItems: "center", gap: "0.25rem" }} onClick={handleOpenAddModal}>
-          <Plus size={16} /> Nuevo Contacto
-        </button>
+        <div style={{ display: "flex", gap: "1rem" }}>
+          <input 
+            type="file" 
+            accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" 
+            ref={fileInputRef} 
+            style={{ display: "none" }} 
+            onChange={handleFileUpload} 
+          />
+          <button 
+            type="button"
+            className="btn-secondary" 
+            style={{ backgroundColor: "transparent", border: "1px solid var(--text-color)", color: "var(--text-color)", display: "flex", alignItems: "center", gap: "0.25rem", padding: "0.65rem 1.25rem", borderRadius: "8px", fontWeight: "600", cursor: "pointer" }} 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isImporting}
+          >
+            <Upload size={16} /> {isImporting ? "Importando..." : "Import contacts"}
+          </button>
+          <button className="btn-primary" style={{ backgroundColor: "var(--text-color)", borderColor: "var(--text-color)", color: "var(--bg-color)", display: "flex", alignItems: "center", gap: "0.25rem" }} onClick={handleOpenAddModal}>
+            <Plus size={16} /> Nuevo Contacto
+          </button>
+        </div>
       </div>
 
       <div className={styles.searchContainer}>

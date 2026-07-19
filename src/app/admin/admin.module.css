@@ -86,13 +86,7 @@
 }
 
 .topbar {
-  height: 70px;
-  border-bottom: 1px solid var(--border-color);
-  background-color: var(--bg-color);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 2rem;
+  display: none;
 }
 
 .topbarActions {
@@ -450,6 +444,12 @@
   }
 
   .topbar {
+    display: flex;
+    height: 70px;
+    border-bottom: 1px solid var(--border-color);
+    background-color: var(--bg-color);
+    align-items: center;
+    justify-content: space-between;
     padding: 0 1rem;
   }
 }

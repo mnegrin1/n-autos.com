@@ -24,6 +24,7 @@ export default function SuperAdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  // Dropdown states
   const [showDropdown, setShowDropdown] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -31,29 +32,11 @@ export default function SuperAdminLayout({
   // Theme states
   const [currentTheme, setCurrentTheme] = useState("light");
 
-  // Estados de Notificaciones
-  const [showBellDropdown, setShowBellDropdown] = useState(false);
-  const bellRef = useRef<HTMLDivElement>(null);
-  const [notifications, setNotifications] = useState<any[]>([
-    {
-      id: "1",
-      type: "status",
-      title: "Nueva Agencia Registrada",
-      desc: "La agencia 'Automotores del Sur' se ha registrado exitosamente.",
-      time: "Hoy 09:15",
-      unread: true,
-      link: "/superadmin/agencies"
-    }
-  ]);
-
   // Cerrar menús al hacer clic fuera
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setShowDropdown(false);
-      }
-      if (bellRef.current && !bellRef.current.contains(event.target as Node)) {
-        setShowBellDropdown(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -100,19 +83,8 @@ export default function SuperAdminLayout({
   const handleLogout = async () => {
     if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
       await logout();
-      window.location.href = "/realstate/admin/login"; // Redirect to shared login
+      window.location.href = "/admin/login"; // Redirect to admin login
     }
-  };
-
-  const unreadCount = notifications.filter(n => n.unread).length;
-
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
-  };
-
-  const handleNotificationClick = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, unread: false } : n));
-    setShowBellDropdown(false);
   };
 
   return (
@@ -156,66 +128,27 @@ export default function SuperAdminLayout({
             Usuarios Globales
           </Link>
         </nav>
-      </aside>
 
-      <main className={styles.mainContent}>
-        <header className={styles.topbar}>
-          <div className={styles.mobileMenuContainer}>
-            <button 
-              className={styles.mobileMenuBtn} 
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              title="Menu"
+        {/* Footer del Sidebar: Tema y Usuario */}
+        <div style={{ marginTop: "auto", padding: "1rem", borderTop: "1px solid var(--border-color)", display: "flex", flexDirection: "column" }}>
+          
+          <div 
+            style={{ display: "flex", alignItems: "center", position: "relative", padding: "0.5rem", borderRadius: "8px", transition: "background-color 0.2s" }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--primary-light)"}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+          >
+            <div 
+              style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", flex: 1, minWidth: 0 }}
+              onClick={() => setShowDropdown(!showDropdown)}
+              ref={dropdownRef}
             >
-              <Menu size={24} />
-            </button>
-          </div>
-          <div className={styles.topbarActions}>
-            <div className={styles.bellWrapper} ref={bellRef}>
-              <button 
-                className={styles.bellBtn} 
-                onClick={() => setShowBellDropdown(!showBellDropdown)}
-                title="Centro de Alertas"
-                type="button"
-              >
-                <Bell size={20} />
-                {unreadCount > 0 && <span className={styles.bellBadge}>{unreadCount}</span>}
-              </button>
-
-              {showBellDropdown && (
-                <div className={styles.bellDropdown}>
-                  <div className={styles.bellHeader}>
-                    <span>Alertas Recientes</span>
-                    {unreadCount > 0 && (
-                      <button onClick={markAllAsRead} className={styles.clearAllBtn}>
-                        Marcar todas leídas
-                      </button>
-                    )}
-                  </div>
-                  <div className={styles.notificationList}>
-                    {notifications.length === 0 ? (
-                      <div className={styles.emptyNotifications}>Sin alertas nuevas</div>
-                    ) : (
-                      notifications.map((n) => (
-                        <Link 
-                          key={n.id} 
-                          href={n.link} 
-                          className={`${styles.notificationItem} ${n.unread ? styles.unread : ""}`}
-                          onClick={() => handleNotificationClick(n.id)}
-                        >
-                          <div className={styles.notificationContent}>
-                            <div className={styles.notificationTitle}>{n.title}</div>
-                            <div className={styles.notificationDesc}>{n.desc}</div>
-                            <div className={styles.notificationTime}>{n.time}</div>
-                          </div>
-                        </Link>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
+              <div className={styles.avatar} style={{ width: "32px", height: "32px", fontSize: "0.85rem", flexShrink: 0, backgroundColor: "var(--danger, #ef4444)" }}>SA</div>
+              <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-color)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Superadmin</span>
+              </div>
             </div>
 
-            <div className={styles.themeSelectorTopbar}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", paddingLeft: "0.5rem" }}>
               <button 
                 className={styles.themeBtn}
                 onClick={() => {
@@ -232,52 +165,72 @@ export default function SuperAdminLayout({
                   setCurrentTheme(nextTheme);
                 }}
                 title="Cambiar Tema"
-                style={{ cursor: "pointer" }}
+                style={{ cursor: "pointer", background: "none", border: "none", color: "var(--text-color)", display: "flex", padding: "0.35rem", borderRadius: "6px" }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(128,128,128,0.1)"}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
               >
-                {currentTheme === "light" && <Sun size={20} />}
-                {currentTheme === "dark-dim" && <MoonStar size={20} />}
-                {currentTheme === "dark-black" && <Moon size={20} />}
+                {currentTheme === "light" && <Sun size={15} />}
+                {currentTheme === "dark-dim" && <MoonStar size={15} />}
+                {currentTheme === "dark-black" && <Moon size={15} />}
               </button>
             </div>
 
-            <div className={styles.userMenuWrapper} ref={dropdownRef}>
+            {showDropdown && (
               <div 
-                className={styles.avatar} 
-                onClick={() => setShowDropdown(!showDropdown)}
-                title="Perfil y Configuración"
+                className={styles.dropdownMenu} 
                 style={{ 
-                  cursor: "pointer", 
-                  userSelect: "none", 
-                  transition: "transform 0.2s ease, opacity 0.2s ease",
-                  backgroundColor: "var(--danger, #ef4444)"
+                  bottom: "100%", 
+                  top: "auto", 
+                  left: 0, 
+                  marginBottom: "0.5rem", 
+                  width: "100%",
+                  backgroundColor: "var(--surface-color)",
+                  border: "1px solid var(--border-color)",
+                  borderRadius: "12px",
+                  boxShadow: "var(--shadow-lg)",
+                  padding: "0.5rem",
+                  position: "absolute",
+                  zIndex: 1000
                 }}
+                onClick={(e) => e.stopPropagation()}
               >
-                SA
-              </div>
-
-              {showDropdown && (
-                <div className={styles.dropdownMenu}>
-                  <div className={styles.menuHeader}>
-                    <h4>Superadmin</h4>
-                    <p>admin@n-sistemas.com</p>
-                    <p style={{ fontWeight: 600, color: "var(--danger)", marginTop: "2px" }}>Control Total</p>
-                  </div>
-                  
-                  <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: "0.5rem", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                    <button 
-                      onClick={() => {
-                        setShowDropdown(false);
-                        handleLogout();
-                      }}
-                      className={styles.logoutBtn}
-                    >
-                      <LogOut size={14} />
-                      Cerrar Sesión
-                    </button>
-                  </div>
+                <div style={{ padding: "0.5rem", borderBottom: "1px solid var(--border-color)", marginBottom: "0.5rem" }}>
+                  <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-color)", opacity: 0.7, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>admin@n-sistemas.com</p>
+                  <p style={{ margin: 0, fontSize: "0.75rem", fontWeight: 600, color: "var(--danger)", marginTop: "2px" }}>Control Total</p>
                 </div>
-              )}
-            </div>
+                
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                  <button 
+                    onClick={() => {
+                      setShowDropdown(false);
+                      handleLogout();
+                    }}
+                    style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", fontWeight: 600, color: "var(--error, #ef4444)", background: "none", border: "none", width: "100%", textAlign: "left", padding: "0.5rem", borderRadius: "6px", cursor: "pointer", transition: "background-color 0.2s" }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(239, 68, 68, 0.08)"}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                  >
+                    <LogOut size={14} /> Cerrar Sesión
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </aside>
+
+      <main className={styles.mainContent}>
+        <header className={styles.topbar}>
+          <div className={styles.mobileMenuContainer}>
+            <button 
+              className={styles.mobileMenuBtn} 
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              title="Menu"
+            >
+              <Menu size={24} />
+            </button>
+          </div>
+          <div className={styles.topbarActions}>
+            {/* Topbar contents moved to sidebar */}
           </div>
         </header>
 

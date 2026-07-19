@@ -22,6 +22,7 @@ interface SettingsFormProps {
 
 export default function SettingsForm({ initialAgency }: SettingsFormProps) {
   const [agency, setAgency] = useState<Agency>(initialAgency);
+  const [activeTab, setActiveTab] = useState("comercial");
   const [name, setName] = useState(agency.name);
   const [whatsapp, setWhatsapp] = useState(agency.whatsapp || "");
   const [primaryColor, setPrimaryColor] = useState(agency.primary_color || "#10b981");
@@ -130,9 +131,37 @@ export default function SettingsForm({ initialAgency }: SettingsFormProps) {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: "2rem", marginTop: "1rem" }}>
+      <div style={{ display: "flex", gap: "1.5rem", borderBottom: "1px solid var(--border-color)", marginTop: "1.5rem", overflowX: "auto" }}>
+        <button 
+          onClick={() => setActiveTab("comercial")}
+          style={{ padding: "0.75rem 0", background: "none", border: "none", borderBottom: activeTab === "comercial" ? "2px solid var(--primary)" : "2px solid transparent", color: activeTab === "comercial" ? "var(--primary)" : "var(--text-color)", fontWeight: activeTab === "comercial" ? 700 : 500, cursor: "pointer", opacity: activeTab === "comercial" ? 1 : 0.6, whiteSpace: "nowrap" }}
+        >
+          Información Comercial
+        </button>
+        <button 
+          onClick={() => setActiveTab("preferencias")}
+          style={{ padding: "0.75rem 0", background: "none", border: "none", borderBottom: activeTab === "preferencias" ? "2px solid var(--primary)" : "2px solid transparent", color: activeTab === "preferencias" ? "var(--primary)" : "var(--text-color)", fontWeight: activeTab === "preferencias" ? 700 : 500, cursor: "pointer", opacity: activeTab === "preferencias" ? 1 : 0.6, whiteSpace: "nowrap" }}
+        >
+          Preferencias del Panel
+        </button>
+        <button 
+          onClick={() => setActiveTab("notificaciones")}
+          style={{ padding: "0.75rem 0", background: "none", border: "none", borderBottom: activeTab === "notificaciones" ? "2px solid var(--primary)" : "2px solid transparent", color: activeTab === "notificaciones" ? "var(--primary)" : "var(--text-color)", fontWeight: activeTab === "notificaciones" ? 700 : 500, cursor: "pointer", opacity: activeTab === "notificaciones" ? 1 : 0.6, whiteSpace: "nowrap" }}
+        >
+          Notificaciones y Alertas
+        </button>
+        <button 
+          onClick={() => setActiveTab("integraciones")}
+          style={{ padding: "0.75rem 0", background: "none", border: "none", borderBottom: activeTab === "integraciones" ? "2px solid var(--primary)" : "2px solid transparent", color: activeTab === "integraciones" ? "var(--primary)" : "var(--text-color)", fontWeight: activeTab === "integraciones" ? 700 : 500, cursor: "pointer", opacity: activeTab === "integraciones" ? 1 : 0.6, whiteSpace: "nowrap" }}
+        >
+          Integraciones
+        </button>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "2rem", marginTop: "2rem" }}>
         
         {/* Dealership Details Form */}
+        {activeTab === "comercial" && (
         <form onSubmit={handleSaveAgency} style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", borderRadius: "16px", padding: "2rem", boxShadow: "var(--shadow-sm)", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
           <h3 style={{ fontSize: "1.1rem", fontWeight: "700", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem", margin: 0 }}>
             Información Comercial
@@ -197,8 +226,10 @@ export default function SettingsForm({ initialAgency }: SettingsFormProps) {
             </button>
           </div>
         </form>
+        )}
 
         {/* User Preferences Card */}
+        {activeTab === "preferencias" && (
         <div style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", borderRadius: "16px", padding: "2rem", boxShadow: "var(--shadow-sm)", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
           <h3 style={{ fontSize: "1.1rem", fontWeight: "700", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
             <Palette size={16} /> Preferencias del Panel
@@ -319,6 +350,34 @@ export default function SettingsForm({ initialAgency }: SettingsFormProps) {
             </>
           )}
         </div>
+        )}
+
+        {/* Notificaciones Placeholder */}
+        {activeTab === "notificaciones" && (
+          <div style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", borderRadius: "16px", padding: "2rem", boxShadow: "var(--shadow-sm)", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+            <h3 style={{ fontSize: "1.1rem", fontWeight: "700", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              Alertas y Comunicaciones
+            </h3>
+            <p style={{ opacity: 0.7, fontSize: "0.9rem" }}>Configura qué eventos disparan correos electrónicos o mensajes de WhatsApp (ej. nuevos leads, vehículos vendidos).</p>
+            <div style={{ padding: "2rem", textAlign: "center", border: "1px dashed var(--border-color)", borderRadius: "8px", opacity: 0.5 }}>
+              Módulo en construcción
+            </div>
+          </div>
+        )}
+
+        {/* Integraciones Placeholder */}
+        {activeTab === "integraciones" && (
+          <div style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", borderRadius: "16px", padding: "2rem", boxShadow: "var(--shadow-sm)", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+            <h3 style={{ fontSize: "1.1rem", fontWeight: "700", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              Integraciones de Terceros
+            </h3>
+            <p style={{ opacity: 0.7, fontSize: "0.9rem" }}>Conecta tu cuenta con MercadoLibre, Facebook Ads, Instagram, Google Analytics y más.</p>
+            <div style={{ padding: "2rem", textAlign: "center", border: "1px dashed var(--border-color)", borderRadius: "8px", opacity: 0.5 }}>
+              Módulo en construcción
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );
