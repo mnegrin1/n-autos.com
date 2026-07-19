@@ -845,6 +845,7 @@ export async function unpublishVehicle(vehicleId: string, channel: 'mercadolibre
     .eq("channel", channel);
 
   revalidatePath("/admin/integrations");
+  
   return { success: true };
 }
 
