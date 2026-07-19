@@ -325,7 +325,6 @@ export async function createAutoLead(lead: {
   tags?: string[];
 }) {
   const newLead = {
-    id: crypto.randomUUID(),
     agency_id: lead.agencyId || "00000000-0000-0000-0000-000000000000",
     name: lead.name,
     email: lead.email || "",

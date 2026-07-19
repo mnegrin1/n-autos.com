@@ -145,7 +145,7 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
           tags: [],
         });
       } else {
-        alert("Error al guardar contacto");
+        alert("Error al guardar contacto: " + (res?.error || JSON.stringify(res)));
       }
     });
   };
