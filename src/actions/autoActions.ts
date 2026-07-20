@@ -1303,6 +1303,15 @@ export async function sendInboxMessage(conversationId: string, text: string) {
     status: 'sent' as const
   };
 
+  // 🚀 ¡NUEVO!: Conectar la función de envío de WhatsApp
+  if (conversation.channel === "whatsapp" && conversation.channel_sender_id) {
+    const waResponse = await sendWhatsAppMessage(conversation.channel_sender_id, text);
+    if (!waResponse.success) {
+      console.error("Fallo al enviar WhatsApp:", waResponse.error);
+      return { success: false, error: waResponse.error || "Fallo al enviar el WhatsApp" };
+    }
+  }
+
   const newMessages = [...(conversation.messages || []), newMsg];
   const { data: updatedConv, error: updateErr } = await (supabaseAdmin.from('inbox_conversations') as any)
     .update({ messages: newMessages, last_message: text, last_message_time: timeStr, unread: false })

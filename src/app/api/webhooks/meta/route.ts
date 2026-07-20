@@ -1,6 +1,7 @@
 
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { revalidatePath } from "next/cache";
 
 // GET: Verificación del Webhook por parte de Meta
 export async function GET(request: Request) {
@@ -53,7 +54,7 @@ export async function POST(request: Request) {
         let conversation = existingConvs && existingConvs.length > 0 ? existingConvs[0] : null;
 
         const now = new Date();
-        const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const timeStr = now.toISOString();
 
         if (!conversation) {
           const newConv = {
@@ -92,6 +93,7 @@ export async function POST(request: Request) {
           }).eq("id", conversation.id);
         }
         console.log(`Mensaje de ${channel} registrado en el CRM.`);
+        revalidatePath("/admin/inbox");
       }
     } else if (isWhatsApp) {
       const entry = body.entry?.[0];
@@ -117,7 +119,7 @@ export async function POST(request: Request) {
           let conversation = existingConvs && existingConvs.length > 0 ? existingConvs[0] : null;
 
           const now = new Date();
-          const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const timeStr = now.toISOString();
 
           if (!conversation) {
             const newConv = {
@@ -156,6 +158,7 @@ export async function POST(request: Request) {
             }).eq("id", conversation.id);
           }
           console.log(`Mensaje de whatsapp registrado en el CRM.`);
+          revalidatePath("/admin/inbox");
         }
       }
     }

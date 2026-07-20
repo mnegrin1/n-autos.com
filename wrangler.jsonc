@@ -10,14 +10,24 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+  "routes": [
+    {
+      "pattern": "prueba.n-sistemas.com",
+      "zone_name": "n-sistemas.com",
+      "custom_domain": true
+    }
+  ],
   "vars": {
     "NEXT_PUBLIC_SUPABASE_URL": "https://joadvlatdeyamtspvruu.supabase.co",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpvYWR2bGF0ZGV5YW10c3B2cnV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQyNzc5MDQsImV4cCI6MjA5OTg1MzkwNH0.ZLFeBWKReUnDL6HLp0EUbmZ2Exxqs_3Bkx_7rxwenUg",
+    "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpvYWR2bGF0ZGV5YW10c3B2cnV1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NDI3NzkwNCwiZXhwIjoyMDk5ODUzOTA0fQ.jyceu65rEbBqJRoqTjTqctMiwMe5w3N39K3w4bq9LzA",
     "MERCADOLIBRE_APP_ID": "1597556409269940",
     "MERCADOLIBRE_SECRET_KEY": "1528nXtaAADpVucpTKhwz5rseuXvZwz0",
     "NEXT_PUBLIC_APP_URL": "https://prueba.n-sistemas.com",
     "META_APP_ID": "2232885130828255",
     "META_APP_SECRET": "b49fe148c8d7d4ff58a032c811382b08",
-    "META_VERIFY_TOKEN": "your_custom_verify_token"
+    "META_VERIFY_TOKEN": "your_custom_verify_token",
+    "WHATSAPP_PHONE_ID": "1135249419681003",
+    "WHATSAPP_TOKEN": "EAAfuzBUMGd8BSKuJeW1qe7Pjf8olOTeGmRUMCetY5OPJ7WNjuaMysW51rLZAeNmm95a8NwpPJU5PFU1ic676TfrcfIKuW86QGiHN8gkZBrNMgdIjjM0d1AxeiktZCl4f51U2tms9gw4BcjTZCChY6ql6ZAcDIOJ04It8XhZAO5DRZCZBwFC5Ohj2CSU6o3YqxBLfcAZDZD"
   }
 }
