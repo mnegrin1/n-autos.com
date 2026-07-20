@@ -149,6 +149,23 @@ export default function SettingsForm({
 
       <div style={{ display: "flex", flexDirection: "column", gap: "3rem", marginTop: "2rem", paddingBottom: "4rem" }}>
         
+        {/* Integraciones Placeholder */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+            <IntegrationsClient 
+              initialVehicles={initialVehicles} 
+              initialIntegrations={initialIntegrations} 
+              initialPublications={initialPublications} 
+              appId={appId}
+              appUrl={appUrl}
+              errorMsg={errorMsg}
+              successMsg={successMsg}
+            />
+          </div>
+        </div>
+
+        <div style={{ height: "1px", backgroundColor: "var(--border-color)", margin: "0 1rem" }} />
+
         {/* Dealership Details Form */}
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           <form onSubmit={handleSaveAgency} style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", borderRadius: "16px", padding: "2rem", boxShadow: "var(--shadow-sm)", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -357,24 +374,6 @@ export default function SettingsForm({
             </div>
           </div>
         </div>
-
-        <div style={{ height: "1px", backgroundColor: "var(--border-color)", margin: "0 1rem" }} />
-
-        {/* Integraciones Placeholder */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-            <IntegrationsClient 
-              initialVehicles={initialVehicles} 
-              initialIntegrations={initialIntegrations} 
-              initialPublications={initialPublications} 
-              appId={appId}
-              appUrl={appUrl}
-              errorMsg={errorMsg}
-              successMsg={successMsg}
-            />
-          </div>
-        </div>
-
       </div>
     </div>
   );

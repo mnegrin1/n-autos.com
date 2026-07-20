@@ -14,7 +14,7 @@ import {
   Info
 } from "lucide-react";
 import styles from "./integrations.module.css";
-import { updateIntegration, unpublishVehicle, fetchMercadoLibreListings, importSelectedMLListings, importSocialPost } from "@/actions/autoActions";
+import { updateIntegration, unpublishVehicle, fetchMercadoLibreListings, importSelectedMLListings, importSocialPost, syncMetaConversations } from "@/actions/autoActions";
 
 interface Vehicle {
   id: string;
@@ -155,6 +155,17 @@ export default function IntegrationsClient({
     }
   };
 
+  const handleSyncMeta = async (channel: 'facebook' | 'instagram') => {
+    startTransition(async () => {
+      const res = await syncMetaConversations(channel);
+      if (res.success) {
+        alert(res.message);
+      } else {
+        alert(`Error al sincronizar: ${res.error}`);
+      }
+    });
+  };
+
   const handleSyncListings = async () => {
     setIsLoadingML(true);
     setShowMLSyncModal(true);
@@ -245,6 +256,12 @@ export default function IntegrationsClient({
             }
           }} style={{ marginLeft: '12px', fontSize: '0.8rem', color: 'var(--primary)', background: 'var(--primary-light)', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: '4px', fontWeight: 600 }}>
             Conectar
+          </button>
+        )}
+
+        {data.connected && (channel === 'facebook' || channel === 'instagram') && (
+          <button onClick={() => handleSyncMeta(channel)} disabled={isPending} style={{ marginLeft: '8px', fontSize: '0.8rem', color: '#10b981', background: 'none', border: '1px solid #10b981', cursor: 'pointer', padding: '4px 8px', borderRadius: '4px' }}>
+            {isPending ? '...' : 'Sincronizar Chats'}
           </button>
         )}
 

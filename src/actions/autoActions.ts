@@ -1607,3 +1607,147 @@ export async function updateLeadContact(
     return { success: false, error: err.message };
   }
 }
+export async function syncMetaConversations(channel: "facebook" | "instagram") {
+  try {
+    const integrations = await getIntegrations();
+    const metaInt = channel === "facebook" ? integrations.facebook : integrations.instagram;
+    const fbInt = integrations.facebook; // Siempre necesitamos la info de la página
+
+    if (!metaInt || !metaInt.connected || !metaInt.token || !fbInt || !fbInt.refresh_token) {
+      return { success: false, error: `${channel} no está conectado o falta el token de página` };
+    }
+
+    const token = metaInt.token; // Page Access Token
+    const pageId = fbInt.refresh_token; // Para ambos canales, la consulta de conversaciones se hace sobre el Page ID
+
+    // 1. Obtener las últimas 5 conversaciones
+    const platformParam = channel === "instagram" ? "&platform=instagram" : "";
+    const convsRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/conversations?limit=5${platformParam}&access_token=${token}`);
+    
+    if (!convsRes.ok) {
+      const errData = await convsRes.json();
+      throw new Error(errData.error?.message || "Error obteniendo conversaciones de Meta");
+    }
+
+    const convsData = await convsRes.json();
+    if (!convsData.data || convsData.data.length === 0) {
+      return { success: true, count: 0, message: "No hay conversaciones recientes" };
+    }
+
+    let syncedCount = 0;
+
+    // 2. Para cada conversación, obtener los mensajes y el perfil
+    for (const conv of convsData.data) {
+      const convId = conv.id;
+      const msgsRes = await fetch(`https://graph.facebook.com/v20.0/${convId}?fields=messages.limit(20){message,created_time,from,to}&access_token=${token}`);
+      if (!msgsRes.ok) continue;
+
+      const msgsData = await msgsRes.json();
+      if (!msgsData.messages || !msgsData.messages.data || msgsData.messages.data.length === 0) continue;
+
+      const rawMessages = msgsData.messages.data.reverse(); // Los más antiguos primero
+      
+      // Identificar al lead (el que no es nuestra página/cuenta)
+      // Buscamos un mensaje enviado por alguien que no sea nuestro pageId ni igId
+      const igId = integrations.instagram?.refresh_token;
+      let leadId = "";
+      let leadNameRaw = "";
+
+      for (const rm of rawMessages) {
+        if (rm.from && rm.from.id !== pageId && rm.from.id !== igId) {
+          leadId = rm.from.id;
+          leadNameRaw = rm.from.name || "";
+          break;
+        }
+      }
+
+      if (!leadId) {
+        // Si no encontramos lead, es porque todos los mensajes son de la página? Ignorar.
+        continue;
+      }
+
+      // 3. Obtener el nombre real desde el endpoint del perfil
+      let finalLeadName = leadNameRaw || `Cliente ${channel.toUpperCase()} (${leadId.substring(leadId.length - 4)})`;
+      let finalLeadAvatar = channel === "facebook" ? "FB" : "IG";
+
+      try {
+        const profileRes = await fetch(`https://graph.facebook.com/v20.0/${leadId}?fields=first_name,last_name,name&access_token=${token}`);
+        if (profileRes.ok) {
+          const profile = await profileRes.json();
+          if (profile.name) {
+            finalLeadName = profile.name;
+          } else if (profile.first_name) {
+            finalLeadName = `${profile.first_name} ${profile.last_name || ''}`.trim();
+          }
+        }
+      } catch (e) {
+        // ignore profile error
+      }
+
+      // 4. Transformar a nuestro formato de mensajes
+      const ourMessages = rawMessages.filter((rm: any) => rm.message).map((rm: any) => {
+        const isFromLead = rm.from && rm.from.id === leadId;
+        return {
+          id: `msg-${rm.id || Date.now() + Math.random()}`,
+          sender: isFromLead ? "lead" : "agent",
+          text: rm.message,
+          time: rm.created_time || new Date().toISOString(),
+          status: "read"
+        };
+      });
+
+      if (ourMessages.length === 0) continue;
+
+      const lastMsg = ourMessages[ourMessages.length - 1];
+
+      // 5. Verificar si ya existe la conversación
+      const { data: existingConvs } = await (supabaseAdmin as any)
+        .from("inbox_conversations")
+        .select("*")
+        .eq("channel", channel)
+        .eq("channel_sender_id", leadId)
+        .limit(1);
+
+      const existingConv = existingConvs && existingConvs.length > 0 ? existingConvs[0] : null;
+
+      if (!existingConv) {
+        // Insertar
+        const newConv = {
+          id: `conv-meta-sync-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          agency_id: "00000000-0000-0000-0000-000000000000",
+          lead_name: finalLeadName,
+          lead_avatar: finalLeadAvatar,
+          channel: channel as any,
+          last_message: lastMsg.text,
+          last_message_time: lastMsg.time,
+          unread: false,
+          messages: ourMessages,
+          channel_sender_id: leadId
+        };
+        await (supabaseAdmin.from("inbox_conversations") as any).insert(newConv);
+        syncedCount++;
+      } else {
+        // Actualizar mensajes (evitando duplicados)
+        const existingIds = new Set(existingConv.messages?.map((m: any) => m.id) || []);
+        const newUniqueMsgs = ourMessages.filter((m: any) => !existingIds.has(m.id));
+        
+        if (newUniqueMsgs.length > 0) {
+          const mergedMsgs = [...(existingConv.messages || []), ...newUniqueMsgs];
+          await (supabaseAdmin.from("inbox_conversations") as any).update({
+            last_message: lastMsg.text,
+            last_message_time: lastMsg.time,
+            messages: mergedMsgs
+          }).eq("id", existingConv.id);
+          syncedCount++;
+        }
+      }
+    }
+
+    revalidatePath("/admin/inbox");
+    return { success: true, count: syncedCount, message: `Sincronizados ${syncedCount} chats históricos.` };
+
+  } catch (error: any) {
+    console.error(`Error sincronizando ${channel}:`, error);
+    return { success: false, error: error.message };
+  }
+}

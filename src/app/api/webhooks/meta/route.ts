@@ -81,7 +81,7 @@ export async function POST(request: Request) {
             if (pageData && pageData.token) {
               const token = pageData.token;
               // Consultar API Graph para obtener el nombre y foto de perfil del remitente
-              const profileRes = await fetch(`https://graph.facebook.com/v20.0/${senderId}?fields=first_name,last_name,profile_pic,name&access_token=${token}`);
+              const profileRes = await fetch(`https://graph.facebook.com/v20.0/${senderId}?fields=first_name,last_name,name&access_token=${token}`);
               if (profileRes.ok) {
                 const profile = await profileRes.json();
                 if (profile.name) {
@@ -89,9 +89,7 @@ export async function POST(request: Request) {
                 } else if (profile.first_name) {
                    leadName = `${profile.first_name} ${profile.last_name || ''}`.trim();
                 }
-                if (profile.profile_pic) {
-                   leadAvatar = profile.profile_pic;
-                }
+                // Evitamos guardar la URL en lead_avatar porque supera los límites de varchar y rompe la UI
               }
             }
           } catch (profileErr) {
