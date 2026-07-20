@@ -1622,7 +1622,8 @@ export async function syncMetaConversations(channel: "facebook" | "instagram") {
 
     // 1. Obtener las últimas 5 conversaciones
     const platformParam = channel === "instagram" ? "&platform=instagram" : "";
-    const convsRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/conversations?fields=id,updated_time&limit=5${platformParam}&access_token=${token}`);
+    const limit = channel === "instagram" ? 2 : 5;
+    const convsRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/conversations?fields=id&limit=${limit}${platformParam}&access_token=${token}`);
     
     if (!convsRes.ok) {
       const errData = await convsRes.json();
@@ -1656,7 +1657,7 @@ export async function syncMetaConversations(channel: "facebook" | "instagram") {
       for (const rm of rawMessages) {
         if (rm.from && rm.from.id !== pageId && rm.from.id !== igId) {
           leadId = rm.from.id;
-          leadNameRaw = rm.from.name || "";
+          leadNameRaw = rm.from.name || rm.from.username || "";
           break;
         }
       }
