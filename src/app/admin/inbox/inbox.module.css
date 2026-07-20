@@ -46,13 +46,15 @@
   box-shadow: var(--shadow-sm);
 }
 
-/* Columna 1: Sidebar de chats */
 .sidebar {
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   background-color: var(--surface-color);
+  min-height: 0;
 }
+
+
 
 .sidebarHeader {
   padding: 1.25rem 1rem 0.75rem 1rem;
@@ -266,6 +268,7 @@
   flex-direction: column;
   background-color: var(--bg-color);
   border-right: 1px solid var(--border-color);
+  min-height: 0;
 }
 
 .chatHeader {
@@ -538,6 +541,7 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .panelContent {

@@ -1218,6 +1218,40 @@ export async function getInboxConversations() {
   return conversations;
 }
 
+export async function sendMetaMessage(channel: "facebook" | "instagram", recipientId: string, text: string) {
+  try {
+    const integrations = await getIntegrations();
+    const integration = channel === "facebook" ? integrations.facebook : integrations.instagram;
+    
+    if (!integration || !integration.connected || !integration.token) {
+      return { success: false, error: `${channel} no está conectado` };
+    }
+
+    const token = integration.token; // Page Access Token
+
+    const res = await fetch(`https://graph.facebook.com/v20.0/me/messages?access_token=${token}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        message: { text: text }
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      throw new Error(data.error?.message || `Fallo al enviar mensaje de ${channel}`);
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error(`Error enviando mensaje de ${channel}:`, err);
+    return { success: false, error: err.message };
+  }
+}
+
 export async function sendInboxMessage(conversationId: string, text: string) {
   if (conversationId.startsWith("ml-question-")) {
     const questionId = conversationId.replace("ml-question-", "");
@@ -1309,6 +1343,15 @@ export async function sendInboxMessage(conversationId: string, text: string) {
     if (!waResponse.success) {
       console.error("Fallo al enviar WhatsApp:", waResponse.error);
       return { success: false, error: waResponse.error || "Fallo al enviar el WhatsApp" };
+    }
+  }
+
+  // 🚀 ¡NUEVO!: Conectar la función de envío de Meta (Facebook/Instagram)
+  if ((conversation.channel === "facebook" || conversation.channel === "instagram") && conversation.channel_sender_id) {
+    const metaResponse = await sendMetaMessage(conversation.channel, conversation.channel_sender_id, text);
+    if (!metaResponse.success) {
+      console.error(`Fallo al enviar a ${conversation.channel}:`, metaResponse.error);
+      return { success: false, error: metaResponse.error || `Fallo al enviar a ${conversation.channel}` };
     }
   }
 
@@ -1482,5 +1525,85 @@ export async function sendWhatsAppMessage(toPhone: string, text: string) {
   } catch (error: any) {
     console.error("Error en sendWhatsAppMessage:", error);
     return { success: false, error: error.message };
+  }
+}
+
+export async function deleteConversation(conversationId: string) {
+  try {
+    const { error } = await supabaseAdmin
+      .from('inbox_conversations')
+      .delete()
+      .eq('id', conversationId);
+
+    if (error) throw error;
+    revalidatePath("/admin/inbox");
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error al eliminar conversación:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function updateLeadContact(
+  conversationId: string, 
+  currentLeadId: string | undefined, 
+  name: string, 
+  email?: string, 
+  phone?: string
+) {
+  try {
+    let leadIdToUse = currentLeadId;
+
+    // 1. Si no tiene lead asociado, lo creamos
+    if (!leadIdToUse) {
+      // Tomamos el primer agency_id disponible o deberíamos pasarlo por param. 
+      // Por simplicidad, buscamos la agencia del admin
+      const { data: user } = await supabaseAdmin.auth.getUser();
+      // O podemos crearlo sin agency_id si permitimos null, o buscarlo
+      
+      const { data: newLead, error: createError } = await supabaseAdmin
+        .from('leads')
+        .insert({
+          name: name,
+          email: email || null,
+          phone: phone || null,
+          status: 'nuevo'
+        })
+        .select('id')
+        .single();
+        
+      if (createError) throw createError;
+      leadIdToUse = newLead.id;
+    } else {
+      // 2. Si ya tiene lead, lo actualizamos
+      const { error: updateError } = await supabaseAdmin
+        .from('leads')
+        .update({
+          name: name,
+          email: email || null,
+          phone: phone || null
+        })
+        .eq('id', leadIdToUse);
+      if (updateError) throw updateError;
+    }
+
+    // 3. Actualizamos el nombre y el lead_id en inbox_conversations
+    const { error: inboxError } = await supabaseAdmin
+      .from('inbox_conversations')
+      .update({
+        lead_name: name,
+        lead_id: leadIdToUse
+      })
+      .eq('id', conversationId);
+      
+    if (inboxError) throw inboxError;
+
+    revalidatePath("/admin/inbox");
+    revalidatePath("/admin/crm");
+    
+    return { success: true, lead_id: leadIdToUse };
+  } catch (err: any) {
+    console.error("Error al actualizar lead/contacto:", err);
+    return { success: false, error: err.message };
   }
 }

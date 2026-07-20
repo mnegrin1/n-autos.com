@@ -28,7 +28,7 @@ export async function GET(request: Request) {
 
   try {
     // 3. Intercambiar code por User Access Token corto
-    const tokenRes = await fetch(`https://graph.facebook.com/v19.0/oauth/access_token?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&client_secret=${appSecret}&code=${code}`);
+    const tokenRes = await fetch(`https://graph.facebook.com/v20.0/oauth/access_token?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&client_secret=${appSecret}&code=${code}`);
     const tokenData = await tokenRes.json();
     
     if (tokenData.error) {
@@ -39,12 +39,12 @@ export async function GET(request: Request) {
     const shortLivedToken = tokenData.access_token;
     
     // 4. Intercambiar por Long-Lived User Access Token
-    const longLivedRes = await fetch(`https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${shortLivedToken}`);
+    const longLivedRes = await fetch(`https://graph.facebook.com/v20.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${shortLivedToken}`);
     const longLivedData = await longLivedRes.json();
     
     const longLivedToken = longLivedData.access_token || shortLivedToken;
     // 5. Obtener las páginas del usuario
-    const pagesRes = await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${longLivedToken}`);
+    const pagesRes = await fetch(`https://graph.facebook.com/v20.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${longLivedToken}`);
     const pagesData = await pagesRes.json();
     if (!pagesData.data || pagesData.data.length === 0) {
       console.error("ERROR DE PÁGINAS: El usuario inició sesión correctamente, pero Facebook dice que no tiene ninguna Página asociada o no le dio permisos a la aplicación para verlas.");
@@ -71,23 +71,30 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${appUrl}/admin/integrations?error=db_error_fb`);
     }
     // 7. Si la página tiene una cuenta de Instagram vinculada, la conectamos también
-    if (page.instagram_business_account) {
-      const igId = page.instagram_business_account.id;
-      const igRes = await fetch(`https://graph.facebook.com/v19.0/${igId}?fields=username&access_token=${pageAccessToken}`);
-      const igData = await igRes.json();
-      const igUsername = igData.username || igId;
-      const { error: supaIgError } = await (supabaseAdmin as any).from("auto_integrations").upsert({
-        channel: "instagram",
-        agency_id: "00000000-0000-0000-0000-000000000000",
-        connected: true,
-        username: igUsername,
-        token: pageAccessToken,
-        refresh_token: igId,
-        updated_at: new Date().toISOString()
-      }, { onConflict: "channel" });
-      if (supaIgError) {
-        console.error("Error al guardar Instagram en la base de datos (Supabase):", supaIgError);
+    try {
+      if (page.instagram_business_account && page.instagram_business_account.id) {
+        const igId = page.instagram_business_account.id;
+        const igRes = await fetch(`https://graph.facebook.com/v20.0/${igId}?fields=username&access_token=${pageAccessToken}`);
+        if (igRes.ok) {
+          const igData = await igRes.json();
+          const igUsername = igData.username || igId;
+          const { error: supaIgError } = await (supabaseAdmin as any).from("auto_integrations").upsert({
+            channel: "instagram",
+            agency_id: "00000000-0000-0000-0000-000000000000",
+            connected: true,
+            username: igUsername,
+            token: pageAccessToken,
+            refresh_token: igId,
+            updated_at: new Date().toISOString()
+          }, { onConflict: "channel" });
+          if (supaIgError) {
+            console.error("Error al guardar Instagram en la base de datos (Supabase):", supaIgError);
+          }
+        }
       }
+    } catch (igCatchErr) {
+      console.error("Error intentando vincular la cuenta de IG asociada:", igCatchErr);
+      // No lanzamos error para que no falle la conexión de Facebook
     }
     return NextResponse.redirect(`${appUrl}/admin/integrations?success=meta_connected`);
     

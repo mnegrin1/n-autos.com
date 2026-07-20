@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     if (channel === "facebook") {
       // Obtenemos los posts de la página. 
       // Usamos el endpoint /{page_id}/published_posts o /{page_id}/feed
-      const fbRes = await fetch(`https://graph.facebook.com/v19.0/${targetId}/published_posts?fields=id,message,full_picture,created_time,permalink_url&access_token=${token}&limit=10`);
+      const fbRes = await fetch(`https://graph.facebook.com/v20.0/${targetId}/published_posts?fields=id,message,full_picture,created_time,permalink_url&access_token=${token}&limit=10`);
       const fbData = await fbRes.json();
 
       if (fbData.error) {
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
 
     } else if (channel === "instagram") {
       // Obtenemos los media de Instagram
-      const igRes = await fetch(`https://graph.facebook.com/v19.0/${targetId}/media?fields=id,caption,media_url,media_type,timestamp,permalink,thumbnail_url&access_token=${token}&limit=10`);
+      const igRes = await fetch(`https://graph.facebook.com/v20.0/${targetId}/media?fields=id,caption,media_url,media_type,timestamp,permalink,thumbnail_url&access_token=${token}&limit=10`);
       const igData = await igRes.json();
 
       if (igData.error) {

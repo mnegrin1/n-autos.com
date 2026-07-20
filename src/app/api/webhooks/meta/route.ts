@@ -40,6 +40,13 @@ export async function POST(request: Request) {
 
       // Si contiene un mensaje de texto entrante del lead
       if (messaging && messaging.message && messaging.message.text) {
+        
+        // Ignorar Ecos (mensajes enviados por la propia página/app)
+        if (messaging.message.is_echo) {
+          console.log("Echo ignorado.");
+          return new Response("ECHO_IGNORED", { status: 200 });
+        }
+
         const senderId = messaging.sender.id;
         const messageText = messaging.message.text;
         const channel = isPage ? "facebook" : "instagram";
@@ -57,11 +64,45 @@ export async function POST(request: Request) {
         const timeStr = now.toISOString();
 
         if (!conversation) {
+          const recipientId = messaging.recipient.id;
+          let leadName = `Cliente ${channel.toUpperCase()} (${senderId.substring(senderId.length - 4)})`;
+          let leadAvatar = isPage ? "FB" : "IG";
+
+          try {
+            // Buscamos el token de acceso de la página (guardado en refresh_token durante el OAuth)
+            const { data: pageData } = await (supabaseAdmin as any)
+              .from("auto_integrations")
+              .select("token")
+              .eq("channel", channel)
+              .eq("refresh_token", recipientId)
+              .limit(1)
+              .single();
+
+            if (pageData && pageData.token) {
+              const token = pageData.token;
+              // Consultar API Graph para obtener el nombre y foto de perfil del remitente
+              const profileRes = await fetch(`https://graph.facebook.com/v20.0/${senderId}?fields=first_name,last_name,profile_pic,name&access_token=${token}`);
+              if (profileRes.ok) {
+                const profile = await profileRes.json();
+                if (profile.name) {
+                   leadName = profile.name;
+                } else if (profile.first_name) {
+                   leadName = `${profile.first_name} ${profile.last_name || ''}`.trim();
+                }
+                if (profile.profile_pic) {
+                   leadAvatar = profile.profile_pic;
+                }
+              }
+            }
+          } catch (profileErr) {
+            console.error("Error al obtener el perfil de Meta:", profileErr);
+          }
+
           const newConv = {
             id: `conv-meta-${Date.now()}`,
             agency_id: "00000000-0000-0000-0000-000000000000",
-            lead_name: `Cliente ${channel.toUpperCase()} (${senderId.substring(senderId.length - 4)})`,
-            lead_avatar: isPage ? "FB" : "IG",
+            lead_name: leadName,
+            lead_avatar: leadAvatar,
             channel: channel as any,
             last_message: messageText,
             last_message_time: timeStr,

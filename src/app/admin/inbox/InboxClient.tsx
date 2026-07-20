@@ -18,17 +18,21 @@ import {
   Zap,
   Info,
   ChevronRight,
-  Loader2
+  Loader2,
+  Trash2,
+  Edit2
 } from "lucide-react";
 import styles from "./inbox.module.css";
 import { 
   sendInboxMessage, 
-  simulateLeadReply, 
   markConversationRead, 
   updateConversationNotes,
-  updateAutoLeadStatus
+  updateAutoLeadStatus,
+  deleteConversation,
+  updateLeadContact
 } from "@/actions/autoActions";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 
 interface Message {
   id: string;
@@ -104,10 +108,62 @@ export default function InboxClient({
   const [inputText, setInputText] = useState("");
   const [showTemplates, setShowTemplates] = useState(false);
   const [leadTyping, setLeadTyping] = useState(false);
+  
+  // Lead Editing State
+  const [isEditingLead, setIsEditingLead] = useState(false);
+  const [editLeadName, setEditLeadName] = useState("");
+  const [editLeadEmail, setEditLeadEmail] = useState("");
+  const [editLeadPhone, setEditLeadPhone] = useState("");
+  
   const [isPending, startTransition] = useTransition();
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const currentConv = conversations.find(c => c.id === selectedConvId);
+
+  // Escuchar mensajes en tiempo real desde Supabase
+  useEffect(() => {
+    const channel = supabase
+      .channel('inbox_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'inbox_conversations'
+        },
+        (payload) => {
+          const newData = payload.new as Conversation;
+          
+          // Reproducir sonido si hay un mensaje nuevo sin leer
+          if (newData && newData.unread) {
+            try {
+              const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-500.wav");
+              audio.volume = 0.2;
+              audio.play();
+            } catch (e) {}
+          }
+
+          // Actualizar la lista de conversaciones
+          setConversations(prev => {
+            if (payload.eventType === 'INSERT') {
+              // Validamos si ya existe para evitar duplicados locales
+              if (prev.some(c => c.id === newData.id)) return prev;
+              return [newData, ...prev];
+            } else if (payload.eventType === 'UPDATE') {
+              return prev.map(c => c.id === newData.id ? { ...c, ...newData } : c);
+            } else if (payload.eventType === 'DELETE') {
+              return prev.filter(c => c.id !== payload.old.id);
+            }
+            return prev;
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   // Notas internas locales
   const [localNotes, setLocalNotes] = useState(currentConv?.notes || "");
@@ -136,7 +192,8 @@ export default function InboxClient({
       if (activeFilter === 'all') return true;
       return c.channel === activeFilter;
     })
-    .filter(c => c.lead_name.toLowerCase().includes(searchQuery.toLowerCase()));
+    .filter(c => c.lead_name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => new Date(b.last_message_time).getTime() - new Date(a.last_message_time).getTime());
 
   // Obtener vehículo asociado
   const associatedVehicle = vehicles.find(v => v.id === currentConv?.vehicle_id);
@@ -181,25 +238,6 @@ export default function InboxClient({
       if (res.success && res.conversation) {
         // Actualizar datos reales del servidor
         setConversations(prev => prev.map(c => c.id === selectedConvId ? { ...c, ...res.conversation } : c));
-        
-        // 3. Simular escritura y respuesta del cliente después de 1.5s si no es un chat real de MercadoLibre
-        if (!selectedConvId.startsWith("ml-question-")) {
-          setLeadTyping(true);
-          setTimeout(async () => {
-            const replyRes = await simulateLeadReply(selectedConvId, messageText);
-            setLeadTyping(false);
-            if (replyRes.success && replyRes.conversation) {
-              setConversations(prev => prev.map(c => c.id === selectedConvId ? { ...c, ...replyRes.conversation } : c));
-              
-              // Sonido de notificación simulado
-              try {
-                const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-500.wav");
-                audio.volume = 0.15;
-                audio.play();
-              } catch (e) {}
-            }
-          }, 1800);
-        }
       }
     });
   };
@@ -222,9 +260,46 @@ export default function InboxClient({
   const handleStatusChange = async (newStatus: string) => {
     const leadId = currentConv?.lead_id;
     if (!leadId) return;
+
     startTransition(async () => {
       await updateAutoLeadStatus(leadId, newStatus);
-      alert(`Estado del lead actualizado en el CRM a: ${newStatus.toUpperCase()}`);
+    });
+  };
+
+  const handleDeleteConversation = async () => {
+    if (!selectedConvId) return;
+    if (confirm("¿Estás seguro de que deseas eliminar este chat y todos sus mensajes permanentemente?")) {
+      startTransition(async () => {
+        await deleteConversation(selectedConvId);
+        setConversations(prev => prev.filter(c => c.id !== selectedConvId));
+        setSelectedConvId(null);
+      });
+    }
+  };
+
+  const handleStartEditLead = () => {
+    setEditLeadName(currentConv?.lead_name || "");
+    setEditLeadEmail(associatedLead?.email || "");
+    setEditLeadPhone(associatedLead?.phone || "");
+    setIsEditingLead(true);
+  };
+
+  const handleSaveLeadContact = async () => {
+    if (!selectedConvId || !editLeadName.trim()) return;
+    startTransition(async () => {
+      const res = await updateLeadContact(
+        selectedConvId,
+        associatedLead?.id,
+        editLeadName,
+        editLeadEmail,
+        editLeadPhone
+      );
+      if (res.success) {
+        setIsEditingLead(false);
+        setConversations(prev => prev.map(c => c.id === selectedConvId ? { ...c, lead_name: editLeadName, lead_id: res.lead_id } : c));
+      } else {
+        alert("Error guardando el contacto: " + res.error);
+      }
     });
   };
 
@@ -388,10 +463,13 @@ export default function InboxClient({
                     </a>
                   )}
                   {associatedLead?.email && (
-                    <a href={`mailto:${associatedLead.email}`} className={styles.headerActionBtn} title="Enviar Mail">
+                    <a href={`mailto:${associatedLead.email}`} className={styles.headerActionBtn} title="Enviar Email">
                       <Mail size={16} />
                     </a>
                   )}
+                  <button onClick={handleDeleteConversation} className={styles.headerActionBtn} title="Eliminar Chat" style={{ color: '#ef4444', borderColor: '#fee2e2' }}>
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               </div>
 
@@ -515,31 +593,76 @@ export default function InboxClient({
                 <div className={styles.avatarLarge}>
                   {currentConv.lead_avatar || currentConv.lead_name.substr(0, 2).toUpperCase()}
                 </div>
-                <h4 style={{ margin: '0.5rem 0 0.25rem 0', fontSize: '1rem', fontWeight: 700 }}>
-                  {currentConv.lead_name}
-                </h4>
-                <span className={styles.crmStatusBadge}>
-                  {associatedLead ? `CRM Lead: ${associatedLead.status.toUpperCase()}` : 'No en CRM'}
-                </span>
                 
-                <div style={{ width: '100%', marginTop: '1.25rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', textAlign: 'left' }}>
-                  {associatedLead?.phone && (
-                    <div className={styles.detailRow}>
-                      <Phone size={12} style={{ opacity: 0.5 }} />
-                      <span>{associatedLead.phone}</span>
+                {isEditingLead ? (
+                  <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem' }}>
+                    <input 
+                      type="text" 
+                      value={editLeadName} 
+                      onChange={e => setEditLeadName(e.target.value)} 
+                      placeholder="Nombre del Lead"
+                      className={styles.composerInput}
+                      style={{ padding: '0.5rem' }}
+                    />
+                    <input 
+                      type="email" 
+                      value={editLeadEmail} 
+                      onChange={e => setEditLeadEmail(e.target.value)} 
+                      placeholder="Email (opcional)"
+                      className={styles.composerInput}
+                      style={{ padding: '0.5rem' }}
+                    />
+                    <input 
+                      type="text" 
+                      value={editLeadPhone} 
+                      onChange={e => setEditLeadPhone(e.target.value)} 
+                      placeholder="Teléfono (opcional)"
+                      className={styles.composerInput}
+                      style={{ padding: '0.5rem' }}
+                    />
+                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                      <button onClick={handleSaveLeadContact} className={styles.filterBtn} style={{ flex: 1, backgroundColor: 'var(--primary)', color: 'white', borderColor: 'var(--primary)' }} disabled={isPending}>
+                        {isPending ? 'Guardando...' : 'Guardar'}
+                      </button>
+                      <button onClick={() => setIsEditingLead(false)} className={styles.filterBtn} style={{ flex: 1 }} disabled={isPending}>
+                        Cancelar
+                      </button>
                     </div>
-                  )}
-                  {associatedLead?.email && (
-                    <div className={styles.detailRow}>
-                      <Mail size={12} style={{ opacity: 0.5 }} />
-                      <span style={{ fontSize: '0.8rem', wordBreak: 'break-all' }}>{associatedLead.email}</span>
-                    </div>
-                  )}
-                  <div className={styles.detailRow}>
-                    <Clock size={12} style={{ opacity: 0.5 }} />
-                    <span>Último contacto: {currentConv.last_message_time}</span>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+                      <h4 style={{ margin: '0', fontSize: '1rem', fontWeight: 700 }}>
+                        {currentConv.lead_name}
+                      </h4>
+                      <button onClick={handleStartEditLead} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', opacity: 0.7 }}>
+                        <Edit2 size={14} />
+                      </button>
+                    </div>
+                    <span className={styles.crmStatusBadge} style={{ marginTop: '0.25rem' }}>
+                      {associatedLead ? `CRM Lead: ${associatedLead.status.toUpperCase()}` : 'No en CRM'}
+                    </span>
+                    
+                    <div style={{ width: '100%', marginTop: '1.25rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', textAlign: 'left' }}>
+                      {associatedLead?.phone && (
+                        <div className={styles.detailRow}>
+                          <Phone size={12} style={{ opacity: 0.5 }} />
+                          <span>{associatedLead.phone}</span>
+                        </div>
+                      )}
+                      {associatedLead?.email && (
+                        <div className={styles.detailRow}>
+                          <Mail size={12} style={{ opacity: 0.5 }} />
+                          <span style={{ fontSize: '0.8rem', wordBreak: 'break-all' }}>{associatedLead.email}</span>
+                        </div>
+                      )}
+                      <div className={styles.detailRow}>
+                        <Clock size={12} style={{ opacity: 0.5 }} />
+                        <span>Último contacto: {currentConv.last_message_time}</span>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Ficha del Vehículo de Interés */}
