@@ -58,6 +58,7 @@ export async function POST(request: Request) {
         if (!conversation) {
           const newConv = {
             id: `conv-meta-${Date.now()}`,
+            agency_id: "00000000-0000-0000-0000-000000000000",
             lead_name: `Cliente ${channel.toUpperCase()} (${senderId.substring(senderId.length - 4)})`,
             lead_avatar: isPage ? "FB" : "IG",
             channel: channel as any,
@@ -121,6 +122,7 @@ export async function POST(request: Request) {
           if (!conversation) {
             const newConv = {
               id: `conv-wa-${Date.now()}`,
+              agency_id: "00000000-0000-0000-0000-000000000000",
               lead_name: contactName,
               lead_avatar: "WA",
               channel: "whatsapp",
