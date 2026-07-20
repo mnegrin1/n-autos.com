@@ -1622,7 +1622,7 @@ export async function syncMetaConversations(channel: "facebook" | "instagram") {
 
     // 1. Obtener las últimas 5 conversaciones
     const platformParam = channel === "instagram" ? "&platform=instagram" : "";
-    const convsRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/conversations?limit=5${platformParam}&access_token=${token}`);
+    const convsRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/conversations?fields=id,updated_time&limit=5${platformParam}&access_token=${token}`);
     
     if (!convsRes.ok) {
       const errData = await convsRes.json();
