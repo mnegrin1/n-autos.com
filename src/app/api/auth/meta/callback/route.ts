@@ -74,7 +74,9 @@ export async function GET(request: Request) {
       }
     } else if (state === "instagram") {
       // Si usamos Business Login for Instagram puramente (sin página retornada)
-      const igRes = await fetch(`https://graph.facebook.com/v20.0/me?fields=id,username,name&access_token=${longLivedToken}`);
+      const isIgToken = longLivedToken.startsWith("IG");
+      const baseUrl = isIgToken ? "https://graph.instagram.com/v20.0" : "https://graph.facebook.com/v20.0";
+      const igRes = await fetch(`${baseUrl}/me?fields=id,username,name&access_token=${longLivedToken}`);
       const igData = await igRes.json();
       if (igData.id) {
         igId = igData.id;

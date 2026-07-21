@@ -1623,13 +1623,20 @@ export async function syncMetaConversations(channel: "facebook" | "instagram") {
     // 1. Obtener las últimas conversaciones
     const platformParam = channel === "instagram" ? "&platform=instagram" : "";
     const limit = channel === "instagram" ? 2 : 3;
-    let convsRes = await fetch(`https://graph.facebook.com/v20.0/${senderId}/conversations?folder=inbox&fields=id&limit=${limit}${platformParam}&access_token=${token}`);
+
+    let baseUrl = "https://graph.facebook.com/v20.0";
+    if (channel === "instagram" && token.startsWith("IG")) {
+      baseUrl = "https://graph.instagram.com/v20.0";
+    }
+
+    let convsRes = await fetch(`${baseUrl}/${senderId}/conversations?folder=inbox&fields=id&limit=${limit}${platformParam}&access_token=${token}`);
     
     if (!convsRes.ok) {
       const errData = await convsRes.json();
-      if (errData.error?.message?.includes("reduce the amount of data")) {
-        // Fallback a limit 1
-        convsRes = await fetch(`https://graph.facebook.com/v20.0/${senderId}/conversations?folder=inbox&fields=id&limit=1${platformParam}&access_token=${token}`);
+      console.error(`Error principal obteniendo convs de ${channel}:`, errData);
+      // Fallback a limit 1
+      if (errData.error?.message?.includes("Please reduce the amount of data")) {
+        convsRes = await fetch(`${baseUrl}/${senderId}/conversations?folder=inbox&fields=id&limit=1${platformParam}&access_token=${token}`);
         if (!convsRes.ok) {
           const errData2 = await convsRes.json();
           throw new Error(errData2.error?.message || "Error obteniendo conversaciones de Meta");
@@ -1647,13 +1654,14 @@ export async function syncMetaConversations(channel: "facebook" | "instagram") {
     let syncedCount = 0;
 
     // 2. Para cada conversación, obtener los mensajes y el perfil en paralelo
-    await Promise.all(convsData.data.map(async (conv: any) => {
+    for (const conv of convsData.data) {
       const convId = conv.id;
-      const msgsRes = await fetch(`https://graph.facebook.com/v20.0/${convId}?fields=messages.limit(20){message,created_time,from,to}&access_token=${token}`);
-      if (!msgsRes.ok) return;
+      const msgsRes = await fetch(`${baseUrl}/${convId}?fields=messages.limit(20){message,created_time,from,to}&access_token=${token}`);
+      
+      if (!msgsRes.ok) continue;
 
       const msgsData = await msgsRes.json();
-      if (!msgsData.messages || !msgsData.messages.data || msgsData.messages.data.length === 0) return;
+      if (!msgsData.messages || !msgsData.messages.data || msgsData.messages.data.length === 0) continue;
 
       const rawMessages = msgsData.messages.data.reverse(); // Los más antiguos primero
       
@@ -1678,7 +1686,7 @@ export async function syncMetaConversations(channel: "facebook" | "instagram") {
       let finalLeadAvatar = channel === "facebook" ? "FB" : "IG";
 
       try {
-        const profileRes = await fetch(`https://graph.facebook.com/v20.0/${leadId}?fields=first_name,last_name,name,username,profile_pic&access_token=${token}`);
+        const profileRes = await fetch(`${baseUrl}/${leadId}?fields=first_name,last_name,name,username,profile_pic&access_token=${token}`);
         if (profileRes.ok) {
           const profile = await profileRes.json();
           if (profile.name) {
