@@ -64,8 +64,20 @@ export async function GET(request: Request) {
     let pageAccessToken = longLivedToken; // Fallback al token de usuario
     let igId = "";
     let igUsername = "";
-    
-    if (pagesData.data && pagesData.data.length > 0) {
+
+    if (state === "instagram") {
+      // Nueva API "Instagram Business Login": el token da acceso directo al usuario IG
+      // Intentar /me primero para obtener el igId sin necesitar una Page
+      const igRes = await fetch(`https://graph.facebook.com/v20.0/me?fields=id,username,name&access_token=${longLivedToken}`);
+      const igData = await igRes.json();
+      if (igData.id) {
+        igId = igData.id;
+        igUsername = igData.username || igData.name || igId;
+      }
+    }
+
+    // Si no obtuvimos igId aún (flujo Facebook clásico), buscar en las pages
+    if (!igId && pagesData.data && pagesData.data.length > 0) {
       const page = pagesData.data[0];
       pageId = page.id;
       pageName = page.name;
@@ -81,16 +93,6 @@ export async function GET(request: Request) {
         } else {
           igUsername = igId;
         }
-      }
-    } else if (state === "instagram") {
-      // Si usamos Business Login for Instagram puramente (sin página retornada)
-      const isIgToken = longLivedToken.startsWith("IG");
-      const baseUrl = isIgToken ? "https://graph.instagram.com/v20.0" : "https://graph.facebook.com/v20.0";
-      const igRes = await fetch(`${baseUrl}/me?fields=id,username,name&access_token=${longLivedToken}`);
-      const igData = await igRes.json();
-      if (igData.id) {
-        igId = igData.id;
-        igUsername = igData.username || igData.name || igId;
       }
     }
 
@@ -122,7 +124,7 @@ export async function GET(request: Request) {
           agency_id: "00000000-0000-0000-0000-000000000000",
           connected: true,
           username: igUsername,
-          token: pageAccessToken,
+          token: longLivedToken,  // Instagram Business Login: usar el token del usuario IG, no el de la Page
           refresh_token: igId,
           updated_at: new Date().toISOString()
         }, { onConflict: "channel" });

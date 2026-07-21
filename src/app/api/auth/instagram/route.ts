@@ -10,18 +10,19 @@ export async function GET(request: Request) {
 
   const redirectUri = `${appUrl}/api/auth/meta/callback`;
   const state = "instagram";
-  const configId = "1420970440093314";
-  
-  // Permisos para Instagram
+
+  // Permisos para Instagram Business Login (nueva API "Instagram API with Instagram login")
+  // Estos son los permisos del nuevo sistema, distintos a los de Facebook Login clásico
   const scopes = [
-    "pages_show_list",
-    "pages_read_engagement",
-    "pages_messaging",
-    "instagram_basic",
-    "instagram_manage_messages"
+    "instagram_business_basic",
+    "instagram_business_manage_messages",
+    "instagram_business_manage_comments",
+    "instagram_business_content_publish",
   ].join(",");
 
-  const authUrl = `https://www.facebook.com/v20.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}&config_id=${configId}`;
+  // Usar facebook.com/dialog/oauth con los scopes de Instagram Business
+  // Meta unificó el OAuth endpoint — el configId determina qué producto/permisos se usan
+  const authUrl = `https://www.facebook.com/v20.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&response_type=code&state=${state}`;
 
   return NextResponse.redirect(authUrl);
 }

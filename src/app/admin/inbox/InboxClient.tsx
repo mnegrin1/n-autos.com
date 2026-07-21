@@ -20,7 +20,8 @@ import {
   ChevronRight,
   Loader2,
   Trash2,
-  Edit2
+  Edit2,
+  RefreshCw
 } from "lucide-react";
 import styles from "./inbox.module.css";
 import { 
@@ -29,7 +30,8 @@ import {
   updateConversationNotes,
   updateAutoLeadStatus,
   deleteConversation,
-  updateLeadContact
+  updateLeadContact,
+  syncMetaConversations
 } from "@/actions/autoActions";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -115,7 +117,24 @@ export default function InboxClient({
   const [editLeadEmail, setEditLeadEmail] = useState("");
   const [editLeadPhone, setEditLeadPhone] = useState("");
   
+  const [isSyncingChannel, setIsSyncingChannel] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const handleSyncMetaChannel = async (channelName: 'facebook' | 'instagram') => {
+    setIsSyncingChannel(channelName);
+    try {
+      const res = await syncMetaConversations(channelName);
+      if (res.success) {
+        alert(res.message || `Conversaciones de ${channelName} sincronizadas.`);
+      } else {
+        alert(`Error al sincronizar ${channelName}: ${res.error}`);
+      }
+    } catch (err: any) {
+      alert(`Error al sincronizar ${channelName}: ${err.message}`);
+    } finally {
+      setIsSyncingChannel(null);
+    }
+  };
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const currentConv = conversations.find(c => c.id === selectedConvId);
@@ -333,11 +352,36 @@ export default function InboxClient({
       <div className={styles.dashboard}>
         {/* Columna 1: Listado de Chats */}
         <div className={styles.sidebar}>
-          <div className={styles.sidebarHeader}>
-            <h3>Chats de Leads</h3>
-            <span className={styles.badgeCount}>
-              {conversations.filter(c => c.unread).length} sin leer
-            </span>
+          <div className={styles.sidebarHeader} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <h3 style={{ margin: 0 }}>Chats de Leads</h3>
+              <span className={styles.badgeCount}>
+                {conversations.filter(c => c.unread).length} sin leer
+              </span>
+            </div>
+            {integrations.instagram?.connected && (
+              <button
+                onClick={() => handleSyncMetaChannel('instagram')}
+                disabled={isSyncingChannel === 'instagram'}
+                title="Sincronizar últimas 5 conversaciones de Instagram"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '0.75rem',
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  border: '1px solid #e1306c',
+                  color: '#e1306c',
+                  background: 'transparent',
+                  cursor: isSyncingChannel === 'instagram' ? 'wait' : 'pointer',
+                  fontWeight: 600
+                }}
+              >
+                <RefreshCw size={12} className={isSyncingChannel === 'instagram' ? 'animate-spin' : ''} />
+                {isSyncingChannel === 'instagram' ? 'Sincronizando...' : 'Sincronizar IG'}
+              </button>
+            )}
           </div>
 
           {/* Search */}

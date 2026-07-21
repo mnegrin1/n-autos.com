@@ -236,7 +236,7 @@ export default function IntegrationsClient({
     });
   };
 
-  const renderConnectionButton = (channel: 'mercadolibre' | 'facebook' | 'instagram', label: string, data: { connected: boolean, name?: string }) => {
+  const renderConnectionButton = (channel: 'mercadolibre' | 'facebook' | 'instagram' | 'whatsapp', label: string, data: { connected: boolean, name?: string }) => {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)', position: 'relative' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
