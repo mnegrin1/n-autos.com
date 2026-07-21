@@ -62,9 +62,18 @@ export async function GET(request: Request) {
       pageAccessToken = page.access_token || longLivedToken;
       if (page.instagram_business_account) {
         igId = page.instagram_business_account.id;
+        
+        // Obtener el username de Instagram usando el Page Access Token
+        const igProfileRes = await fetch(`https://graph.facebook.com/v20.0/${igId}?fields=username&access_token=${pageAccessToken}`);
+        if (igProfileRes.ok) {
+          const igProfileData = await igProfileRes.json();
+          igUsername = igProfileData.username || igId;
+        } else {
+          igUsername = igId;
+        }
       }
     } else if (state === "instagram") {
-      // Si usamos Business Login for Instagram, no hay páginas. El /me representa al usuario de Instagram.
+      // Si usamos Business Login for Instagram puramente (sin página retornada)
       const igRes = await fetch(`https://graph.facebook.com/v20.0/me?fields=id,username,name&access_token=${longLivedToken}`);
       const igData = await igRes.json();
       if (igData.id) {
