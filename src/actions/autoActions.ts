@@ -1621,15 +1621,13 @@ export async function syncMetaConversations(channel: "facebook" | "instagram") {
     const senderId = metaInt.refresh_token; // pageId para FB, igId para IG
 
     // 1. Obtener las últimas conversaciones
-    const platformParam = channel === "instagram" ? "&platform=instagram" : "";
-    const limit = channel === "instagram" ? 2 : 3;
+    // Instagram API with Instagram login: sin platform param
+    // Facebook Messenger API: sin platform param también (ya incluye folder=inbox)
+    const limit = channel === "instagram" ? 5 : 3;
+    const baseUrl = "https://graph.facebook.com/v20.0";
+    const url = `${baseUrl}/${senderId}/conversations?folder=inbox&fields=id&limit=${limit}&access_token=${token}`;
 
-    let baseUrl = "https://graph.facebook.com/v20.0";
-    if (channel === "instagram" && token.startsWith("IG")) {
-      baseUrl = "https://graph.instagram.com/v20.0";
-    }
-
-    let convsRes = await fetch(`${baseUrl}/${senderId}/conversations?folder=inbox&fields=id&limit=${limit}${platformParam}&access_token=${token}`);
+    let convsRes = await fetch(url);
     
     if (!convsRes.ok) {
       const errData = await convsRes.json();
@@ -1679,7 +1677,7 @@ export async function syncMetaConversations(channel: "facebook" | "instagram") {
         }
       }
 
-      if (!leadId) return;
+      if (!leadId) continue;
 
       // 3. Obtener el nombre real desde el endpoint del perfil
       let finalLeadName = leadNameRaw || `Cliente ${channel.toUpperCase()} (${leadId.substring(leadId.length - 4)})`;
@@ -1713,7 +1711,7 @@ export async function syncMetaConversations(channel: "facebook" | "instagram") {
         };
       });
 
-      if (ourMessages.length === 0) return;
+      if (ourMessages.length === 0) continue;
 
       const lastMsg = ourMessages[ourMessages.length - 1];
 
