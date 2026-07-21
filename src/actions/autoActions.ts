@@ -1758,7 +1758,7 @@ export async function syncMetaConversations(channel: "facebook" | "instagram") {
           syncedCount++;
         }
       }
-    }));
+    }
 
     revalidatePath("/admin/inbox");
     return { success: true, count: syncedCount, message: `Sincronizados ${syncedCount} chats históricos.` };
