@@ -1223,13 +1223,14 @@ export async function sendMetaMessage(channel: "facebook" | "instagram", recipie
     const integrations = await getIntegrations();
     const integration = channel === "facebook" ? integrations.facebook : integrations.instagram;
     
-    if (!integration || !integration.connected || !integration.token) {
-      return { success: false, error: `${channel} no está conectado` };
+    if (!integration || !integration.connected || !integration.token || !integration.refresh_token) {
+      return { success: false, error: `${channel} no está conectado o falta información` };
     }
 
-    const token = integration.token; // Page Access Token
+    const token = integration.token; // Access Token
+    const senderId = integration.refresh_token; // pageId o igId
 
-    const res = await fetch(`https://graph.facebook.com/v20.0/me/messages?access_token=${token}`, {
+    const res = await fetch(`https://graph.facebook.com/v20.0/${senderId}/messages?access_token=${token}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -1611,23 +1612,31 @@ export async function syncMetaConversations(channel: "facebook" | "instagram") {
   try {
     const integrations = await getIntegrations();
     const metaInt = channel === "facebook" ? integrations.facebook : integrations.instagram;
-    const fbInt = integrations.facebook; // Siempre necesitamos la info de la página
 
-    if (!metaInt || !metaInt.connected || !metaInt.token || !fbInt || !fbInt.refresh_token) {
-      return { success: false, error: `${channel} no está conectado o falta el token de página` };
+    if (!metaInt || !metaInt.connected || !metaInt.token || !metaInt.refresh_token) {
+      return { success: false, error: `${channel} no está conectado o falta el token` };
     }
 
-    const token = metaInt.token; // Page Access Token
-    const pageId = fbInt.refresh_token; // Para ambos canales, la consulta de conversaciones se hace sobre el Page ID
+    const token = metaInt.token;
+    const senderId = metaInt.refresh_token; // pageId para FB, igId para IG
 
-    // 1. Obtener las últimas 5 conversaciones
+    // 1. Obtener las últimas conversaciones
     const platformParam = channel === "instagram" ? "&platform=instagram" : "";
-    const limit = channel === "instagram" ? 2 : 5;
-    const convsRes = await fetch(`https://graph.facebook.com/v20.0/${pageId}/conversations?fields=id&limit=${limit}${platformParam}&access_token=${token}`);
+    const limit = channel === "instagram" ? 2 : 3;
+    let convsRes = await fetch(`https://graph.facebook.com/v20.0/${senderId}/conversations?folder=inbox&fields=id&limit=${limit}${platformParam}&access_token=${token}`);
     
     if (!convsRes.ok) {
       const errData = await convsRes.json();
-      throw new Error(errData.error?.message || "Error obteniendo conversaciones de Meta");
+      if (errData.error?.message?.includes("reduce the amount of data")) {
+        // Fallback a limit 1
+        convsRes = await fetch(`https://graph.facebook.com/v20.0/${senderId}/conversations?folder=inbox&fields=id&limit=1${platformParam}&access_token=${token}`);
+        if (!convsRes.ok) {
+          const errData2 = await convsRes.json();
+          throw new Error(errData2.error?.message || "Error obteniendo conversaciones de Meta");
+        }
+      } else {
+        throw new Error(errData.error?.message || "Error obteniendo conversaciones de Meta");
+      }
     }
 
     const convsData = await convsRes.json();
@@ -1637,14 +1646,14 @@ export async function syncMetaConversations(channel: "facebook" | "instagram") {
 
     let syncedCount = 0;
 
-    // 2. Para cada conversación, obtener los mensajes y el perfil
-    for (const conv of convsData.data) {
+    // 2. Para cada conversación, obtener los mensajes y el perfil en paralelo
+    await Promise.all(convsData.data.map(async (conv: any) => {
       const convId = conv.id;
       const msgsRes = await fetch(`https://graph.facebook.com/v20.0/${convId}?fields=messages.limit(20){message,created_time,from,to}&access_token=${token}`);
-      if (!msgsRes.ok) continue;
+      if (!msgsRes.ok) return;
 
       const msgsData = await msgsRes.json();
-      if (!msgsData.messages || !msgsData.messages.data || msgsData.messages.data.length === 0) continue;
+      if (!msgsData.messages || !msgsData.messages.data || msgsData.messages.data.length === 0) return;
 
       const rawMessages = msgsData.messages.data.reverse(); // Los más antiguos primero
       
@@ -1662,23 +1671,22 @@ export async function syncMetaConversations(channel: "facebook" | "instagram") {
         }
       }
 
-      if (!leadId) {
-        // Si no encontramos lead, es porque todos los mensajes son de la página? Ignorar.
-        continue;
-      }
+      if (!leadId) return;
 
       // 3. Obtener el nombre real desde el endpoint del perfil
       let finalLeadName = leadNameRaw || `Cliente ${channel.toUpperCase()} (${leadId.substring(leadId.length - 4)})`;
       let finalLeadAvatar = channel === "facebook" ? "FB" : "IG";
 
       try {
-        const profileRes = await fetch(`https://graph.facebook.com/v20.0/${leadId}?fields=first_name,last_name,name&access_token=${token}`);
+        const profileRes = await fetch(`https://graph.facebook.com/v20.0/${leadId}?fields=first_name,last_name,name,username,profile_pic&access_token=${token}`);
         if (profileRes.ok) {
           const profile = await profileRes.json();
           if (profile.name) {
             finalLeadName = profile.name;
           } else if (profile.first_name) {
             finalLeadName = `${profile.first_name} ${profile.last_name || ''}`.trim();
+          } else if (profile.username) {
+            finalLeadName = profile.username;
           }
         }
       } catch (e) {
@@ -1697,7 +1705,7 @@ export async function syncMetaConversations(channel: "facebook" | "instagram") {
         };
       });
 
-      if (ourMessages.length === 0) continue;
+      if (ourMessages.length === 0) return;
 
       const lastMsg = ourMessages[ourMessages.length - 1];
 
@@ -1742,7 +1750,7 @@ export async function syncMetaConversations(channel: "facebook" | "instagram") {
           syncedCount++;
         }
       }
-    }
+    }));
 
     revalidatePath("/admin/inbox");
     return { success: true, count: syncedCount, message: `Sincronizados ${syncedCount} chats históricos.` };

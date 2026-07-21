@@ -122,8 +122,12 @@ export default function IntegrationsClient({
   const [selectedMlItems, setSelectedMlItems] = useState<Set<string>>(new Set());
   const [isLoadingML, setIsLoadingML] = useState(false);
   const handleOpenConnect = (channel: string) => {
-    if (channel === 'facebook' || channel === 'instagram') {
-      window.location.href = '/api/auth/meta';
+    if (channel === 'facebook') {
+      window.location.href = '/api/auth/facebook';
+      return;
+    }
+    if (channel === 'instagram') {
+      window.location.href = '/api/auth/instagram';
       return;
     }
     setShowConnectModal(channel);

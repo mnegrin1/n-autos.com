@@ -14,17 +14,19 @@ export async function GET(request: Request) {
   // 1. Si hubo error en el popup de Facebook o el usuario canceló
   if (error) {
     console.error("Facebook devolvió un error en la URL:", error);
-    return NextResponse.redirect(`${appUrl}/admin/integrations?error=${error}`);
+    return NextResponse.redirect(`${appUrl}/admin/settings?error=${error}`);
   }
   // 2. Verificar credenciales antes de continuar (¡muy importante!)
   if (!appId || !appSecret) {
     console.error("FALTA CONFIGURACIÓN: No se encontró META_APP_ID o META_APP_SECRET en el archivo .env.local");
-    return NextResponse.redirect(`${appUrl}/admin/integrations?error=missing_credentials`);
+    return NextResponse.redirect(`${appUrl}/admin/settings?error=missing_credentials`);
   }
 
   if (!code) {
-    return NextResponse.redirect(`${appUrl}/admin/integrations?error=no_code`);
+    return NextResponse.redirect(`${appUrl}/admin/settings?error=no_code`);
   }
+
+  const state = searchParams.get("state") || "facebook";
 
   try {
     // 3. Intercambiar code por User Access Token corto
@@ -46,60 +48,78 @@ export async function GET(request: Request) {
     // 5. Obtener las páginas del usuario
     const pagesRes = await fetch(`https://graph.facebook.com/v20.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${longLivedToken}`);
     const pagesData = await pagesRes.json();
-    if (!pagesData.data || pagesData.data.length === 0) {
-      console.error("ERROR DE PÁGINAS: El usuario inició sesión correctamente, pero Facebook dice que no tiene ninguna Página asociada o no le dio permisos a la aplicación para verlas.");
-      return NextResponse.redirect(`${appUrl}/admin/integrations?error=no_pages_found`);
-    }
-    // Por defecto tomamos la primera página
-    const page = pagesData.data[0];
-    const pageId = page.id;
-    const pageName = page.name;
-    const pageAccessToken = page.access_token;
     
-    // 6. Guardar en Supabase para Facebook capturando los errores de Base de Datos
-    const { error: supaFbError } = await (supabaseAdmin as any).from("auto_integrations").upsert({
-      channel: "facebook",
-      agency_id: "00000000-0000-0000-0000-000000000000",
-      connected: true,
-      username: pageName,
-      token: pageAccessToken,
-      refresh_token: pageId, 
-      updated_at: new Date().toISOString()
-    }, { onConflict: "channel" });
-    if (supaFbError) {
-      console.error("Error al guardar Facebook en la base de datos (Supabase):", supaFbError);
-      return NextResponse.redirect(`${appUrl}/admin/integrations?error=db_error_fb`);
-    }
-    // 7. Si la página tiene una cuenta de Instagram vinculada, la conectamos también
-    try {
-      if (page.instagram_business_account && page.instagram_business_account.id) {
-        const igId = page.instagram_business_account.id;
-        const igRes = await fetch(`https://graph.facebook.com/v20.0/${igId}?fields=username&access_token=${pageAccessToken}`);
-        if (igRes.ok) {
-          const igData = await igRes.json();
-          const igUsername = igData.username || igId;
-          const { error: supaIgError } = await (supabaseAdmin as any).from("auto_integrations").upsert({
-            channel: "instagram",
-            agency_id: "00000000-0000-0000-0000-000000000000",
-            connected: true,
-            username: igUsername,
-            token: pageAccessToken,
-            refresh_token: igId,
-            updated_at: new Date().toISOString()
-          }, { onConflict: "channel" });
-          if (supaIgError) {
-            console.error("Error al guardar Instagram en la base de datos (Supabase):", supaIgError);
-          }
-        }
+    let pageId = "";
+    let pageName = "";
+    let pageAccessToken = longLivedToken; // Fallback al token de usuario
+    let igId = "";
+    let igUsername = "";
+    
+    if (pagesData.data && pagesData.data.length > 0) {
+      const page = pagesData.data[0];
+      pageId = page.id;
+      pageName = page.name;
+      pageAccessToken = page.access_token || longLivedToken;
+      if (page.instagram_business_account) {
+        igId = page.instagram_business_account.id;
       }
-    } catch (igCatchErr) {
-      console.error("Error intentando vincular la cuenta de IG asociada:", igCatchErr);
-      // No lanzamos error para que no falle la conexión de Facebook
+    } else if (state === "instagram") {
+      // Si usamos Business Login for Instagram, no hay páginas. El /me representa al usuario de Instagram.
+      const igRes = await fetch(`https://graph.facebook.com/v20.0/me?fields=id,username,name&access_token=${longLivedToken}`);
+      const igData = await igRes.json();
+      if (igData.id) {
+        igId = igData.id;
+        igUsername = igData.username || igData.name || igId;
+      }
     }
-    return NextResponse.redirect(`${appUrl}/admin/integrations?success=meta_connected`);
+
+    if (!pageId && !igId) {
+      console.error("ERROR DE PÁGINAS/IG: No se encontró Página ni cuenta de Instagram válida vinculada.");
+      return NextResponse.redirect(`${appUrl}/admin/settings?error=no_pages_found`);
+    }
+    
+    if (state === "facebook") {
+      // 6. Guardar en Supabase para Facebook
+      const { error: supaFbError } = await (supabaseAdmin as any).from("auto_integrations").upsert({
+        channel: "facebook",
+        agency_id: "00000000-0000-0000-0000-000000000000",
+        connected: true,
+        username: pageName,
+        token: pageAccessToken,
+        refresh_token: pageId, 
+        updated_at: new Date().toISOString()
+      }, { onConflict: "channel" });
+      if (supaFbError) {
+        console.error("Error al guardar Facebook en la base de datos (Supabase):", supaFbError);
+        return NextResponse.redirect(`${appUrl}/admin/settings?error=db_error_fb`);
+      }
+    } else if (state === "instagram") {
+      // 7. Guardar en Supabase para Instagram
+      if (igId) {
+        const { error: supaIgError } = await (supabaseAdmin as any).from("auto_integrations").upsert({
+          channel: "instagram",
+          agency_id: "00000000-0000-0000-0000-000000000000",
+          connected: true,
+          username: igUsername,
+          token: pageAccessToken,
+          refresh_token: igId,
+          updated_at: new Date().toISOString()
+        }, { onConflict: "channel" });
+        
+        if (supaIgError) {
+          console.error("Error al guardar Instagram en la base de datos (Supabase):", supaIgError);
+          return NextResponse.redirect(`${appUrl}/admin/settings?error=db_error_ig`);
+        }
+      } else {
+        console.error("No se encontró cuenta de Instagram Business válida");
+        return NextResponse.redirect(`${appUrl}/admin/settings?error=no_ig_found`);
+      }
+    }
+
+    return NextResponse.redirect(`${appUrl}/admin/settings?success=meta_connected`);
     
   } catch (err: any) {
     console.error("Error crítico en el proceso de conexión con Meta:", err);
-    return NextResponse.redirect(`${appUrl}/admin/integrations?error=meta_callback_failed`);
+    return NextResponse.redirect(`${appUrl}/admin/settings?error=meta_callback_failed`);
   }
 }

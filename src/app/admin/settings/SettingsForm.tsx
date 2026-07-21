@@ -3,8 +3,9 @@
 import { useState, useTransition, useEffect } from "react";
 import styles from "./settings.module.css";
 import { updateAgencySettings } from "@/actions/agencyActions";
-import { Save, CheckCircle, Palette, HelpCircle } from "lucide-react";
+import { Save, CheckCircle, Palette, HelpCircle, Users } from "lucide-react";
 import IntegrationsClient from "../integrations/IntegrationsClient";
+import UsersList from "./UsersList";
 
 interface Agency {
   id: string;
@@ -22,6 +23,7 @@ interface SettingsFormProps {
   initialVehicles?: any[];
   initialIntegrations?: any[];
   initialPublications?: any[];
+  initialUsers?: any[];
   appId?: string;
   appUrl?: string;
   errorMsg?: string;
@@ -33,6 +35,7 @@ export default function SettingsForm({
   initialVehicles = [],
   initialIntegrations = [],
   initialPublications = [],
+  initialUsers = [],
   appId = "",
   appUrl = "http://localhost:3000",
   errorMsg,
@@ -358,6 +361,20 @@ export default function SettingsForm({
             </>
           )}
         </div>
+        </div>
+
+        <div style={{ height: "1px", backgroundColor: "var(--border-color)", margin: "0 1rem" }} />
+
+        {/* User Management */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", borderRadius: "16px", padding: "2rem", boxShadow: "var(--shadow-sm)", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+            <h3 style={{ fontSize: "1.1rem", fontWeight: "700", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <Users size={20} style={{ color: "var(--primary)" }} />
+              Gestión de Usuarios
+            </h3>
+            <p style={{ opacity: 0.7, fontSize: "0.9rem", marginTop: "-0.5rem" }}>Administra los usuarios de tu organización, invita nuevos vendedores y asigna roles.</p>
+            <UsersList agencyId={agency.id} initialUsers={initialUsers} />
+          </div>
         </div>
 
         <div style={{ height: "1px", backgroundColor: "var(--border-color)", margin: "0 1rem" }} />
