@@ -1665,14 +1665,14 @@ export async function syncMetaConversations(channel: "facebook" | "instagram") {
 
       const rawMessages = msgsData.messages.data.reverse(); // Los más antiguos primero
       
-      // Identificar al lead (el que no es nuestra página/cuenta)
-      // Buscamos un mensaje enviado por alguien que no sea nuestro pageId ni igId
+      // Identificar al lead (el que no es nuestra cuenta)
+      // Comparamos contra senderId (nuestro pageId o igId)
       const igId = integrations.instagram?.refresh_token;
       let leadId = "";
       let leadNameRaw = "";
 
       for (const rm of rawMessages) {
-        if (rm.from && rm.from.id !== pageId && rm.from.id !== igId) {
+        if (rm.from && rm.from.id && rm.from.id !== senderId && rm.from.id !== igId) {
           leadId = rm.from.id;
           leadNameRaw = rm.from.name || rm.from.username || "";
           break;

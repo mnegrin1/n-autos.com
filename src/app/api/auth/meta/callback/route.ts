@@ -31,22 +31,32 @@ export async function GET(request: Request) {
   try {
     // 3. Intercambiar code por User Access Token corto
     const tokenRes = await fetch(`https://graph.facebook.com/v20.0/oauth/access_token?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&client_secret=${appSecret}&code=${code}`);
-    const tokenData = await tokenRes.json();
-    
-    if (tokenData.error) {
-      console.error("Error en Graph API al pedir el token de acceso:", tokenData.error);
-      throw new Error(tokenData.error.message);
+    if (!tokenRes.ok) {
+      const err = await tokenRes.json();
+      console.error('Error obteniendo token corto de Meta:', err);
+      throw new Error(err.error?.message || 'Failed to exchange code for short-lived token');
     }
+    const tokenData = await tokenRes.json();
     
     const shortLivedToken = tokenData.access_token;
     
     // 4. Intercambiar por Long-Lived User Access Token
     const longLivedRes = await fetch(`https://graph.facebook.com/v20.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${shortLivedToken}`);
+    if (!longLivedRes.ok) {
+      const err = await longLivedRes.json();
+      console.error('Error obteniendo token de larga duración:', err);
+      throw new Error(err.error?.message || 'Failed to exchange for long-lived token');
+    }
     const longLivedData = await longLivedRes.json();
     
     const longLivedToken = longLivedData.access_token || shortLivedToken;
     // 5. Obtener las páginas del usuario
     const pagesRes = await fetch(`https://graph.facebook.com/v20.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${longLivedToken}`);
+    if (!pagesRes.ok) {
+      const err = await pagesRes.json();
+      console.error('Error al obtener páginas de Meta:', err);
+      throw new Error(err.error?.message || 'Failed to fetch pages');
+    }
     const pagesData = await pagesRes.json();
     
     let pageId = "";
