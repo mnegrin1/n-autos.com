@@ -319,6 +319,10 @@ export default function AutoAdminLayout({
             <Users size={16} />
             Contactos
           </Link>
+          <Link href="/admin/email/broadcasts" className={`${styles.navLink} ${pathname.startsWith("/admin/email") ? styles.activeNavLink : ""}`}>
+            <Mail size={16} />
+            Email Broadcasts
+          </Link>
         </nav>
 
         {/* Footer del Sidebar: Tema, Configuración y Usuario */}

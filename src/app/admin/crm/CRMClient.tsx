@@ -2,9 +2,9 @@
 
 import { useState, useTransition, useEffect } from "react";
 import styles from "./crm.module.css";
-import { updateAutoLeadStatus, deleteAutoLead, createAutoLead, bulkCreateAutoLeads } from "@/actions/autoActions";
+import { updateAutoLeadStatus, deleteAutoLead, createAutoLead, bulkCreateAutoLeads, bulkAddTagsToLeads, bulkRemoveTagsFromLeads, updateAutoLeadTags } from "@/actions/autoActions";
 import { getVehicles } from "@/actions/autoActions";
-import { Phone, Mail, User, Plus, Trash2, Calendar, MessageSquare, X, Search, Upload } from "lucide-react";
+import { Phone, Mail, User, Plus, Trash2, Calendar, MessageSquare, X, Search, Upload, Tag as TagIcon, Check, Filter } from "lucide-react";
 import * as xlsx from "xlsx";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useRef } from "react";
@@ -210,7 +210,7 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
       });
 
       if (res.success && res.data) {
-        setLeads(prev => [...prev, res.data as Lead]);
+        setLeads(prev => [...prev, res.data as unknown as Lead]);
         setShowAddModal(false);
         setNewLeadForm({
           name: "",
@@ -226,7 +226,80 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
     });
   };
 
+  const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
+  const [showBulkTagModal, setShowBulkTagModal] = useState(false);
+  const [bulkTagInput, setBulkTagInput] = useState("");
+  const [bulkTagAction, setBulkTagAction] = useState<"add" | "remove">("add");
+  const [inlineTagLeadId, setInlineTagLeadId] = useState<string | null>(null);
+  const [inlineTagInput, setInlineTagInput] = useState("");
+
+  // Extraer la lista de todas las etiquetas únicas presentes en los leads
+  const allUniqueTags = Array.from(
+    new Set(
+      leads.flatMap(l => (Array.isArray(l.tags) ? l.tags : []))
+    )
+  ).sort();
+
+  const handleApplyBulkTags = async () => {
+    if (!bulkTagInput.trim()) return;
+    const tagList = bulkTagInput.split(",").map(t => t.trim()).filter(Boolean);
+    if (tagList.length === 0) return;
+
+    startTransition(async () => {
+      let res;
+      if (bulkTagAction === "add") {
+        res = await bulkAddTagsToLeads(selectedLeads, tagList);
+      } else {
+        res = await bulkRemoveTagsFromLeads(selectedLeads, tagList);
+      }
+
+      if (res.success) {
+        setLeads(prev => prev.map(l => {
+          if (!selectedLeads.includes(l.id)) return l;
+          const current = l.tags || [];
+          const updated = bulkTagAction === "add"
+            ? Array.from(new Set([...current, ...tagList]))
+            : current.filter(t => !tagList.includes(t));
+          return { ...l, tags: updated };
+        }));
+        setShowBulkTagModal(false);
+        setBulkTagInput("");
+      } else {
+        alert("Error al actualizar etiquetas: " + res.error);
+      }
+    });
+  };
+
+  const handleAddInlineTag = async (leadId: string, currentTags: string[] = []) => {
+    if (!inlineTagInput.trim()) return;
+    const newTag = inlineTagInput.trim();
+    if (currentTags.includes(newTag)) {
+      setInlineTagLeadId(null);
+      setInlineTagInput("");
+      return;
+    }
+    const updated = [...currentTags, newTag];
+    const res = await updateAutoLeadTags(leadId, updated);
+    if (res.success) {
+      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, tags: updated } : l));
+    }
+    setInlineTagLeadId(null);
+    setInlineTagInput("");
+  };
+
+  const handleRemoveInlineTag = async (leadId: string, currentTags: string[] = [], tagToRemove: string) => {
+    const updated = currentTags.filter(t => t !== tagToRemove);
+    const res = await updateAutoLeadTags(leadId, updated);
+    if (res.success) {
+      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, tags: updated } : l));
+    }
+  };
+
   const filteredLeads = leads.filter(lead => {
+    if (selectedTagFilter) {
+      const hasTag = lead.tags && lead.tags.includes(selectedTagFilter);
+      if (!hasTag) return false;
+    }
     if (!searchTerm) return true;
     const searchLower = searchTerm.toLowerCase();
     return (
@@ -299,15 +372,66 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
         </div>
       </div>
 
-      <div className={styles.searchContainer}>
-        <Search size={18} color="var(--text-color)" style={{ opacity: 0.5 }} />
-        <input 
-          type="text" 
-          placeholder="Buscar por nombre, correo, vehículo o etiqueta..."
-          className={styles.searchInput}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+      <div className={styles.searchContainer} style={{ flexDirection: "column", gap: "0.75rem", alignItems: "stretch" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <Search size={18} color="var(--text-color)" style={{ opacity: 0.5 }} />
+          <input 
+            type="text" 
+            placeholder="Buscar por nombre, correo, vehículo o etiqueta..."
+            className={styles.searchInput}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        {/* Tag Filter Chips Bar */}
+        {allUniqueTags.length > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", paddingTop: "0.25rem" }}>
+            <span style={{ fontSize: "0.75rem", fontWeight: "700", color: "var(--text-color)", opacity: 0.6, display: "flex", alignItems: "center", gap: "0.25rem" }}>
+              <Filter size={12} /> Filtrar por Tag:
+            </span>
+            <button
+              onClick={() => setSelectedTagFilter(null)}
+              style={{
+                backgroundColor: selectedTagFilter === null ? "var(--primary)" : "var(--surface-color)",
+                color: selectedTagFilter === null ? "#ffffff" : "var(--text-color)",
+                border: "1px solid var(--border-color)",
+                padding: "0.25rem 0.6rem",
+                borderRadius: "16px",
+                fontSize: "0.75rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.2s"
+              }}
+            >
+              Todos
+            </button>
+            {allUniqueTags.map(tag => (
+              <button
+                key={tag}
+                onClick={() => setSelectedTagFilter(selectedTagFilter === tag ? null : tag)}
+                style={{
+                  backgroundColor: selectedTagFilter === tag ? "var(--primary)" : "rgba(128,128,128,0.1)",
+                  color: selectedTagFilter === tag ? "#ffffff" : "var(--text-color)",
+                  border: selectedTagFilter === tag ? "1px solid var(--primary)" : "1px solid var(--border-color)",
+                  padding: "0.25rem 0.65rem",
+                  borderRadius: "16px",
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.35rem",
+                  transition: "all 0.2s"
+                }}
+              >
+                <TagIcon size={12} />
+                {tag}
+                {selectedTagFilter === tag && <Check size={12} />}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className={styles.tableContainer}>
@@ -318,10 +442,10 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
             checked={filteredLeads.length > 0 && selectedLeads.length === filteredLeads.length}
             onChange={toggleSelectAll}
           />
-          <span>Date registered</span>
-          <span>Contact Info</span>
-          <span>Tags</span>
-          <span></span>
+          <span>Fecha Registro</span>
+          <span>Información de Contacto</span>
+          <span>Etiquetas (Tags)</span>
+          <span>Acciones</span>
         </div>
         
         <div className={styles.contactsList} style={{ paddingBottom: 0, gap: 0 }}>
@@ -353,10 +477,54 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
                   </div>
                 </div>
 
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem" }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", alignItems: "center" }}>
                   {lead.tags && lead.tags.length > 0 ? lead.tags.map(tag => (
-                    <span key={tag} className={styles.tagPill}>{tag}</span>
-                  )) : <span style={{ opacity: 0.5, fontSize: "0.8rem" }}>-</span>}
+                    <span key={tag} className={styles.tagPill} style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", padding: "0.2rem 0.5rem" }}>
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveInlineTag(lead.id, lead.tags, tag)}
+                        style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", padding: 0, display: "flex", opacity: 0.7 }}
+                        title="Eliminar tag"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  )) : null}
+
+                  {inlineTagLeadId === lead.id ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                      <input
+                        type="text"
+                        placeholder="Tag..."
+                        value={inlineTagInput}
+                        onChange={(e) => setInlineTagInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleAddInlineTag(lead.id, lead.tags);
+                          if (e.key === "Escape") setInlineTagLeadId(null);
+                        }}
+                        autoFocus
+                        style={{ padding: "0.2rem 0.4rem", fontSize: "0.75rem", borderRadius: "4px", border: "1px solid var(--primary)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", width: "80px" }}
+                      />
+                      <button
+                        onClick={() => handleAddInlineTag(lead.id, lead.tags)}
+                        style={{ background: "var(--primary)", border: "none", color: "#fff", borderRadius: "4px", padding: "0.25rem", cursor: "pointer", display: "flex" }}
+                      >
+                        <Check size={12} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setInlineTagLeadId(lead.id);
+                        setInlineTagInput("");
+                      }}
+                      style={{ background: "rgba(128,128,128,0.15)", border: "1px stroke var(--border-color)", color: "var(--text-color)", borderRadius: "12px", padding: "0.15rem 0.45rem", fontSize: "0.7rem", fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.15rem" }}
+                      title="Agregar etiqueta a este contacto"
+                    >
+                      <Plus size={11} /> Tag
+                    </button>
+                  )}
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", alignItems: "center" }}>
@@ -394,9 +562,19 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
       {selectedLeads.length > 0 && (
         <div className={styles.actionBar}>
           <div className={styles.selectedText}>
-            Selected contacts: {selectedLeads.length}
+            Contactos seleccionados: {selectedLeads.length}
           </div>
-          <div style={{ display: "flex", gap: "1rem" }}>
+          <div style={{ display: "flex", gap: "0.75rem" }}>
+            <button 
+              onClick={() => {
+                setBulkTagAction("add");
+                setBulkTagInput("");
+                setShowBulkTagModal(true);
+              }}
+              style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", color: "var(--text-color)", padding: "0.5rem 1rem", borderRadius: "8px", fontWeight: "600", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.85rem" }}
+            >
+              <TagIcon size={15} /> Asignar Tags
+            </button>
             <button 
               onClick={() => {
                 const selectedObjs = leads.filter(l => selectedLeads.includes(l.id) && l.email);
@@ -404,15 +582,15 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
                 setEmailRecipient(emails);
                 setEmailModalOpen(true);
               }}
-              style={{ backgroundColor: "var(--primary)", color: "white", padding: "0.5rem 1.5rem", borderRadius: "8px", border: "none", fontWeight: "600", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem" }}
+              style={{ backgroundColor: "var(--primary)", color: "white", padding: "0.5rem 1.25rem", borderRadius: "8px", border: "none", fontWeight: "600", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem" }}
             >
               <Mail size={16} /> Enviar Email
             </button>
             <button 
               onClick={handleBulkDelete}
-              style={{ backgroundColor: "var(--danger, #ef4444)", color: "white", padding: "0.5rem 1.5rem", borderRadius: "8px", border: "none", fontWeight: "600", cursor: "pointer" }}
+              style={{ backgroundColor: "var(--danger, #ef4444)", color: "white", padding: "0.5rem 1.25rem", borderRadius: "8px", border: "none", fontWeight: "600", cursor: "pointer", fontSize: "0.85rem" }}
             >
-              Delete
+              Eliminar
             </button>
           </div>
         </div>
@@ -555,6 +733,119 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
           </div>
         </div>
       )}
+      {/* Bulk Tag Modal */}
+      {showBulkTagModal && (
+        <div 
+          style={{ 
+            position: "fixed", 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            backgroundColor: "rgba(0,0,0,0.6)", 
+            display: "flex", 
+            alignItems: "center", 
+            justifyContent: "center", 
+            zIndex: 1000 
+          }}
+        >
+          <div 
+            style={{ 
+              backgroundColor: "var(--surface-color)", 
+              border: "1px solid var(--border-color)", 
+              borderRadius: "16px", 
+              padding: "1.75rem", 
+              width: "90%", 
+              maxWidth: "440px",
+              boxShadow: "var(--shadow-lg)"
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.75rem", marginBottom: "1.25rem" }}>
+              <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: "700", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <TagIcon size={18} /> Asignar Etiquetas Masivas
+              </h3>
+              <button type="button" onClick={() => setShowBulkTagModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-color)" }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <div style={{ fontSize: "0.85rem", opacity: 0.8 }}>
+                Modificando etiquetas para <strong>{selectedLeads.length} contactos</strong> seleccionados.
+              </div>
+
+              <div style={{ display: "flex", gap: "0.5rem", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.75rem" }}>
+                <button
+                  type="button"
+                  onClick={() => setBulkTagAction("add")}
+                  style={{
+                    flex: 1,
+                    padding: "0.5rem",
+                    borderRadius: "6px",
+                    border: "1px solid var(--border-color)",
+                    backgroundColor: bulkTagAction === "add" ? "var(--primary)" : "transparent",
+                    color: bulkTagAction === "add" ? "#ffffff" : "var(--text-color)",
+                    fontWeight: 600,
+                    fontSize: "0.85rem",
+                    cursor: "pointer"
+                  }}
+                >
+                  + Agregar Tags
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBulkTagAction("remove")}
+                  style={{
+                    flex: 1,
+                    padding: "0.5rem",
+                    borderRadius: "6px",
+                    border: "1px solid var(--border-color)",
+                    backgroundColor: bulkTagAction === "remove" ? "var(--danger, #ef4444)" : "transparent",
+                    color: bulkTagAction === "remove" ? "#ffffff" : "var(--text-color)",
+                    fontWeight: 600,
+                    fontSize: "0.85rem",
+                    cursor: "pointer"
+                  }}
+                >
+                  - Quitar Tags
+                </button>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+                <label style={{ fontSize: "0.85rem", fontWeight: "600" }}>
+                  {bulkTagAction === "add" ? "Etiquetas a agregar (separadas por coma):" : "Etiquetas a remover (separadas por coma):"}
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej: Inversor, VIP, Contactado..."
+                  value={bulkTagInput}
+                  onChange={(e) => setBulkTagInput(e.target.value)}
+                  style={{ padding: "0.65rem 0.85rem", border: "1px solid var(--border-color)", borderRadius: "8px", backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}
+                />
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "0.5rem" }}>
+                <button 
+                  type="button" 
+                  onClick={() => setShowBulkTagModal(false)}
+                  style={{ backgroundColor: "transparent", border: "1px solid var(--border-color)", padding: "0.5rem 1rem", borderRadius: "8px", fontWeight: "600", color: "var(--text-color)", cursor: "pointer" }}
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="button"
+                  onClick={handleApplyBulkTags}
+                  style={{ backgroundColor: bulkTagAction === "add" ? "var(--primary)" : "var(--danger, #ef4444)", border: "none", padding: "0.5rem 1.25rem", borderRadius: "8px", fontWeight: "600", color: "#ffffff", cursor: "pointer" }}
+                  disabled={isPending}
+                >
+                  {isPending ? "Procesando..." : "Aplicar Cambios"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Compose Email Modal */}
       <ComposeEmailModal 
         isOpen={emailModalOpen}

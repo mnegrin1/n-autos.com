@@ -421,6 +421,79 @@ export async function deleteAutoLead(leadId: string) {
   return { success: true };
 }
 
+export async function updateAutoLeadTags(leadId: string, tags: string[]) {
+  const { data, error } = await (supabaseAdmin.from('auto_leads') as any)
+    .update({ tags })
+    .eq('id', leadId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error updating lead tags:", error);
+    return { success: false, error: error.message || "Error al actualizar etiquetas" };
+  }
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/crm");
+
+  return { success: true, data };
+}
+
+export async function bulkAddTagsToLeads(leadIds: string[], tagsToAdd: string[]) {
+  try {
+    const { data: leads, error: fetchError } = await (supabaseAdmin.from('auto_leads') as any)
+      .select('id, tags')
+      .in('id', leadIds);
+
+    if (fetchError || !leads) {
+      return { success: false, error: "Error al buscar contactos" };
+    }
+
+    for (const lead of leads) {
+      const existingTags: string[] = Array.isArray(lead.tags) ? lead.tags : [];
+      const updatedTags = Array.from(new Set([...existingTags, ...tagsToAdd]));
+      await (supabaseAdmin.from('auto_leads') as any)
+        .update({ tags: updatedTags })
+        .eq('id', lead.id);
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/admin/crm");
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error in bulkAddTagsToLeads:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function bulkRemoveTagsFromLeads(leadIds: string[], tagsToRemove: string[]) {
+  try {
+    const { data: leads, error: fetchError } = await (supabaseAdmin.from('auto_leads') as any)
+      .select('id, tags')
+      .in('id', leadIds);
+
+    if (fetchError || !leads) {
+      return { success: false, error: "Error al buscar contactos" };
+    }
+
+    for (const lead of leads) {
+      const existingTags: string[] = Array.isArray(lead.tags) ? lead.tags : [];
+      const updatedTags = existingTags.filter(t => !tagsToRemove.includes(t));
+      await (supabaseAdmin.from('auto_leads') as any)
+        .update({ tags: updatedTags })
+        .eq('id', lead.id);
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/admin/crm");
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error in bulkRemoveTagsFromLeads:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+
 export async function getAutoStats(agencyId: string) {
   const { data: agencyVehicles } = await (supabaseAdmin.from('vehicles') as any).select('status').eq('agency_id', agencyId);
   const { data: agencyLeads } = await (supabaseAdmin.from('auto_leads') as any).select('status').eq('agency_id', agencyId);
