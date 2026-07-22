@@ -35,6 +35,8 @@ import {
 } from "@/actions/autoActions";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { useSearchParams, useRouter } from "next/navigation";
+import ComposeEmailModal from "@/components/ComposeEmailModal";
 
 interface Message {
   id: string;
@@ -120,6 +122,20 @@ export default function InboxClient({
   
   const [isSyncingChannel, setIsSyncingChannel] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [emailRecipient, setEmailRecipient] = useState("");
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (searchParams.get("action") === "compose") {
+      setActiveTab('email');
+      setEmailModalOpen(true);
+      router.replace("/admin/inbox");
+    }
+  }, [searchParams]);
 
   const handleSyncMetaChannel = async (channelName: 'facebook' | 'instagram') => {
     setIsSyncingChannel(channelName);
@@ -381,6 +397,30 @@ export default function InboxClient({
                 {conversations.filter(c => c.unread).length} sin leer
               </span>
             </div>
+
+            {activeTab === 'email' && (
+              <button
+                onClick={() => {
+                  setEmailRecipient(associatedLead?.email || "");
+                  setEmailModalOpen(true);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontSize: '0.75rem',
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--primary)',
+                  color: 'var(--primary)',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  fontWeight: 600
+                }}
+              >
+                <Mail size={12} /> Redactar Email
+              </button>
+            )}
             {integrations.instagram?.connected && (
               <button
                 onClick={() => handleSyncMetaChannel('instagram')}
@@ -531,9 +571,16 @@ export default function InboxClient({
                     </a>
                   )}
                   {associatedLead?.email && (
-                    <a href={`mailto:${associatedLead.email}`} className={styles.headerActionBtn} title="Enviar Email">
+                    <button 
+                      onClick={() => {
+                        setEmailRecipient(associatedLead.email || "");
+                        setEmailModalOpen(true);
+                      }}
+                      className={styles.headerActionBtn} 
+                      title="Enviar Email"
+                    >
                       <Mail size={16} />
-                    </a>
+                    </button>
                   )}
                   <button onClick={handleDeleteConversation} className={styles.headerActionBtn} title="Eliminar Chat" style={{ color: '#ef4444', borderColor: '#fee2e2' }}>
                     <Trash2 size={16} />
@@ -824,6 +871,12 @@ export default function InboxClient({
           )}
         </div>
       </div>
+
+      <ComposeEmailModal 
+        isOpen={emailModalOpen}
+        onClose={() => setEmailModalOpen(false)}
+        defaultTo={emailRecipient}
+      />
     </div>
   );
 }

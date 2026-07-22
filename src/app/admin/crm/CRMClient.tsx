@@ -8,6 +8,7 @@ import { Phone, Mail, User, Plus, Trash2, Calendar, MessageSquare, X, Search, Up
 import * as xlsx from "xlsx";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useRef } from "react";
+import ComposeEmailModal from "@/components/ComposeEmailModal";
 
 interface Lead {
   id: string;
@@ -56,6 +57,8 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [emailRecipient, setEmailRecipient] = useState("");
 
   const [isPending, startTransition] = useTransition();
 
@@ -356,7 +359,19 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
                   )) : <span style={{ opacity: 0.5, fontSize: "0.8rem" }}>-</span>}
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", alignItems: "center" }}>
+                  {lead.email && (
+                    <button 
+                      onClick={() => {
+                        setEmailRecipient(lead.email);
+                        setEmailModalOpen(true);
+                      }}
+                      style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", opacity: 0.85 }}
+                      title="Enviar Email"
+                    >
+                      <Mail size={16} />
+                    </button>
+                  )}
                   <button 
                     onClick={() => handleDeleteLead(lead.id)}
                     style={{ background: "none", border: "none", color: "var(--danger, #ef4444)", cursor: "pointer", opacity: 0.7 }}
@@ -382,6 +397,17 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
             Selected contacts: {selectedLeads.length}
           </div>
           <div style={{ display: "flex", gap: "1rem" }}>
+            <button 
+              onClick={() => {
+                const selectedObjs = leads.filter(l => selectedLeads.includes(l.id) && l.email);
+                const emails = selectedObjs.map(l => l.email).join(", ");
+                setEmailRecipient(emails);
+                setEmailModalOpen(true);
+              }}
+              style={{ backgroundColor: "var(--primary)", color: "white", padding: "0.5rem 1.5rem", borderRadius: "8px", border: "none", fontWeight: "600", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem" }}
+            >
+              <Mail size={16} /> Enviar Email
+            </button>
             <button 
               onClick={handleBulkDelete}
               style={{ backgroundColor: "var(--danger, #ef4444)", color: "white", padding: "0.5rem 1.5rem", borderRadius: "8px", border: "none", fontWeight: "600", cursor: "pointer" }}
@@ -529,6 +555,12 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
           </div>
         </div>
       )}
+      {/* Compose Email Modal */}
+      <ComposeEmailModal 
+        isOpen={emailModalOpen}
+        onClose={() => setEmailModalOpen(false)}
+        defaultTo={emailRecipient}
+      />
     </div>
   );
 }

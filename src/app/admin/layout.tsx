@@ -21,8 +21,11 @@ import {
   MoonStar,
   Share2,
   MessageSquare,
-  Menu
+  Menu,
+  Mail,
+  DollarSign
 } from "lucide-react";
+import ComposeEmailModal from "@/components/ComposeEmailModal";
 
 export default function AutoAdminLayout({
   children,
@@ -39,6 +42,7 @@ export default function AutoAdminLayout({
 
   // Dropdown "+ Nuevo"
   const [showNewDropdown, setShowNewDropdown] = useState(false);
+  const [isComposeEmailOpen, setIsComposeEmailOpen] = useState(false);
   const newDropdownRef = useRef<HTMLDivElement>(null);
 
   // Cerrar menús al hacer clic fuera
@@ -185,106 +189,113 @@ export default function AutoAdminLayout({
               }}
               type="button"
             >
-              <Plus size={16} /> Nuevo
+              <Plus size={16} /> Nuevo <ChevronDown size={14} style={{ transform: showNewDropdown ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
             </button>
             
             {showNewDropdown && (
-              <>
-                {/* Fixed full-screen backdrop to dim the screen slightly */}
-                <div 
+              <div 
+                style={{
+                  marginTop: "0.5rem",
+                  backgroundColor: "var(--surface-color)",
+                  border: "1px solid var(--border-color)",
+                  borderRadius: "12px",
+                  boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15)",
+                  overflow: "hidden",
+                  display: "flex",
+                  flexDirection: "column",
+                  padding: "0.25rem 0",
+                  zIndex: 200
+                }}
+              >
+                <Link 
+                  href="/admin/vehicles?action=new" 
                   onClick={() => setShowNewDropdown(false)}
                   style={{
-                    position: "fixed",
-                    top: 0,
-                    left: 0,
-                    width: "calc(100vw / var(--zoom-scale, 1))",
-                    height: "calc(100vh / var(--zoom-scale, 1))",
-                    backgroundColor: "rgba(0, 0, 0, 0.22)",
-                    backdropFilter: "blur(0.5px)",
-                    zIndex: 190,
-                    cursor: "default"
-                  }}
-                />
-
-                <div 
-                  style={{
-                    position: "absolute",
-                    top: "0.5rem",
-                    left: "calc(100% - 10px)",
-                    width: "230px",
-                    backgroundColor: "var(--surface-color)",
-                    border: "1px solid var(--border-color)",
-                    borderRadius: "12px",
-                    boxShadow: "0 10px 25px rgba(0, 0, 0, 0.25)",
-                    zIndex: 200,
-                    overflow: "hidden",
                     display: "flex",
-                    flexDirection: "column",
-                    padding: "0.25rem 0"
+                    alignItems: "center",
+                    gap: "0.75rem",
+                    padding: "0.75rem 1rem",
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                    color: "var(--text-color)",
+                    textDecoration: "none",
+                    borderBottom: "1px solid var(--border-color)",
+                    transition: "background-color 0.2s"
                   }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--primary-light)"}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
                 >
-                  <Link 
-                    href="/admin/vehicles?action=new" 
-                    onClick={() => setShowNewDropdown(false)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.75rem",
-                      padding: "0.85rem 1.15rem",
-                      fontSize: "0.9rem",
-                      fontWeight: 600,
-                      color: "var(--text-color)",
-                      textDecoration: "none",
-                      borderBottom: "1px solid var(--border-color)",
-                      transition: "background-color 0.2s"
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--border-color)"}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-                  >
-                    <Car size={16} /> Nueva Publicación
-                  </Link>
-                  <Link 
-                    href="/admin/crm?action=new" 
-                    onClick={() => setShowNewDropdown(false)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.75rem",
-                      padding: "0.85rem 1.15rem",
-                      fontSize: "0.9rem",
-                      fontWeight: 600,
-                      color: "var(--text-color)",
-                      textDecoration: "none",
-                      borderBottom: "1px solid var(--border-color)",
-                      transition: "background-color 0.2s"
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--border-color)"}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-                  >
-                    <Users size={16} /> Nuevo Contacto
-                  </Link>
+                  <Car size={16} /> Nueva Publicación
+                </Link>
+                <Link 
+                  href="/admin/crm?action=new" 
+                  onClick={() => setShowNewDropdown(false)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.75rem",
+                    padding: "0.75rem 1rem",
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                    color: "var(--text-color)",
+                    textDecoration: "none",
+                    borderBottom: "1px solid var(--border-color)",
+                    transition: "background-color 0.2s"
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--primary-light)"}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                >
+                  <Users size={16} /> Nuevo Contacto
+                </Link>
 
-                  <Link 
-                    href="/admin/crm?action=sale" 
-                    onClick={() => setShowNewDropdown(false)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.75rem",
-                      padding: "0.85rem 1.15rem",
-                      fontSize: "0.9rem",
-                      fontWeight: 600,
-                      color: "var(--text-color)",
-                      textDecoration: "none",
-                      transition: "background-color 0.2s"
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--border-color)"}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-                  >
-                    <LogOut size={16} style={{ transform: "rotate(90deg)" }} /> Registrar Venta
-                  </Link>
-                </div>
-              </>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setShowNewDropdown(false);
+                    setIsComposeEmailOpen(true);
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.75rem",
+                    padding: "0.75rem 1rem",
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                    color: "var(--text-color)",
+                    background: "none",
+                    border: "none",
+                    borderBottom: "1px solid var(--border-color)",
+                    textAlign: "left",
+                    cursor: "pointer",
+                    width: "100%",
+                    transition: "background-color 0.2s"
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--primary-light)"}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                >
+                  <Mail size={16} /> Enviar Email
+                </button>
+
+                <Link 
+                  href="/admin/crm?action=sale" 
+                  onClick={() => setShowNewDropdown(false)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.75rem",
+                    padding: "0.75rem 1rem",
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                    color: "var(--text-color)",
+                    textDecoration: "none",
+                    transition: "background-color 0.2s"
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--primary-light)"}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                >
+                  <DollarSign size={16} /> Registrar Venta
+                </Link>
+              </div>
             )}
           </div>
 
@@ -437,6 +448,11 @@ export default function AutoAdminLayout({
           {children}
         </div>
       </main>
+
+      <ComposeEmailModal 
+        isOpen={isComposeEmailOpen}
+        onClose={() => setIsComposeEmailOpen(false)}
+      />
     </div>
   );
 }
