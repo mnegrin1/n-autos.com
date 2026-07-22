@@ -16,7 +16,7 @@
   
   /* Typography */
   --font-family: var(--font-inter), system-ui, sans-serif;
-  
+  --font-heading: var(--font-outfit), system-ui, sans-serif;  
   /* Shadows & Glass */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -118,6 +118,12 @@ body {
   box-sizing: border-box;
   padding: 0;
   margin: 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 a {

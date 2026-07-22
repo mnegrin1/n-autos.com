@@ -265,8 +265,13 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
     <div className={styles.crmContainer}>
       <div className={styles.header}>
         <div>
-          <h1>Contactos CRM</h1>
-          <p>Gestión de clientes y seguimiento de embudo en tiempo real.</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <h1 style={{ margin: 0 }}>Contactos CRM</h1>
+            <span style={{ backgroundColor: 'var(--primary-light)', color: 'var(--primary)', padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 600 }}>
+              {filteredLeads.length} {filteredLeads.length === 1 ? 'contacto' : 'contactos'}
+            </span>
+          </div>
+          <p style={{ marginTop: '0.25rem' }}>Gestión de clientes y seguimiento de embudo en tiempo real.</p>
         </div>
         <div style={{ display: "flex", gap: "1rem" }}>
           <input 

@@ -1228,9 +1228,13 @@ export async function sendMetaMessage(channel: "facebook" | "instagram", recipie
     }
 
     const token = integration.token; // Access Token
-    const senderId = integration.refresh_token; // pageId o igId
+    const senderId = integration.refresh_token; // pageId para FB o igId para IG
+    const fbPageId = integrations.facebook?.refresh_token;
 
-    const res = await fetch(`https://graph.facebook.com/v20.0/${senderId}/messages?access_token=${token}`, {
+    // Para enviar mensajes de Instagram, la Graph API utiliza el ID de la Página de Facebook vinculada o el igId
+    const targetSenderId = (channel === "instagram" && fbPageId) ? fbPageId : senderId;
+
+    let res = await fetch(`https://graph.facebook.com/v20.0/${targetSenderId}/messages?access_token=${token}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -1240,6 +1244,20 @@ export async function sendMetaMessage(channel: "facebook" | "instagram", recipie
         message: { text: text }
       })
     });
+
+    // Fallback: si falla con targetSenderId y estamos en IG, probar con senderId (igId)
+    if (!res.ok && channel === "instagram" && targetSenderId !== senderId) {
+      res = await fetch(`https://graph.facebook.com/v20.0/${senderId}/messages?access_token=${token}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          recipient: { id: recipientId },
+          message: { text: text }
+        })
+      });
+    }
 
     const data = await res.json();
     if (!res.ok || data.error) {
@@ -1329,6 +1347,30 @@ export async function sendInboxMessage(conversationId: string, text: string) {
 
   const now = new Date();
   const timeStr = now.toISOString();
+
+  // Integración con Emails usando Resend
+  if (conversation.channel === 'email') {
+    // Si la conversación es un email, llamamos a la acción de enviar email
+    try {
+      const { sendEmailAction } = await import('./emailActions');
+      // Necesitamos el email del destinatario. Lo sacamos de la tabla de leads usando el lead_id.
+      let recipientEmail = "cliente@example.com"; // Default fallback
+      if (conversation.lead_id) {
+        const { data: leadData } = await (supabaseAdmin.from('auto_leads') as any).select('email').eq('id', conversation.lead_id).single();
+        if (leadData && leadData.email) {
+          recipientEmail = leadData.email;
+        }
+      }
+
+      const emailResult = await sendEmailAction(recipientEmail, `Re: Consulta ${conversation.lead_name}`, text);
+      if (!emailResult.success) {
+        return { success: false, error: emailResult.error || "Fallo al enviar correo" };
+      }
+    } catch (e: any) {
+      console.error("Error sending email:", e);
+      return { success: false, error: e.message };
+    }
+  }
 
   const newMsg = {
     id: `msg-${Date.now()}`,
@@ -1531,8 +1573,8 @@ export async function sendWhatsAppMessage(toPhone: string, text: string) {
 
 export async function deleteConversation(conversationId: string) {
   try {
-    const { error } = await supabaseAdmin
-      .from('inbox_conversations')
+    const { error } = await (supabaseAdmin
+      .from('inbox_conversations') as any)
       .delete()
       .eq('id', conversationId);
 
@@ -1562,8 +1604,8 @@ export async function updateLeadContact(
       const { data: user } = await supabaseAdmin.auth.getUser();
       // O podemos crearlo sin agency_id si permitimos null, o buscarlo
       
-      const { data: newLead, error: createError } = await supabaseAdmin
-        .from('leads')
+      const { data: newLead, error: createError } = await (supabaseAdmin
+        .from('leads') as any)
         .insert({
           name: name,
           email: email || null,
@@ -1577,20 +1619,20 @@ export async function updateLeadContact(
       leadIdToUse = newLead.id;
     } else {
       // 2. Si ya tiene lead, lo actualizamos
-      const { error: updateError } = await supabaseAdmin
-        .from('leads')
+      const { error: updateError } = await (supabaseAdmin
+        .from('leads') as any)
         .update({
           name: name,
           email: email || null,
           phone: phone || null
-        })
+       })
         .eq('id', leadIdToUse);
       if (updateError) throw updateError;
     }
 
     // 3. Actualizamos el nombre y el lead_id en inbox_conversations
-    const { error: inboxError } = await supabaseAdmin
-      .from('inbox_conversations')
+    const { error: inboxError } = await (supabaseAdmin
+      .from('inbox_conversations') as any)
       .update({
         lead_name: name,
         lead_id: leadIdToUse
@@ -1622,27 +1664,22 @@ export async function syncMetaConversations(channel: "facebook" | "instagram") {
     const igId = integrations.instagram?.refresh_token;
     const fbPageId = integrations.facebook?.refresh_token;
 
-    const limit = channel === "instagram" ? 5 : 3;
+    const limit = 1; // Fijado estrictamente en 1 por requerimiento de la API de Meta para evitar sobrecarga
     const baseUrl = "https://graph.facebook.com/v20.0";
     const platformParam = channel === "instagram" ? "&platform=instagram" : "";
 
     // 1. Obtener las últimas conversaciones
     let convsRes: Response | null = null;
 
-    // Primer intento con senderId
-    let url = `${baseUrl}/${senderId}/conversations?folder=inbox&fields=id,updated_time,participants&limit=${limit}${platformParam}&access_token=${token}`;
+    // Para Instagram, la consulta exitosa comprobada en Meta Explorer es a través de la Facebook Page ID (o senderId si es FB)
+    const targetId = (channel === "instagram" && fbPageId) ? fbPageId : senderId;
+
+    let url = `${baseUrl}/${targetId}/conversations?limit=${limit}${platformParam}&access_token=${token}`;
     convsRes = await fetch(url);
 
-    if (!convsRes.ok) {
-      // Intentar sin folder=inbox (algunas configuraciones de IG Business API no requieren folder)
-      url = `${baseUrl}/${senderId}/conversations?fields=id,updated_time,participants&limit=${limit}${platformParam}&access_token=${token}`;
-      convsRes = await fetch(url);
-    }
-
-    if (!convsRes.ok && channel === "instagram" && fbPageId && integrations.facebook?.token) {
-      // Fallback usando el Facebook Page Token si el token directo de IG no devolvió conversaciones
-      const fbToken = integrations.facebook.token;
-      url = `${baseUrl}/${fbPageId}/conversations?platform=instagram&fields=id,updated_time,participants&limit=${limit}&access_token=${fbToken}`;
+    if (!convsRes.ok && channel === "instagram" && senderId !== targetId) {
+      // Intentar directamente con el IG User ID como fallback
+      url = `${baseUrl}/${senderId}/conversations?limit=${limit}${platformParam}&access_token=${token}`;
       convsRes = await fetch(url);
     }
 
@@ -1689,18 +1726,12 @@ export async function syncMetaConversations(channel: "facebook" | "instagram") {
         }
       }
 
-      // Si no se encontró en participants, buscar en el historial de mensajes
+      // Si no se encontró en participants ni en mensajes (ej. chat de prueba consigo mismo), usar el remitente del primer mensaje o la convId
       if (!leadId) {
-        for (const rm of rawMessages) {
-          if (rm.from && rm.from.id && rm.from.id !== senderId && rm.from.id !== igId && rm.from.id !== fbPageId) {
-            leadId = rm.from.id;
-            leadNameRaw = rm.from.name || rm.from.username || "";
-            break;
-          }
-        }
+        const firstMsg = rawMessages[0];
+        leadId = firstMsg?.from?.id || convId;
+        leadNameRaw = firstMsg?.from?.username || `Chat de prueba (${channel.toUpperCase()})`;
       }
-
-      if (!leadId) continue;
 
       // 3. Obtener el perfil del cliente desde la Graph API
       let finalLeadName = leadNameRaw;

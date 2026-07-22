@@ -12,8 +12,22 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 8rem 2rem 6rem;
-  background: radial-gradient(circle at 50% -20%, var(--surface-hover), var(--bg-color));
+  padding: 10rem 2rem 8rem;
+  background: transparent;
+  position: relative;
+}
+
+.heroSection::before {
+  content: "";
+  position: absolute;
+  top: -20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 800px;
+  height: 600px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--primary) 15%, transparent) 0%, transparent 70%);
+  z-index: -1;
+  pointer-events: none;
 }
 
 .title {
@@ -39,6 +53,30 @@
 .ctaButtons {
   display: flex;
   gap: 1rem;
+  margin-bottom: 4rem;
+}
+
+.heroImageWrapper {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  perspective: 1000px;
+  position: relative;
+  z-index: 10;
+}
+
+.heroImage {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  transform: rotateX(5deg) scale(0.95);
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.heroImageWrapper:hover .heroImage {
+  transform: rotateX(0deg) scale(1);
 }
 
 .featuresSection {
@@ -65,16 +103,41 @@
 }
 
 .featureCard {
-  background: var(--bg-color);
-  border: 1px solid var(--border-color);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
   border-radius: 16px;
-  padding: 2rem;
-  transition: transform 0.2s, box-shadow 0.2s;
+  padding: 2.5rem 2rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.featureCard::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 100%;
+  background: radial-gradient(circle at 50% 0%, var(--primary-light), transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.featureCard:hover::before {
+  opacity: 1;
+}
+
+.featureCard > * {
+  position: relative;
+  z-index: 1;
 }
 
 .featureCard:hover {
-  transform: translateY(-5px);
-  box-shadow: var(--shadow-lg);
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.15);
+  border-color: color-mix(in srgb, var(--primary) 30%, transparent);
 }
 
 .featureIcon {

@@ -365,14 +365,16 @@ export default function SettingsForm({
 
         <div style={{ height: "1px", backgroundColor: "var(--border-color)", margin: "0 1rem" }} />
 
-        {/* User Management */}
+        {/* Organization Control */}
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           <div style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", borderRadius: "16px", padding: "2rem", boxShadow: "var(--shadow-sm)", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
             <h3 style={{ fontSize: "1.1rem", fontWeight: "700", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <Users size={20} style={{ color: "var(--primary)" }} />
-              Gestión de Usuarios
+              Control de Organización
             </h3>
-            <p style={{ opacity: 0.7, fontSize: "0.9rem", marginTop: "-0.5rem" }}>Administra los usuarios de tu organización, invita nuevos vendedores y asigna roles.</p>
+            <p style={{ opacity: 0.7, fontSize: "0.9rem", marginTop: "-0.5rem" }}>
+              Administra a las personas dentro de tu organización. Invita nuevos vendedores, gerentes o administradores, y asigna sus roles.
+            </p>
             <UsersList agencyId={agency.id} initialUsers={initialUsers} />
           </div>
         </div>

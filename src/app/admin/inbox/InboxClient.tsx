@@ -49,7 +49,7 @@ interface Conversation {
   lead_id?: string;
   lead_name: string;
   lead_avatar?: string;
-  channel: 'whatsapp' | 'mercadolibre' | 'facebook' | 'instagram';
+  channel: 'whatsapp' | 'mercadolibre' | 'facebook' | 'instagram' | 'email';
   last_message: string;
   last_message_time: string;
   unread: boolean;
@@ -105,6 +105,7 @@ export default function InboxClient({
 }: InboxClientProps) {
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
   const [selectedConvId, setSelectedConvId] = useState<string | null>(initialConversations[0]?.id || null);
+  const [activeTab, setActiveTab] = useState<'dm' | 'email'>('dm');
   const [activeFilter, setActiveFilter] = useState<'all' | 'whatsapp' | 'mercadolibre' | 'facebook' | 'instagram'>('all');
   const [searchQuery, setSearchQuery] = useState("");
   const [inputText, setInputText] = useState("");
@@ -208,6 +209,9 @@ export default function InboxClient({
   // Filtrar y buscar conversaciones
   const filteredConversations = conversations
     .filter(c => {
+      if (activeTab === 'email') return c.channel === 'email';
+      if (c.channel === 'email') return false;
+      
       if (activeFilter === 'all') return true;
       return c.channel === activeFilter;
     })
@@ -329,6 +333,7 @@ export default function InboxClient({
       case 'mercadolibre': return '#ffe600';
       case 'facebook': return '#1877f2';
       case 'instagram': return '#e1306c';
+      case 'email': return '#6366f1'; // Indigo for email
       default: return 'var(--primary)';
     }
   };
@@ -352,6 +357,23 @@ export default function InboxClient({
       <div className={styles.dashboard}>
         {/* Columna 1: Listado de Chats */}
         <div className={styles.sidebar}>
+          
+          {/* Main Tabs */}
+          <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--border-color)', margin: '1rem', paddingBottom: '0.5rem' }}>
+             <button 
+                onClick={() => setActiveTab('dm')}
+                style={{ flex: 1, background: 'none', border: 'none', fontWeight: activeTab === 'dm' ? 700 : 500, color: activeTab === 'dm' ? 'var(--primary)' : 'var(--text-color)', opacity: activeTab === 'dm' ? 1 : 0.6, cursor: 'pointer', borderBottom: activeTab === 'dm' ? '2px solid var(--primary)' : '2px solid transparent', paddingBottom: '0.5rem', transition: 'all 0.2s', fontSize: '0.9rem' }}
+             >
+               Mensajes
+             </button>
+             <button 
+                onClick={() => setActiveTab('email')}
+                style={{ flex: 1, background: 'none', border: 'none', fontWeight: activeTab === 'email' ? 700 : 500, color: activeTab === 'email' ? 'var(--primary)' : 'var(--text-color)', opacity: activeTab === 'email' ? 1 : 0.6, cursor: 'pointer', borderBottom: activeTab === 'email' ? '2px solid var(--primary)' : '2px solid transparent', paddingBottom: '0.5rem', transition: 'all 0.2s', fontSize: '0.9rem' }}
+             >
+               Correos
+             </button>
+          </div>
+
           <div className={styles.sidebarHeader} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <h3 style={{ margin: 0 }}>Chats de Leads</h3>
@@ -396,43 +418,45 @@ export default function InboxClient({
             />
           </div>
 
-          {/* Filtros de canales */}
-          <div className={styles.filtersWrapper}>
-            <button 
-              onClick={() => setActiveFilter('all')} 
-              className={`${styles.filterBtn} ${activeFilter === 'all' ? styles.activeFilter : ''}`}
-            >
-              Todos
-            </button>
-            <button 
-              onClick={() => setActiveFilter('whatsapp')} 
-              className={`${styles.filterBtn} ${activeFilter === 'whatsapp' ? styles.activeFilter : ''}`}
-              style={{ color: activeFilter === 'whatsapp' ? '#25d366' : 'inherit' }}
-            >
-              WA
-            </button>
-            <button 
-              onClick={() => setActiveFilter('mercadolibre')} 
-              className={`${styles.filterBtn} ${activeFilter === 'mercadolibre' ? styles.activeFilter : ''}`}
-              style={{ color: activeFilter === 'mercadolibre' ? '#f59e0b' : 'inherit' }}
-            >
-              ML
-            </button>
-            <button 
-              onClick={() => setActiveFilter('facebook')} 
-              className={`${styles.filterBtn} ${activeFilter === 'facebook' ? styles.activeFilter : ''}`}
-              style={{ color: activeFilter === 'facebook' ? '#1877f2' : 'inherit' }}
-            >
-              FB
-            </button>
-            <button 
-              onClick={() => setActiveFilter('instagram')} 
-              className={`${styles.filterBtn} ${activeFilter === 'instagram' ? styles.activeFilter : ''}`}
-              style={{ color: activeFilter === 'instagram' ? '#e1306c' : 'inherit' }}
-            >
-              IG
-            </button>
-          </div>
+          {/* Filtros de canales (Sólo para Mensajes Directos) */}
+          {activeTab === 'dm' && (
+            <div className={styles.filtersWrapper}>
+              <button 
+                onClick={() => setActiveFilter('all')} 
+                className={`${styles.filterBtn} ${activeFilter === 'all' ? styles.activeFilter : ''}`}
+              >
+                Todos
+              </button>
+              <button 
+                onClick={() => setActiveFilter('whatsapp')} 
+                className={`${styles.filterBtn} ${activeFilter === 'whatsapp' ? styles.activeFilter : ''}`}
+                style={{ color: activeFilter === 'whatsapp' ? '#25d366' : 'inherit' }}
+              >
+                WA
+              </button>
+              <button 
+                onClick={() => setActiveFilter('mercadolibre')} 
+                className={`${styles.filterBtn} ${activeFilter === 'mercadolibre' ? styles.activeFilter : ''}`}
+                style={{ color: activeFilter === 'mercadolibre' ? '#f59e0b' : 'inherit' }}
+              >
+                ML
+              </button>
+              <button 
+                onClick={() => setActiveFilter('facebook')} 
+                className={`${styles.filterBtn} ${activeFilter === 'facebook' ? styles.activeFilter : ''}`}
+                style={{ color: activeFilter === 'facebook' ? '#1877f2' : 'inherit' }}
+              >
+                FB
+              </button>
+              <button 
+                onClick={() => setActiveFilter('instagram')} 
+                className={`${styles.filterBtn} ${activeFilter === 'instagram' ? styles.activeFilter : ''}`}
+                style={{ color: activeFilter === 'instagram' ? '#e1306c' : 'inherit' }}
+              >
+                IG
+              </button>
+            </div>
+          )}
 
           {/* Lista de conversaciones */}
           <div className={styles.chatList}>

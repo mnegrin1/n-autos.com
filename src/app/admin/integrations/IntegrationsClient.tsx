@@ -74,23 +74,25 @@ export default function IntegrationsClient({
 
   useEffect(() => {
     if (errorMsg) {
+      const searchParams = new URLSearchParams(window.location.search);
+      const detail = searchParams.get('detail');
       let msg = "Ocurrió un error al conectar la integración.";
       if (errorMsg === 'no_pages_found') {
-        msg = "El usuario de Facebook inició sesión correctamente, pero no se encontró ninguna Página asociada o no se otorgaron los permisos necesarios. Por favor, asegúrate de tener una página creada y de seleccionarla al otorgar los permisos a la aplicación.";
+        msg = "El usuario de Facebook inició sesión correctamente, pero no se encontró ninguna Página de Facebook vinculada a una cuenta de Instagram Business o no se otorgaron los permisos necesarios.";
       } else if (errorMsg === 'missing_credentials') {
-        msg = "Falta la configuración de credenciales de Meta (Facebook/Instagram) en el servidor.";
+        msg = "Falta la configuración de credenciales de Meta (META_APP_ID o META_APP_SECRET) en el servidor.";
       } else if (errorMsg === 'db_error_fb') {
         msg = "Error al guardar la integración de Facebook en la base de datos.";
       } else if (errorMsg === 'meta_callback_failed') {
-        msg = "Fallo inesperado al procesar la respuesta de Meta.";
+        msg = detail ? `Fallo en la respuesta de Meta: ${decodeURIComponent(detail)}` : "Fallo inesperado al procesar la respuesta de Meta.";
       } else {
-        msg = `Error: ${errorMsg}`;
+        msg = `Error: ${errorMsg}${detail ? ` (${decodeURIComponent(detail)})` : ''}`;
       }
-      // Use setTimeout to ensure alert doesn't block immediate rendering of the page
       setTimeout(() => alert(msg), 100);
       
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.delete('error');
+      newUrl.searchParams.delete('detail');
       window.history.replaceState({}, '', newUrl);
     }
     if (successMsg) {

@@ -41,20 +41,35 @@ export async function GET(request: Request) {
     }
 
 
+    // Buscar también la integración de facebook si estamos en instagram para tener el fbPageId
+    let fbPageId = "";
+    if (channel === "instagram" && rows && rows.length > 0) {
+      const { data: fbRows } = await db
+        .from("auto_integrations")
+        .select("*")
+        .eq("agency_id", "00000000-0000-0000-0000-000000000000")
+        .eq("channel", "facebook")
+        .limit(1);
+      if (fbRows && fbRows.length > 0) {
+        fbPageId = fbRows[0].refresh_token;
+      }
+    }
+
     const token = metaInt.token;
     const senderId = metaInt.refresh_token;
     const baseUrl = "https://graph.facebook.com/v20.0";
     const platformParam = channel === "instagram" ? "&platform=instagram" : "";
 
-    // 2. Llamar a Meta: obtener conversaciones (con platform=instagram para IG)
-    const convsUrl = `${baseUrl}/${senderId}/conversations?folder=inbox&fields=id&limit=5${platformParam}&access_token=${token}`;
+    const targetId = (channel === "instagram" && fbPageId) ? fbPageId : senderId;
+
+    // 2. Llamar a Meta: obtener conversaciones (limit=1 probado en Graph Explorer)
+    const convsUrl = `${baseUrl}/${targetId}/conversations?limit=1${platformParam}&access_token=${token}`;
     let convsRes = await fetch(convsUrl);
     let convsData = await convsRes.json();
 
-    // Fallback: intentar sin platform param si falla
     let usedFallback = false;
-    if (!convsRes.ok && channel === "instagram") {
-      const fallbackUrl = `${baseUrl}/${senderId}/conversations?folder=inbox&fields=id&limit=5&access_token=${token}`;
+    if (!convsRes.ok && channel === "instagram" && senderId !== targetId) {
+      const fallbackUrl = `${baseUrl}/${senderId}/conversations?limit=1${platformParam}&access_token=${token}`;
       convsRes = await fetch(fallbackUrl);
       convsData = await convsRes.json();
       usedFallback = true;
@@ -64,10 +79,11 @@ export async function GET(request: Request) {
       return NextResponse.json({
         error: "Meta Graph API error en /conversations",
         metaError: convsData,
+        targetId,
         senderId,
+        tokenPreview: token ? `${token.slice(0, 15)}...${token.slice(-10)}` : null,
         url: convsUrl.replace(token, "TOKEN_REDACTED"),
         usedFallback,
-        hint: "Error #3 = app sin capability 'Instagram Messaging'. Actívalo en Meta Developer Console → tu app → Productos → Instagram.",
       }, { status: 502 });
     }
 
@@ -107,7 +123,11 @@ export async function GET(request: Request) {
         }
       }
 
-      if (!leadId) continue; // <-- FIX: era "return", cambiado a "continue"
+      if (!leadId) {
+        const firstMsg = rawMessages[0];
+        leadId = firstMsg?.from?.id || conv.id;
+        leadNameRaw = firstMsg?.from?.username || `Chat Instagram (${leadId.slice(-4)})`;
+      }
 
       const ourMessages = rawMessages.filter((rm: any) => rm.message).map((rm: any) => ({
         id: `msg-${rm.id || Date.now() + Math.random()}`,

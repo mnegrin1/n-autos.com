@@ -11,8 +11,8 @@ export async function createAgencyAndUser(
 ) {
   try {
     // 1. Create the agency
-    const { data: agency, error: agencyError } = await supabase
-      .from("agencies")
+    const { data: agency, error: agencyError } = await (supabase
+      .from("agencies") as any)
       .insert([
         {
           name: agencyName,
@@ -29,8 +29,8 @@ export async function createAgencyAndUser(
     }
 
     // 2. Create the user
-    const { data: user, error: userError } = await supabase
-      .from("users")
+    const { data: user, error: userError } = await (supabase
+      .from("users") as any)
       .insert([
         {
           agency_id: agency.id,
@@ -56,8 +56,8 @@ export async function createAgencyAndUser(
 
 export async function getUsersByAgency(agencyId: string) {
   try {
-    const { data, error } = await supabase
-      .from("users")
+    const { data, error } = await (supabase
+      .from("users") as any)
       .select("*")
       .eq("agency_id", agencyId)
       .order("created_at", { ascending: true });
@@ -74,8 +74,8 @@ export async function getUsersByAgency(agencyId: string) {
 
 export async function createUser(agencyId: string, name: string, email: string, role: string = "agent") {
   try {
-    const { data, error } = await supabase
-      .from("users")
+    const { data, error } = await (supabase
+      .from("users") as any)
       .insert([{ agency_id: agencyId, name, email, role }])
       .select()
       .single();
@@ -93,8 +93,8 @@ export async function createUser(agencyId: string, name: string, email: string, 
 
 export async function deleteUser(userId: string) {
   try {
-    const { error } = await supabase
-      .from("users")
+    const { error } = await (supabase
+      .from("users") as any)
       .delete()
       .eq("id", userId);
 

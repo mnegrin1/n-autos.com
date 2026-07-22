@@ -8,22 +8,26 @@ export async function GET(request: Request) {
   
   const appId = process.env.META_APP_ID;
   const appSecret = process.env.META_APP_SECRET;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  const redirectUri = `${appUrl}/api/auth/meta/callback`;
+  
+  const host = request.headers.get("x-forwarded-host") || request.headers.get("host");
+  const proto = request.headers.get("x-forwarded-proto") || "https";
+  const origin = host ? `${proto}://${host}` : new URL(request.url).origin;
+  const targetRedirect = `${origin}/admin/settings`;
+  const redirectUri = `${origin}/api/auth/meta/callback`;
 
   // 1. Si hubo error en el popup de Facebook o el usuario canceló
   if (error) {
     console.error("Facebook devolvió un error en la URL:", error);
-    return NextResponse.redirect(`${appUrl}/admin/settings?error=${error}`);
+    return NextResponse.redirect(`${targetRedirect}?error=${error}`);
   }
-  // 2. Verificar credenciales antes de continuar (¡muy importante!)
+  // 2. Verificar credenciales antes de continuar
   if (!appId || !appSecret) {
-    console.error("FALTA CONFIGURACIÓN: No se encontró META_APP_ID o META_APP_SECRET en el archivo .env.local");
-    return NextResponse.redirect(`${appUrl}/admin/settings?error=missing_credentials`);
+    console.error("FALTA CONFIGURACIÓN: No se encontró META_APP_ID o META_APP_SECRET en las variables de entorno");
+    return NextResponse.redirect(`${targetRedirect}?error=missing_credentials`);
   }
 
   if (!code) {
-    return NextResponse.redirect(`${appUrl}/admin/settings?error=no_code`);
+    return NextResponse.redirect(`${targetRedirect}?error=no_code`);
   }
 
   const state = searchParams.get("state") || "facebook";
@@ -34,7 +38,7 @@ export async function GET(request: Request) {
     if (!tokenRes.ok) {
       const err = await tokenRes.json();
       console.error('Error obteniendo token corto de Meta:', err);
-      throw new Error(err.error?.message || 'Failed to exchange code for short-lived token');
+      throw new Error(err.error?.message || 'Fallo al intercambiar code por token corto');
     }
     const tokenData = await tokenRes.json();
     
@@ -45,17 +49,18 @@ export async function GET(request: Request) {
     if (!longLivedRes.ok) {
       const err = await longLivedRes.json();
       console.error('Error obteniendo token de larga duración:', err);
-      throw new Error(err.error?.message || 'Failed to exchange for long-lived token');
+      throw new Error(err.error?.message || 'Fallo al intercambiar por token de larga duración');
     }
     const longLivedData = await longLivedRes.json();
     
     const longLivedToken = longLivedData.access_token || shortLivedToken;
+
     // 5. Obtener las páginas del usuario
     const pagesRes = await fetch(`https://graph.facebook.com/v20.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${longLivedToken}`);
     if (!pagesRes.ok) {
       const err = await pagesRes.json();
       console.error('Error al obtener páginas de Meta:', err);
-      throw new Error(err.error?.message || 'Failed to fetch pages');
+      throw new Error(err.error?.message || 'Fallo al obtener páginas de Meta');
     }
     const pagesData = await pagesRes.json();
     
@@ -65,40 +70,51 @@ export async function GET(request: Request) {
     let igId = "";
     let igUsername = "";
 
-    if (state === "instagram") {
-      // Nueva API "Instagram Business Login": el token da acceso directo al usuario IG
-      // Intentar /me primero para obtener el igId sin necesitar una Page
-      const igRes = await fetch(`https://graph.facebook.com/v20.0/me?fields=id,username,name&access_token=${longLivedToken}`);
-      const igData = await igRes.json();
-      if (igData.id) {
-        igId = igData.id;
-        igUsername = igData.username || igData.name || igId;
+    // Buscar en las páginas la cuenta de Instagram conectada o la página de Facebook
+    if (pagesData.data && pagesData.data.length > 0) {
+      for (const page of pagesData.data) {
+        if (!pageId) {
+          pageId = page.id;
+          pageName = page.name;
+          pageAccessToken = page.access_token || longLivedToken;
+        }
+        if (page.instagram_business_account) {
+          igId = page.instagram_business_account.id;
+          pageId = page.id;
+          pageName = page.name;
+          pageAccessToken = page.access_token || longLivedToken;
+
+          const igProfileRes = await fetch(`https://graph.facebook.com/v20.0/${igId}?fields=username&access_token=${pageAccessToken}`);
+          if (igProfileRes.ok) {
+            const igProfileData = await igProfileRes.json();
+            igUsername = igProfileData.username || igId;
+          } else {
+            igUsername = igId;
+          }
+          break; // Encontrada la cuenta IG vinculada
+        }
       }
     }
 
-    // Si no obtuvimos igId aún (flujo Facebook clásico), buscar en las pages
-    if (!igId && pagesData.data && pagesData.data.length > 0) {
-      const page = pagesData.data[0];
-      pageId = page.id;
-      pageName = page.name;
-      pageAccessToken = page.access_token || longLivedToken;
-      if (page.instagram_business_account) {
-        igId = page.instagram_business_account.id;
-        
-        // Obtener el username de Instagram usando el Page Access Token
-        const igProfileRes = await fetch(`https://graph.facebook.com/v20.0/${igId}?fields=username&access_token=${pageAccessToken}`);
-        if (igProfileRes.ok) {
-          const igProfileData = await igProfileRes.json();
-          igUsername = igProfileData.username || igId;
-        } else {
-          igUsername = igId;
+    if (state === "instagram" && !igId) {
+      // Intentar /me si no se encontró en las páginas
+      try {
+        const igRes = await fetch(`https://graph.facebook.com/v20.0/me?fields=id,username,name&access_token=${longLivedToken}`);
+        if (igRes.ok) {
+          const igData = await igRes.json();
+          if (igData.id) {
+            igId = igData.id;
+            igUsername = igData.username || igData.name || igId;
+          }
         }
+      } catch (e) {
+        // ignore
       }
     }
 
     if (!pageId && !igId) {
       console.error("ERROR DE PÁGINAS/IG: No se encontró Página ni cuenta de Instagram válida vinculada.");
-      return NextResponse.redirect(`${appUrl}/admin/settings?error=no_pages_found`);
+      return NextResponse.redirect(`${targetRedirect}?error=no_pages_found`);
     }
     
     if (state === "facebook") {
@@ -114,7 +130,7 @@ export async function GET(request: Request) {
       }, { onConflict: "channel" });
       if (supaFbError) {
         console.error("Error al guardar Facebook en la base de datos (Supabase):", supaFbError);
-        return NextResponse.redirect(`${appUrl}/admin/settings?error=db_error_fb`);
+        return NextResponse.redirect(`${targetRedirect}?error=db_error_fb`);
       }
     } else if (state === "instagram") {
       // 7. Guardar en Supabase para Instagram
@@ -124,25 +140,26 @@ export async function GET(request: Request) {
           agency_id: "00000000-0000-0000-0000-000000000000",
           connected: true,
           username: igUsername,
-          token: longLivedToken,  // Instagram Business Login: usar el token del usuario IG, no el de la Page
+          token: pageAccessToken || longLivedToken,
           refresh_token: igId,
           updated_at: new Date().toISOString()
         }, { onConflict: "channel" });
         
         if (supaIgError) {
           console.error("Error al guardar Instagram en la base de datos (Supabase):", supaIgError);
-          return NextResponse.redirect(`${appUrl}/admin/settings?error=db_error_ig`);
+          return NextResponse.redirect(`${targetRedirect}?error=db_error_ig`);
         }
       } else {
         console.error("No se encontró cuenta de Instagram Business válida");
-        return NextResponse.redirect(`${appUrl}/admin/settings?error=no_ig_found`);
+        return NextResponse.redirect(`${targetRedirect}?error=no_ig_found`);
       }
     }
 
-    return NextResponse.redirect(`${appUrl}/admin/settings?success=meta_connected`);
+    return NextResponse.redirect(`${targetRedirect}?success=meta_connected`);
     
   } catch (err: any) {
     console.error("Error crítico en el proceso de conexión con Meta:", err);
-    return NextResponse.redirect(`${appUrl}/admin/settings?error=meta_callback_failed`);
+    const detail = encodeURIComponent(err.message || "desconocido");
+    return NextResponse.redirect(`${targetRedirect}?error=meta_callback_failed&detail=${detail}`);
   }
 }

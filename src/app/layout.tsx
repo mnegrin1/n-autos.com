@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
 import Script from "next/script";
 
@@ -8,10 +8,14 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
+const outfit = Outfit({
+  variable: "--font-outfit",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
-  title: "Negocio Todo en Uno - CRM Inmobiliario y Automotriz",
-  description: "Gestión unificada para inmobiliarias y automotoras en una sola plataforma.",
+  title: "n-autos | Plataforma Premium para Automotoras",
+  description: "Automatizá tu seguimiento, respondé al instante y organizá a tu equipo de ventas sin depender de sistemas rígidos.",
 };
 
 export default function RootLayout({
@@ -20,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={inter.variable} suppressHydrationWarning>
+    <html lang="es" className={`${inter.variable} ${outfit.variable}`} suppressHydrationWarning>
       <head>
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
         <Script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" strategy="beforeInteractive" />
@@ -29,7 +33,7 @@ export default function RootLayout({
             try {
               const theme = localStorage.getItem('crm-theme') || 'system';
               if (theme !== 'system') {
-                document.documentElement.className = '${inter.variable} theme-' + theme;
+                document.documentElement.className = '${inter.variable} ${outfit.variable} theme-' + theme;
               }
             } catch (e) {}
           })()
