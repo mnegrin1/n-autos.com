@@ -6,6 +6,7 @@ import { updateAgencySettings } from "@/actions/agencyActions";
 import { Save, CheckCircle, Palette, HelpCircle, Users } from "lucide-react";
 import IntegrationsClient from "../integrations/IntegrationsClient";
 import UsersList from "./UsersList";
+import EmailDomainSettings from "./EmailDomainSettings";
 
 interface Agency {
   id: string;
@@ -236,6 +237,11 @@ export default function SettingsForm({
           </div>
         </form>
         </div>
+
+        <div style={{ height: "1px", backgroundColor: "var(--border-color)", margin: "0 1rem" }} />
+
+        {/* Email Domain Customization */}
+        <EmailDomainSettings agencyId={agency.id} />
 
         <div style={{ height: "1px", backgroundColor: "var(--border-color)", margin: "0 1rem" }} />
 
