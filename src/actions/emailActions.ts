@@ -3,15 +3,13 @@
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-// Inicializamos Resend con la variable de entorno o un dummy si no existe
-const resend = new Resend(process.env.RESEND_API_KEY || "re_123456789");
-
-/**
- * Envía un email utilizando Resend.
- * En producción esto requerirá que el dominio esté configurado en Resend.
- */
 export async function sendEmailAction(to: string, subject: string, html: string) {
   try {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey || apiKey.startsWith("re_123456789")) {
+      return { success: false, error: "RESEND_API_KEY no está configurada correctamente en las variables de entorno." };
+    }
+    const resend = new Resend(apiKey);
     const fromAddress = process.env.EMAIL_FROM || 'Mauricio Negrin <mauricio.negrin@n-sistemas.com>';
     const data = await resend.emails.send({
       from: fromAddress,
