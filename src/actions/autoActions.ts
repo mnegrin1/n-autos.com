@@ -1712,6 +1712,82 @@ export async function importSocialPost(channel: 'facebook' | 'instagram', postDa
   return { success: true, vehicle: newVehicle, publication: newPub };
 }
 
+export async function createOrUpdatePublication(params: {
+  vehicleId: string;
+  channel: 'web' | 'mercadolibre' | 'facebook' | 'instagram' | 'instagram_ads' | 'whatsapp';
+  externalUrl?: string;
+}) {
+  try {
+    const defaultUrl = params.channel === 'web' ? `/portal/demo/${params.vehicleId}` : '#';
+    const newPub = {
+      id: crypto.randomUUID(),
+      agency_id: "00000000-0000-0000-0000-000000000000",
+      vehicle_id: params.vehicleId,
+      channel: params.channel,
+      status: 'published',
+      external_url: params.externalUrl || defaultUrl,
+      views: Math.floor(Math.random() * 20) + 1,
+      questions_count: 0,
+      published_at: new Date().toISOString()
+    };
+
+    const { data, error } = await (supabaseAdmin.from("auto_vehicle_publications") as any)
+      .upsert(newPub, { onConflict: "vehicle_id, channel" })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating/updating publication:", error);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/admin/publications");
+    revalidatePath("/admin/vehicles");
+    revalidatePath("/portal/demo");
+    return { success: true, publication: data || newPub };
+  } catch (err: any) {
+    console.error("Exception creating/updating publication:", err);
+    return { success: false, error: err.message || "Error al registrar la publicación" };
+  }
+}
+
+export async function importAndPublishToWeb(params: {
+  vehicleId: string;
+  sourceChannel: string;
+  externalUrl?: string;
+}) {
+  try {
+    const webPub = {
+      id: crypto.randomUUID(),
+      agency_id: "00000000-0000-0000-0000-000000000000",
+      vehicle_id: params.vehicleId,
+      channel: 'web',
+      status: 'published',
+      external_url: `/portal/demo/${params.vehicleId}`,
+      views: Math.floor(Math.random() * 45) + 5,
+      questions_count: Math.floor(Math.random() * 3),
+      published_at: new Date().toISOString()
+    };
+
+    const { data, error } = await (supabaseAdmin.from("auto_vehicle_publications") as any)
+      .upsert(webPub, { onConflict: "vehicle_id, channel" })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error publishing to web:", error);
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/admin/publications");
+    revalidatePath("/portal/demo");
+    return { success: true, publication: data || webPub };
+  } catch (err: any) {
+    console.error("Exception publishing to web:", err);
+    return { success: false, error: err.message || "Error al publicar en la página web" };
+  }
+}
+
 export async function sendWhatsAppMessage(toPhone: string, text: string) {
   // Asegúrate de tener estas variables en tu .env.local
   // WHATSAPP_TOKEN=tu_token_permanente

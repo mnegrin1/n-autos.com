@@ -23,7 +23,8 @@ import {
   DollarSign,
   Search,
   PanelLeft,
-  PanelLeftClose
+  PanelLeftClose,
+  Zap
 } from "lucide-react";
 import ComposeEmailModal from "@/components/ComposeEmailModal";
 import QuickSearchModal from "@/components/QuickSearchModal";
@@ -421,6 +422,10 @@ export default function AutoAdminLayout({
             <Mail size={18} style={{ flexShrink: 0 }} />
             {isExpanded && <span>Email Broadcasts</span>}
           </Link>
+          <Link href="/admin/automations" title="Automatizaciones" className={`${styles.navLink} ${pathname.startsWith("/admin/automations") ? styles.activeNavLink : ""}`}>
+            <Zap size={18} style={{ flexShrink: 0 }} />
+            {isExpanded && <span>Automatizaciones</span>}
+          </Link>
         </nav>
 
         {/* Footer del Sidebar: Tema, Configuración, Usuario y Pin Toggle */}
@@ -533,13 +538,8 @@ export default function AutoAdminLayout({
             )}
           </div>
 
-          {/* Cloudflare-style Pin Toggle Button */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: isExpanded ? "space-between" : "center", padding: "0.25rem 0.25rem 0 0.25rem" }}>
-            {isExpanded && (
-              <span style={{ fontSize: "0.75rem", color: "var(--text-color)", opacity: 0.6, fontWeight: 500 }}>
-                {isPinned ? "Barra fija" : "Desplegar en hover"}
-              </span>
-            )}
+          {/* Cloudflare-style Pin Toggle Button - Static on the left */}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.25rem 0.25rem 0 0.25rem" }}>
             <button
               type="button"
               onClick={togglePin}
@@ -555,6 +555,7 @@ export default function AutoAdminLayout({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                flexShrink: 0,
                 transition: "all 0.2s ease"
               }}
               onMouseEnter={(e) => {
@@ -568,6 +569,11 @@ export default function AutoAdminLayout({
             >
               {isPinned ? <PanelLeftClose size={18} /> : <PanelLeft size={18} />}
             </button>
+            {isExpanded && (
+              <span style={{ fontSize: "0.75rem", color: "var(--text-color)", opacity: 0.6, fontWeight: 500, whiteSpace: "nowrap" }}>
+                {isPinned ? "Barra fija" : "Desplegar en hover"}
+              </span>
+            )}
           </div>
 
         </div>

@@ -18,7 +18,7 @@ export default async function PublicationsPage() {
   const publications = await getVehiclePublications();
 
   // Filter only active (published) publications as per user request
-  const activePublications = publications.filter(p => p.status === 'published');
+  const activePublications = publications.filter((p: any) => p.status === 'published');
 
   return (
     <PublicationsClient 

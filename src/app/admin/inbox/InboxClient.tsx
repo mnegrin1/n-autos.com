@@ -201,6 +201,14 @@ export default function InboxClient({
     };
   }, []);
 
+  // Periodic auto-refresh every 1 minute (60 seconds) to keep chats and inbox updated
+  useEffect(() => {
+    const timer = setInterval(() => {
+      router.refresh();
+    }, 60000);
+    return () => clearInterval(timer);
+  }, [router]);
+
   // Notas internas locales
   const [localNotes, setLocalNotes] = useState(currentConv?.notes || "");
 
