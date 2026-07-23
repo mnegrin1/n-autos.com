@@ -9,12 +9,9 @@ import {
   LayoutDashboard, 
   Car, 
   Users, 
-  Calendar, 
   Settings, 
   LogOut, 
-  Bell, 
   Plus,
-  Palette,
   ChevronDown,
   Sun,
   Moon,
@@ -23,9 +20,13 @@ import {
   MessageSquare,
   Menu,
   Mail,
-  DollarSign
+  DollarSign,
+  Search,
+  PanelLeft,
+  PanelLeftClose
 } from "lucide-react";
 import ComposeEmailModal from "@/components/ComposeEmailModal";
+import QuickSearchModal from "@/components/QuickSearchModal";
 
 export default function AutoAdminLayout({
   children,
@@ -37,6 +38,14 @@ export default function AutoAdminLayout({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Sidebar pin & hover state (Cloudflare style)
+  const [isPinned, setIsPinned] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Quick search modal state
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isMac, setIsMac] = useState(true);
+
   // Theme states
   const [currentTheme, setCurrentTheme] = useState("light");
 
@@ -45,29 +54,19 @@ export default function AutoAdminLayout({
   const [isComposeEmailOpen, setIsComposeEmailOpen] = useState(false);
   const newDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Cerrar menús al hacer clic fuera
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowDropdown(false);
-      }
-      if (newDropdownRef.current && !newDropdownRef.current.contains(event.target as Node)) {
-        setShowNewDropdown(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
+  const isExpanded = isPinned || isHovered || isMobileMenuOpen;
 
-  // Escuchar eventos de nuevas notificaciones y cargar el tema actual
+  // Load pinned preference & theme from localStorage & detect platform
   useEffect(() => {
     if (typeof window !== "undefined") {
+      const pinnedValue = localStorage.getItem("crm-sidebar-pinned");
+      if (pinnedValue !== null) {
+        setIsPinned(pinnedValue === "true");
+      }
       setCurrentTheme(localStorage.getItem("crm-theme") || "light");
+      setIsMac(navigator.platform.toUpperCase().indexOf("MAC") >= 0);
     }
 
-    // Force application of theme and zoom in case Next.js hydration or client navigation wiped it
     const theme = localStorage.getItem("crm-theme") || "light";
     setCurrentTheme(theme);
     const pattern = localStorage.getItem("crm-bg-pattern") || "solid";
@@ -89,24 +88,58 @@ export default function AutoAdminLayout({
     document.documentElement.style.zoom = appliedZoom;
     const scaleVal = parseFloat(appliedZoom) / 100;
     document.documentElement.style.setProperty("--zoom-scale", scaleVal.toString());
-
   }, []);
 
-  // Cerrar menú móvil al cambiar de ruta
+  // Global shortcut Cmd+K / Ctrl+K
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setIsSearchOpen(prev => !prev);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  // Close menus on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+      if (newDropdownRef.current && !newDropdownRef.current.contains(event.target as Node)) {
+        setShowNewDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  // Close mobile menu on path change
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [pathname]);
 
+  const togglePin = () => {
+    const nextState = !isPinned;
+    setIsPinned(nextState);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("crm-sidebar-pinned", String(nextState));
+    }
+  };
+
   const handleLogout = async () => {
     if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
       await logout();
-      window.location.href = "/admin/login"; // Redirect to admin login
+      window.location.href = "/admin/login";
     }
   };
 
   return (
     <div className={styles.adminContainer}>
-      {/* Import Google Fonts for Inter & Force global overrides */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -122,64 +155,120 @@ export default function AutoAdminLayout({
         }
       `}} />
 
-      <script dangerouslySetInnerHTML={{ __html: `
-        (function() {
-          try {
-            var theme = localStorage.getItem('crm-theme');
-            if (theme && theme !== 'system') {
-              document.documentElement.className = '';
-              document.documentElement.classList.add('theme-' + theme);
-            }
-            var patternColor = localStorage.getItem('crm-bg-pattern-color');
-            if (patternColor) document.documentElement.style.setProperty('--bg-pattern-color', patternColor);
-            var pattern = localStorage.getItem('crm-bg-pattern');
-            if (pattern === 'topography') {
-              document.documentElement.classList.add('bg-pattern-topography');
-            } else if (pattern === 'emerald' || pattern === 'gradient') {
-              document.documentElement.classList.add('bg-pattern-gradient');
-            }
-            var zoom = localStorage.getItem('crm-zoom') || '100%';
-            var mapping = {
-              '75%': '75%',
-              '100%': '100%',
-              '125%': '125%',
-              '150%': '150%',
-              '175%': '175%'
-            };
-            var appliedZoom = mapping[zoom] || '100%';
-            document.documentElement.style.zoom = appliedZoom;
-            var scaleVal = parseFloat(appliedZoom) / 100;
-            document.documentElement.style.setProperty('--zoom-scale', scaleVal);
-          } catch (e) {}
-        })();
-      ` }} />
-      
-      <aside className={`${styles.sidebar} ${isMobileMenuOpen ? styles.open : ""}`}>
-        <div className={styles.logoContainer} style={{ display: "flex", flexDirection: "column", gap: "0.5rem", padding: "1.5rem 1rem", borderBottom: "1px solid var(--border-color)", alignItems: "center" }}>
-          <span style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--text-color)", letterSpacing: "-0.02em" }}>
-            Tu <span style={{ color: "var(--primary)" }}>Automotora</span>
-          </span>
-          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--primary)", letterSpacing: "0.05em", textTransform: "uppercase", textAlign: "center" }}>
-            Administración
-          </span>
+      <aside 
+        className={`${styles.sidebar} ${isExpanded ? styles.sidebarExpanded : ""} ${isMobileMenuOpen ? styles.open : ""}`}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        {/* Header Logo */}
+        <div className={styles.logoContainer} style={{ padding: "1.25rem 0.85rem", gap: "0.75rem" }}>
+          <div style={{
+            width: "36px",
+            height: "36px",
+            borderRadius: "10px",
+            backgroundColor: "var(--primary)",
+            color: "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontWeight: 900,
+            fontSize: "1.1rem",
+            flexShrink: 0,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.2)"
+          }}>
+            A
+          </div>
+          {isExpanded && (
+            <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", transition: "opacity 0.2s" }}>
+              <span style={{ fontSize: "1.1rem", fontWeight: 800, color: "var(--text-color)", letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>
+                Tu <span style={{ color: "var(--primary)" }}>Automotora</span>
+              </span>
+              <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--primary)", letterSpacing: "0.05em", textTransform: "uppercase", whiteSpace: "nowrap" }}>
+                Administración
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Quick Search Trigger (Cloudflare style) */}
+        <div style={{ padding: "0.6rem 0.6rem 0.25rem 0.6rem" }}>
+          {isExpanded ? (
+            <button
+              type="button"
+              onClick={() => setIsSearchOpen(true)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                width: "100%",
+                padding: "0.55rem 0.75rem",
+                borderRadius: "8px",
+                border: "1px solid var(--border-color)",
+                backgroundColor: "rgba(128,128,128,0.06)",
+                color: "var(--text-color)",
+                fontSize: "0.825rem",
+                cursor: "pointer",
+                transition: "all 0.2s ease"
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.borderColor = "var(--primary)"}
+              onMouseLeave={(e) => e.currentTarget.style.borderColor = "var(--border-color)"}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", opacity: 0.7 }}>
+                <Search size={14} />
+                <span>Quick search...</span>
+              </div>
+              <kbd style={{
+                fontSize: "0.7rem",
+                fontWeight: 700,
+                padding: "2px 5px",
+                borderRadius: "4px",
+                backgroundColor: "rgba(128,128,128,0.15)",
+                color: "var(--text-color)",
+                opacity: 0.8
+              }}>
+                {isMac ? "⌘K" : "Ctrl+K"}
+              </kbd>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsSearchOpen(true)}
+              title={`Quick search (${isMac ? "⌘K" : "Ctrl+K"})`}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "100%",
+                padding: "0.65rem",
+                borderRadius: "8px",
+                border: "1px solid var(--border-color)",
+                backgroundColor: "rgba(128,128,128,0.06)",
+                color: "var(--text-color)",
+                cursor: "pointer"
+              }}
+            >
+              <Search size={16} />
+            </button>
+          )}
         </div>
         
         <nav className={styles.nav}>
           {/* Dropdown "+ Nuevo" */}
-          <div ref={newDropdownRef} style={{ position: "relative", padding: "0.5rem 1rem 1rem 1rem" }}>
+          <div ref={newDropdownRef} style={{ position: "relative", marginBottom: "0.5rem" }}>
             <button 
               onClick={() => setShowNewDropdown(!showNewDropdown)}
               className="btn-primary"
+              title="+ Nuevo"
               style={{
                 width: "100%",
-                padding: "0.75rem",
+                padding: isExpanded ? "0.65rem" : "0.65rem 0",
                 borderRadius: "8px",
                 fontWeight: 700,
-                fontSize: "0.9rem",
+                fontSize: "0.875rem",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                gap: "0.5rem",
+                justifyContent: isExpanded ? "center" : "center",
+                gap: "0.4rem",
                 cursor: "pointer",
                 backgroundColor: "var(--text-color)",
                 color: "var(--bg-color)",
@@ -189,17 +278,26 @@ export default function AutoAdminLayout({
               }}
               type="button"
             >
-              <Plus size={16} /> Nuevo <ChevronDown size={14} style={{ transform: showNewDropdown ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+              <Plus size={16} /> 
+              {isExpanded && (
+                <>
+                  Nuevo <ChevronDown size={14} style={{ transform: showNewDropdown ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+                </>
+              )}
             </button>
             
             {showNewDropdown && (
               <div 
                 style={{
-                  marginTop: "0.5rem",
+                  position: "absolute",
+                  top: "100%",
+                  left: 0,
+                  marginTop: "0.4rem",
+                  width: isExpanded ? "100%" : "200px",
                   backgroundColor: "var(--surface-color)",
                   border: "1px solid var(--border-color)",
                   borderRadius: "12px",
-                  boxShadow: "0 10px 25px rgba(0, 0, 0, 0.15)",
+                  boxShadow: "0 10px 25px rgba(0, 0, 0, 0.2)",
                   overflow: "hidden",
                   display: "flex",
                   flexDirection: "column",
@@ -299,86 +397,91 @@ export default function AutoAdminLayout({
             )}
           </div>
 
-          <Link href="/admin" className={`${styles.navLink} ${pathname === "/admin" ? styles.activeNavLink : ""}`}>
-            <LayoutDashboard size={16} />
-            Dashboard
+          <Link href="/admin" title="Dashboard" className={`${styles.navLink} ${pathname === "/admin" ? styles.activeNavLink : ""}`}>
+            <LayoutDashboard size={18} style={{ flexShrink: 0 }} />
+            {isExpanded && <span>Dashboard</span>}
           </Link>
-          <Link href="/admin/vehicles" className={`${styles.navLink} ${pathname.startsWith("/admin/vehicles") ? styles.activeNavLink : ""}`}>
-            <Car size={16} />
-            Inventario Stock
+          <Link href="/admin/vehicles" title="Inventario Stock" className={`${styles.navLink} ${pathname.startsWith("/admin/vehicles") ? styles.activeNavLink : ""}`}>
+            <Car size={18} style={{ flexShrink: 0 }} />
+            {isExpanded && <span>Inventario Stock</span>}
           </Link>
-          <Link href="/admin/inbox" className={`${styles.navLink} ${pathname.startsWith("/admin/inbox") ? styles.activeNavLink : ""}`}>
-            <MessageSquare size={16} />
-            Bandeja de Entrada
+          <Link href="/admin/inbox" title="Bandeja de Entrada" className={`${styles.navLink} ${pathname.startsWith("/admin/inbox") ? styles.activeNavLink : ""}`}>
+            <MessageSquare size={18} style={{ flexShrink: 0 }} />
+            {isExpanded && <span>Bandeja de Entrada</span>}
           </Link>
-          <Link href="/admin/publications" className={`${styles.navLink} ${pathname.startsWith("/admin/publications") ? styles.activeNavLink : ""}`}>
-            <Share2 size={16} />
-            Publicaciones Activas
+          <Link href="/admin/publications" title="Publicaciones Activas" className={`${styles.navLink} ${pathname.startsWith("/admin/publications") ? styles.activeNavLink : ""}`}>
+            <Share2 size={18} style={{ flexShrink: 0 }} />
+            {isExpanded && <span>Publicaciones</span>}
           </Link>
-          <Link href="/admin/crm" className={`${styles.navLink} ${pathname.startsWith("/admin/crm") ? styles.activeNavLink : ""}`}>
-            <Users size={16} />
-            Contactos
+          <Link href="/admin/crm" title="Contactos" className={`${styles.navLink} ${pathname.startsWith("/admin/crm") ? styles.activeNavLink : ""}`}>
+            <Users size={18} style={{ flexShrink: 0 }} />
+            {isExpanded && <span>Contactos</span>}
           </Link>
-          <Link href="/admin/email/broadcasts" className={`${styles.navLink} ${pathname.startsWith("/admin/email") ? styles.activeNavLink : ""}`}>
-            <Mail size={16} />
-            Email Broadcasts
+          <Link href="/admin/email/broadcasts" title="Email Broadcasts" className={`${styles.navLink} ${pathname.startsWith("/admin/email") ? styles.activeNavLink : ""}`}>
+            <Mail size={18} style={{ flexShrink: 0 }} />
+            {isExpanded && <span>Email Broadcasts</span>}
           </Link>
         </nav>
 
-        {/* Footer del Sidebar: Tema, Configuración y Usuario */}
-        <div style={{ marginTop: "auto", padding: "1rem", borderTop: "1px solid var(--border-color)", display: "flex", flexDirection: "column" }}>
+        {/* Footer del Sidebar: Tema, Configuración, Usuario y Pin Toggle */}
+        <div style={{ marginTop: "auto", padding: "0.6rem", borderTop: "1px solid var(--border-color)", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
           
           <div 
-            style={{ display: "flex", alignItems: "center", position: "relative", padding: "0.5rem", borderRadius: "8px", transition: "background-color 0.2s" }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--primary-light)"}
+            style={{ display: "flex", alignItems: "center", position: "relative", padding: "0.4rem", borderRadius: "8px", transition: "background-color 0.2s" }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(128,128,128,0.06)"}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
           >
             <div 
               style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", flex: 1, minWidth: 0 }}
               onClick={() => setShowDropdown(!showDropdown)}
               ref={dropdownRef}
+              title="Cuenta de Usuario"
             >
-              <div className={styles.avatar} style={{ width: "32px", height: "32px", fontSize: "0.85rem", flexShrink: 0 }}>MN</div>
-              <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
-                <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-color)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Mauricio Negrin</span>
-              </div>
+              <div className={styles.avatar} style={{ width: "30px", height: "30px", fontSize: "0.8rem", flexShrink: 0 }}>MN</div>
+              {isExpanded && (
+                <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+                  <span style={{ fontSize: "0.825rem", fontWeight: 600, color: "var(--text-color)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Mauricio Negrin</span>
+                </div>
+              )}
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", paddingLeft: "0.5rem" }}>
-              <Link 
-                href="/admin/settings"
-                title="Configuración"
-                style={{ cursor: "pointer", color: "var(--text-color)", display: "flex", padding: "0.35rem", borderRadius: "6px", textDecoration: "none" }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(128,128,128,0.1)"}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-              >
-                <Settings size={15} />
-              </Link>
-              <button 
-                className={styles.themeBtn}
-                onClick={() => {
-                  const themes = ['light', 'dark-dim', 'dark-black'];
-                  const nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length;
-                  const nextTheme = themes[nextIndex];
-                  localStorage.setItem('crm-theme', nextTheme);
-                  const pattern = localStorage.getItem("crm-bg-pattern") || "solid";
-                  document.documentElement.className = "";
-                  document.documentElement.classList.add('theme-' + nextTheme);
-                  if (pattern === "topography") {
-                    document.documentElement.classList.add("bg-pattern-topography");
-                  }
-                  setCurrentTheme(nextTheme);
-                }}
-                title="Cambiar Tema"
-                style={{ cursor: "pointer", background: "none", border: "none", color: "var(--text-color)", display: "flex", padding: "0.35rem", borderRadius: "6px" }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(128,128,128,0.1)"}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-              >
-                {currentTheme === "light" && <Sun size={15} />}
-                {currentTheme === "dark-dim" && <MoonStar size={15} />}
-                {currentTheme === "dark-black" && <Moon size={15} />}
-              </button>
-            </div>
+            {isExpanded && (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.2rem", paddingLeft: "0.25rem" }}>
+                <Link 
+                  href="/admin/settings"
+                  title="Configuración"
+                  style={{ cursor: "pointer", color: "var(--text-color)", display: "flex", padding: "0.3rem", borderRadius: "6px", textDecoration: "none" }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(128,128,128,0.1)"}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                >
+                  <Settings size={15} />
+                </Link>
+                <button 
+                  className={styles.themeBtn}
+                  onClick={() => {
+                    const themes = ['light', 'dark-dim', 'dark-black'];
+                    const nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length;
+                    const nextTheme = themes[nextIndex];
+                    localStorage.setItem('crm-theme', nextTheme);
+                    const pattern = localStorage.getItem("crm-bg-pattern") || "solid";
+                    document.documentElement.className = "";
+                    document.documentElement.classList.add('theme-' + nextTheme);
+                    if (pattern === "topography") {
+                      document.documentElement.classList.add("bg-pattern-topography");
+                    }
+                    setCurrentTheme(nextTheme);
+                  }}
+                  title="Cambiar Tema"
+                  style={{ cursor: "pointer", background: "none", border: "none", color: "var(--text-color)", display: "flex", padding: "0.3rem", borderRadius: "6px" }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(128,128,128,0.1)"}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                >
+                  {currentTheme === "light" && <Sun size={15} />}
+                  {currentTheme === "dark-dim" && <MoonStar size={15} />}
+                  {currentTheme === "dark-black" && <Moon size={15} />}
+                </button>
+              </div>
+            )}
 
             {showDropdown && (
               <div 
@@ -388,7 +491,7 @@ export default function AutoAdminLayout({
                   top: "auto", 
                   left: 0, 
                   marginBottom: "0.5rem", 
-                  width: "100%",
+                  width: isExpanded ? "100%" : "210px",
                   backgroundColor: "var(--surface-color)",
                   border: "1px solid var(--border-color)",
                   borderRadius: "12px",
@@ -429,10 +532,48 @@ export default function AutoAdminLayout({
               </div>
             )}
           </div>
+
+          {/* Cloudflare-style Pin Toggle Button */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: isExpanded ? "space-between" : "center", padding: "0.25rem 0.25rem 0 0.25rem" }}>
+            {isExpanded && (
+              <span style={{ fontSize: "0.75rem", color: "var(--text-color)", opacity: 0.6, fontWeight: 500 }}>
+                {isPinned ? "Barra fija" : "Desplegar en hover"}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={togglePin}
+              title={isPinned ? "Desfijar barra lateral (colapsar a íconos)" : "Fijar barra lateral desplegada"}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: isPinned ? "var(--primary)" : "var(--text-color)",
+                opacity: isPinned ? 1 : 0.6,
+                cursor: "pointer",
+                padding: "0.35rem",
+                borderRadius: "6px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "all 0.2s ease"
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = "1";
+                e.currentTarget.style.backgroundColor = "rgba(128,128,128,0.1)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = isPinned ? "1" : "0.6";
+                e.currentTarget.style.backgroundColor = "transparent";
+              }}
+            >
+              {isPinned ? <PanelLeftClose size={18} /> : <PanelLeft size={18} />}
+            </button>
+          </div>
+
         </div>
       </aside>
 
-      <main className={styles.mainContent}>
+      <main className={`${styles.mainContent} ${isPinned ? styles.mainContentPinned : ""}`}>
         <header className={styles.topbar}>
           <div className={styles.mobileMenuContainer}>
             <button 
@@ -442,9 +583,6 @@ export default function AutoAdminLayout({
             >
               <Menu size={24} />
             </button>
-          </div>
-          <div className={styles.topbarActions}>
-            {/* User profile, theme and notifications removed from here and moved to sidebar bottom */}
           </div>
         </header>
 
@@ -456,6 +594,12 @@ export default function AutoAdminLayout({
       <ComposeEmailModal 
         isOpen={isComposeEmailOpen}
         onClose={() => setIsComposeEmailOpen(false)}
+      />
+
+      <QuickSearchModal 
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        onOpenComposeEmail={() => setIsComposeEmailOpen(true)}
       />
     </div>
   );

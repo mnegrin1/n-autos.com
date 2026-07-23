@@ -493,6 +493,112 @@ export async function bulkRemoveTagsFromLeads(leadIds: string[], tagsToRemove: s
   }
 }
 
+export async function createGlobalTagAction(tagName: string, agencyId?: string) {
+  try {
+    const targetAgency = agencyId || "00000000-0000-0000-0000-000000000000";
+    const cleanTag = tagName.trim();
+    if (!cleanTag) return { success: false, error: "El nombre de la etiqueta no puede estar vacío" };
+
+    try {
+      await (supabaseAdmin.from('crm_tags') as any)
+        .insert([{ agency_id: targetAgency, name: cleanTag }]);
+    } catch (e) {
+      console.warn("No crm_tags table, proceeding in-memory", e);
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/admin/crm");
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error in createGlobalTagAction:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function renameGlobalTagAction(oldTag: string, newTag: string, agencyId?: string) {
+  try {
+    const targetAgency = agencyId || "00000000-0000-0000-0000-000000000000";
+    const cleanOld = oldTag.trim();
+    const cleanNew = newTag.trim();
+
+    if (!cleanOld || !cleanNew) {
+      return { success: false, error: "Los nombres de etiqueta deben ser válidos" };
+    }
+
+    // Actualizar en auto_leads
+    const { data: leads, error: fetchError } = await (supabaseAdmin.from('auto_leads') as any)
+      .select('id, tags')
+      .eq('agency_id', targetAgency);
+
+    if (!fetchError && leads) {
+      for (const lead of leads) {
+        const currentTags: string[] = Array.isArray(lead.tags) ? lead.tags : [];
+        if (currentTags.includes(cleanOld)) {
+          const updated = Array.from(new Set(currentTags.map(t => t === cleanOld ? cleanNew : t)));
+          await (supabaseAdmin.from('auto_leads') as any)
+            .update({ tags: updated })
+            .eq('id', lead.id);
+        }
+      }
+    }
+
+    // Actualizar crm_tags si existe
+    try {
+      await (supabaseAdmin.from('crm_tags') as any)
+        .update({ name: cleanNew })
+        .eq('agency_id', targetAgency)
+        .eq('name', cleanOld);
+    } catch (e) {}
+
+    revalidatePath("/admin");
+    revalidatePath("/admin/crm");
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error in renameGlobalTagAction:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function deleteGlobalTagAction(tagToDelete: string, agencyId?: string) {
+  try {
+    const targetAgency = agencyId || "00000000-0000-0000-0000-000000000000";
+    const cleanTag = tagToDelete.trim();
+
+    // Eliminar de auto_leads
+    const { data: leads, error: fetchError } = await (supabaseAdmin.from('auto_leads') as any)
+      .select('id, tags')
+      .eq('agency_id', targetAgency);
+
+    if (!fetchError && leads) {
+      for (const lead of leads) {
+        const currentTags: string[] = Array.isArray(lead.tags) ? lead.tags : [];
+        if (currentTags.includes(cleanTag)) {
+          const updated = currentTags.filter(t => t !== cleanTag);
+          await (supabaseAdmin.from('auto_leads') as any)
+            .update({ tags: updated })
+            .eq('id', lead.id);
+        }
+      }
+    }
+
+    // Eliminar de crm_tags si existe
+    try {
+      await (supabaseAdmin.from('crm_tags') as any)
+        .delete()
+        .eq('agency_id', targetAgency)
+        .eq('name', cleanTag);
+    } catch (e) {}
+
+    revalidatePath("/admin");
+    revalidatePath("/admin/crm");
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error in deleteGlobalTagAction:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+
 
 export async function getAutoStats(agencyId: string) {
   const { data: agencyVehicles } = await (supabaseAdmin.from('vehicles') as any).select('status').eq('agency_id', agencyId);

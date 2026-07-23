@@ -408,40 +408,19 @@ export default function InboxClient({
                   display: 'flex',
                   alignItems: 'center',
                   gap: '4px',
-                  fontSize: '0.75rem',
+                  fontSize: '0.8rem',
                   padding: '4px 8px',
-                  borderRadius: '6px',
-                  border: '1px solid var(--primary)',
-                  color: 'var(--primary)',
+                  border: 'none',
+                  color: 'var(--text-color)',
                   background: 'transparent',
                   cursor: 'pointer',
-                  fontWeight: 600
+                  fontWeight: 600,
+                  transition: 'color 0.2s ease'
                 }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--primary)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-color)'}
               >
-                <Mail size={12} /> Redactar Email
-              </button>
-            )}
-            {integrations.instagram?.connected && (
-              <button
-                onClick={() => handleSyncMetaChannel('instagram')}
-                disabled={isSyncingChannel === 'instagram'}
-                title="Sincronizar últimas 5 conversaciones de Instagram"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  fontSize: '0.75rem',
-                  padding: '4px 8px',
-                  borderRadius: '6px',
-                  border: '1px solid #e1306c',
-                  color: '#e1306c',
-                  background: 'transparent',
-                  cursor: isSyncingChannel === 'instagram' ? 'wait' : 'pointer',
-                  fontWeight: 600
-                }}
-              >
-                <RefreshCw size={12} className={isSyncingChannel === 'instagram' ? 'animate-spin' : ''} />
-                {isSyncingChannel === 'instagram' ? 'Sincronizando...' : 'Sincronizar IG'}
+                <Mail size={14} /> Redactar Email
               </button>
             )}
           </div>

@@ -2,9 +2,9 @@
 
 import { useState, useTransition, useEffect } from "react";
 import styles from "./crm.module.css";
-import { updateAutoLeadStatus, deleteAutoLead, createAutoLead, bulkCreateAutoLeads, bulkAddTagsToLeads, bulkRemoveTagsFromLeads, updateAutoLeadTags } from "@/actions/autoActions";
+import { updateAutoLeadStatus, deleteAutoLead, createAutoLead, bulkCreateAutoLeads, bulkAddTagsToLeads, bulkRemoveTagsFromLeads, updateAutoLeadTags, createGlobalTagAction, renameGlobalTagAction, deleteGlobalTagAction } from "@/actions/autoActions";
 import { getVehicles } from "@/actions/autoActions";
-import { Phone, Mail, User, Plus, Trash2, Calendar, MessageSquare, X, Search, Upload, Tag as TagIcon, Check, Filter } from "lucide-react";
+import { Phone, Mail, User, Plus, Trash2, Calendar, MessageSquare, X, Search, Upload, Tag as TagIcon, Check, Filter, Edit2, Eye } from "lucide-react";
 import * as xlsx from "xlsx";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useRef } from "react";
@@ -226,6 +226,8 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
     });
   };
 
+  const [activeTab, setActiveTab] = useState<"contacts" | "tags">("contacts");
+  const [customTags, setCustomTags] = useState<string[]>([]);
   const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
   const [showBulkTagModal, setShowBulkTagModal] = useState(false);
   const [bulkTagInput, setBulkTagInput] = useState("");
@@ -233,12 +235,93 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
   const [inlineTagLeadId, setInlineTagLeadId] = useState<string | null>(null);
   const [inlineTagInput, setInlineTagInput] = useState("");
 
-  // Extraer la lista de todas las etiquetas únicas presentes en los leads
+  // Estados para el Gestor de Tags (subpestaña)
+  const [newGlobalTagName, setNewGlobalTagName] = useState("");
+  const [tagSearchQuery, setTagSearchQuery] = useState("");
+  const [editingTagOld, setEditingTagOld] = useState<string | null>(null);
+  const [editingTagNew, setEditingTagNew] = useState("");
+
+  // Extraer la lista de todas las etiquetas únicas presentes en los leads y etiquetas custom
   const allUniqueTags = Array.from(
-    new Set(
-      leads.flatMap(l => (Array.isArray(l.tags) ? l.tags : []))
-    )
+    new Set([
+      ...customTags,
+      ...leads.flatMap(l => (Array.isArray(l.tags) ? l.tags : []))
+    ])
   ).sort();
+
+  const filteredTagsManagerList = allUniqueTags.filter(tag => {
+    if (!tagSearchQuery.trim()) return true;
+    return tag.toLowerCase().includes(tagSearchQuery.toLowerCase().trim());
+  });
+
+  const handleCreateGlobalTag = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!newGlobalTagName.trim()) return;
+    const tagToCreate = newGlobalTagName.trim();
+    startTransition(async () => {
+      const res = await createGlobalTagAction(tagToCreate, currentUser?.agency_id);
+      if (res.success) {
+        setCustomTags(prev => Array.from(new Set([...prev, tagToCreate])));
+        setNewGlobalTagName("");
+      } else {
+        alert("Error al crear etiqueta: " + (res.error || ""));
+      }
+    });
+  };
+
+  const handleRenameGlobalTag = async (oldTag: string) => {
+    if (!editingTagNew.trim() || editingTagNew.trim() === oldTag) {
+      setEditingTagOld(null);
+      return;
+    }
+    const newTag = editingTagNew.trim();
+    startTransition(async () => {
+      const res = await renameGlobalTagAction(oldTag, newTag, currentUser?.agency_id);
+      if (res.success) {
+        setLeads(prev => prev.map(l => {
+          if (!l.tags) return l;
+          return {
+            ...l,
+            tags: l.tags.map(t => t === oldTag ? newTag : t)
+          };
+        }));
+        setCustomTags(prev => prev.map(t => t === oldTag ? newTag : t));
+        if (selectedTagFilter === oldTag) {
+          setSelectedTagFilter(newTag);
+        }
+        setEditingTagOld(null);
+        setEditingTagNew("");
+      } else {
+        alert("Error al renombrar etiqueta: " + (res.error || ""));
+      }
+    });
+  };
+
+  const handleDeleteGlobalTag = async (tagToDelete: string) => {
+    const count = leads.filter(l => l.tags && l.tags.includes(tagToDelete)).length;
+    if (!confirm(`¿Estás seguro de eliminar la etiqueta "${tagToDelete}"? Se desvinculará de los ${count} contacto(s) que la contienen.`)) {
+      return;
+    }
+
+    startTransition(async () => {
+      const res = await deleteGlobalTagAction(tagToDelete, currentUser?.agency_id);
+      if (res.success) {
+        setLeads(prev => prev.map(l => {
+          if (!l.tags) return l;
+          return {
+            ...l,
+            tags: l.tags.filter(t => t !== tagToDelete)
+          };
+        }));
+        setCustomTags(prev => prev.filter(t => t !== tagToDelete));
+        if (selectedTagFilter === tagToDelete) {
+          setSelectedTagFilter(null);
+        }
+      } else {
+        alert("Error al eliminar etiqueta: " + (res.error || ""));
+      }
+    });
+  };
 
   const handleApplyBulkTags = async () => {
     if (!bulkTagInput.trim()) return;
@@ -359,12 +442,26 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
           />
           <button 
             type="button"
-            className="btn-secondary" 
-            style={{ backgroundColor: "transparent", border: "1px solid var(--text-color)", color: "var(--text-color)", display: "flex", alignItems: "center", gap: "0.25rem", padding: "0.65rem 1.25rem", borderRadius: "8px", fontWeight: "600", cursor: "pointer" }} 
+            className="btn-text" 
+            style={{ 
+              backgroundColor: "transparent", 
+              border: "none", 
+              color: "var(--text-color)", 
+              display: "flex", 
+              alignItems: "center", 
+              gap: "0.4rem", 
+              padding: "0.5rem 0.85rem", 
+              fontWeight: "600", 
+              fontSize: "0.9rem", 
+              cursor: "pointer",
+              transition: "color 0.2s ease" 
+            }} 
             onClick={() => fileInputRef.current?.click()}
             disabled={isImporting}
+            onMouseEnter={(e) => e.currentTarget.style.color = "var(--primary)"}
+            onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-color)"}
           >
-            <Upload size={16} /> {isImporting ? "Importando..." : "Import contacts"}
+            <Upload size={16} /> {isImporting ? "Importando..." : "Importar contactos"}
           </button>
           <button className="btn-primary" style={{ backgroundColor: "var(--text-color)", borderColor: "var(--text-color)", color: "var(--bg-color)", display: "flex", alignItems: "center", gap: "0.25rem" }} onClick={handleOpenAddModal}>
             <Plus size={16} /> Nuevo Contacto
@@ -372,226 +469,513 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
         </div>
       </div>
 
-      <div className={styles.searchContainer} style={{ flexDirection: "column", gap: "0.75rem", alignItems: "stretch" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <Search size={18} color="var(--text-color)" style={{ opacity: 0.5 }} />
-          <input 
-            type="text" 
-            placeholder="Buscar por nombre, correo, vehículo o etiqueta..."
-            className={styles.searchInput}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-
-        {/* Tag Filter Chips Bar */}
-        {allUniqueTags.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", paddingTop: "0.25rem" }}>
-            <span style={{ fontSize: "0.75rem", fontWeight: "700", color: "var(--text-color)", opacity: 0.6, display: "flex", alignItems: "center", gap: "0.25rem" }}>
-              <Filter size={12} /> Filtrar por Tag:
-            </span>
-            <button
-              onClick={() => setSelectedTagFilter(null)}
-              style={{
-                backgroundColor: selectedTagFilter === null ? "var(--primary)" : "var(--surface-color)",
-                color: selectedTagFilter === null ? "#ffffff" : "var(--text-color)",
-                border: "1px solid var(--border-color)",
-                padding: "0.25rem 0.6rem",
-                borderRadius: "16px",
-                fontSize: "0.75rem",
-                fontWeight: 600,
-                cursor: "pointer",
-                transition: "all 0.2s"
-              }}
-            >
-              Todos
-            </button>
-            {allUniqueTags.map(tag => (
-              <button
-                key={tag}
-                onClick={() => setSelectedTagFilter(selectedTagFilter === tag ? null : tag)}
-                style={{
-                  backgroundColor: selectedTagFilter === tag ? "var(--primary)" : "rgba(128,128,128,0.1)",
-                  color: selectedTagFilter === tag ? "#ffffff" : "var(--text-color)",
-                  border: selectedTagFilter === tag ? "1px solid var(--primary)" : "1px solid var(--border-color)",
-                  padding: "0.25rem 0.65rem",
-                  borderRadius: "16px",
-                  fontSize: "0.75rem",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.35rem",
-                  transition: "all 0.2s"
-                }}
-              >
-                <TagIcon size={12} />
-                {tag}
-                {selectedTagFilter === tag && <Check size={12} />}
-              </button>
-            ))}
-          </div>
-        )}
+      {/* Subpestañas CRM: Todos los Contactos | Gestión de Etiquetas */}
+      <div style={{ display: "flex", gap: "0.75rem", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.75rem" }}>
+        <button
+          type="button"
+          onClick={() => setActiveTab("contacts")}
+          style={{
+            backgroundColor: activeTab === "contacts" ? "var(--surface-color)" : "transparent",
+            color: activeTab === "contacts" ? "var(--primary)" : "var(--text-color)",
+            border: "1px solid",
+            borderColor: activeTab === "contacts" ? "var(--primary)" : "var(--border-color)",
+            padding: "0.55rem 1.25rem",
+            borderRadius: "8px",
+            fontWeight: 700,
+            fontSize: "0.88rem",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            boxShadow: activeTab === "contacts" ? "var(--shadow-sm)" : "none",
+            transition: "all 0.2s"
+          }}
+        >
+          <User size={16} /> Todos los Contactos ({leads.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("tags")}
+          style={{
+            backgroundColor: activeTab === "tags" ? "var(--surface-color)" : "transparent",
+            color: activeTab === "tags" ? "var(--primary)" : "var(--text-color)",
+            border: "1px solid",
+            borderColor: activeTab === "tags" ? "var(--primary)" : "var(--border-color)",
+            padding: "0.55rem 1.25rem",
+            borderRadius: "8px",
+            fontWeight: 700,
+            fontSize: "0.88rem",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            boxShadow: activeTab === "tags" ? "var(--shadow-sm)" : "none",
+            transition: "all 0.2s"
+          }}
+        >
+          <TagIcon size={16} /> Gestión de Tags ({allUniqueTags.length})
+        </button>
       </div>
 
-      <div className={styles.tableContainer}>
-        <div className={styles.tableHeader}>
-          <input 
-            type="checkbox" 
-            className={styles.checkbox} 
-            checked={filteredLeads.length > 0 && selectedLeads.length === filteredLeads.length}
-            onChange={toggleSelectAll}
-          />
-          <span>Fecha Registro</span>
-          <span>Información de Contacto</span>
-          <span>Etiquetas (Tags)</span>
-          <span>Acciones</span>
-        </div>
-        
-        <div className={styles.contactsList} style={{ paddingBottom: 0, gap: 0 }}>
-          {filteredLeads.map((lead) => {
-            const date = lead.created_at ? new Date(lead.created_at) : new Date();
-            const formattedDate = date.toLocaleDateString('es-UY', { day: '2-digit', month: '2-digit', year: 'numeric' });
-            const formattedTime = date.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      {/* Subpestaña 1: Todos los Contactos */}
+      {activeTab === "contacts" && (
+        <>
+          <div className={styles.searchContainer} style={{ flexDirection: "column", gap: "0.75rem", alignItems: "stretch" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <Search size={18} color="var(--text-color)" style={{ opacity: 0.5 }} />
+              <input 
+                type="text" 
+                placeholder="Buscar por nombre, correo, vehículo o etiqueta..."
+                className={styles.searchInput}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
 
-            return (
-              <div key={lead.id} className={styles.tableRow} style={{ backgroundColor: selectedLeads.includes(lead.id) ? 'var(--primary-light)' : undefined }}>
-                <input 
-                  type="checkbox" 
-                  className={styles.checkbox}
-                  checked={selectedLeads.includes(lead.id)}
-                  onChange={() => toggleSelectLead(lead.id)}
-                />
-                <div className={styles.dateText}>
-                  <span>{formattedDate}</span>
-                  <small>{formattedTime}</small>
-                </div>
-                
-                <div className={styles.avatarCell}>
-                  <div className={styles.avatar}>
-                    <User size={16} />
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column" }}>
-                    <span className={styles.emailText}>{lead.email || "Sin email"}</span>
-                    <span className={styles.nameText}>{lead.name} {lead.phone ? `• ${lead.phone}` : ""}</span>
-                  </div>
-                </div>
+            {/* Tag Filter Chips Bar */}
+            {allUniqueTags.length > 0 && (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", paddingTop: "0.25rem" }}>
+                <span style={{ fontSize: "0.75rem", fontWeight: "700", color: "var(--text-color)", opacity: 0.6, display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                  <Filter size={12} /> Filtrar por Tag:
+                </span>
+                <button
+                  onClick={() => setSelectedTagFilter(null)}
+                  style={{
+                    backgroundColor: selectedTagFilter === null ? "var(--primary)" : "var(--surface-color)",
+                    color: selectedTagFilter === null ? "#ffffff" : "var(--text-color)",
+                    border: "1px solid var(--border-color)",
+                    padding: "0.25rem 0.6rem",
+                    borderRadius: "16px",
+                    fontSize: "0.75rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    transition: "all 0.2s"
+                  }}
+                >
+                  Todos
+                </button>
+                {allUniqueTags.map(tag => (
+                  <button
+                    key={tag}
+                    onClick={() => setSelectedTagFilter(selectedTagFilter === tag ? null : tag)}
+                    style={{
+                      backgroundColor: selectedTagFilter === tag ? "var(--primary)" : "rgba(128,128,128,0.1)",
+                      color: selectedTagFilter === tag ? "#ffffff" : "var(--text-color)",
+                      border: selectedTagFilter === tag ? "1px solid var(--primary)" : "1px solid var(--border-color)",
+                      padding: "0.25rem 0.65rem",
+                      borderRadius: "16px",
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.35rem",
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    <TagIcon size={12} />
+                    {tag}
+                    {selectedTagFilter === tag && <Check size={12} />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", alignItems: "center" }}>
-                  {lead.tags && lead.tags.length > 0 ? lead.tags.map(tag => (
-                    <span key={tag} className={styles.tagPill} style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", padding: "0.2rem 0.5rem" }}>
-                      {tag}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveInlineTag(lead.id, lead.tags, tag)}
-                        style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", padding: 0, display: "flex", opacity: 0.7 }}
-                        title="Eliminar tag"
+          <div className={styles.tableContainer}>
+            <div className={styles.tableHeader}>
+              <input 
+                type="checkbox" 
+                className={styles.checkbox} 
+                checked={filteredLeads.length > 0 && selectedLeads.length === filteredLeads.length}
+                onChange={toggleSelectAll}
+              />
+              <span>Fecha Registro</span>
+              <span>Información de Contacto</span>
+              <span>Etiquetas (Tags)</span>
+              <span>Acciones</span>
+            </div>
+            
+            <div className={styles.contactsList} style={{ paddingBottom: 0, gap: 0 }}>
+              {filteredLeads.map((lead) => {
+                const date = lead.created_at ? new Date(lead.created_at) : new Date();
+                const formattedDate = date.toLocaleDateString('es-UY', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                const formattedTime = date.toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+                return (
+                  <div key={lead.id} className={styles.tableRow} style={{ backgroundColor: selectedLeads.includes(lead.id) ? 'var(--primary-light)' : undefined }}>
+                    <input 
+                      type="checkbox" 
+                      className={styles.checkbox}
+                      checked={selectedLeads.includes(lead.id)}
+                      onChange={() => toggleSelectLead(lead.id)}
+                    />
+                    <div className={styles.dateText}>
+                      <span>{formattedDate}</span>
+                      <small>{formattedTime}</small>
+                    </div>
+                    
+                    <div className={styles.avatarCell}>
+                      <div className={styles.avatar}>
+                        <User size={16} />
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column" }}>
+                        <span className={styles.emailText}>{lead.email || "Sin email"}</span>
+                        <span className={styles.nameText}>{lead.name} {lead.phone ? `• ${lead.phone}` : ""}</span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", alignItems: "center" }}>
+                      {lead.tags && lead.tags.length > 0 ? lead.tags.map(tag => (
+                        <span key={tag} className={styles.tagPill} style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", padding: "0.2rem 0.5rem" }}>
+                          {tag}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveInlineTag(lead.id, lead.tags, tag)}
+                            style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", padding: 0, display: "flex", opacity: 0.7 }}
+                            title="Eliminar tag"
+                          >
+                            <X size={12} />
+                          </button>
+                        </span>
+                      )) : null}
+
+                      {inlineTagLeadId === lead.id ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                          <input
+                            type="text"
+                            placeholder="Tag..."
+                            value={inlineTagInput}
+                            onChange={(e) => setInlineTagInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleAddInlineTag(lead.id, lead.tags);
+                              if (e.key === "Escape") setInlineTagLeadId(null);
+                            }}
+                            autoFocus
+                            style={{ padding: "0.2rem 0.4rem", fontSize: "0.75rem", borderRadius: "4px", border: "1px solid var(--primary)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", width: "80px" }}
+                          />
+                          <button
+                            onClick={() => handleAddInlineTag(lead.id, lead.tags)}
+                            style={{ background: "var(--primary)", border: "none", color: "#fff", borderRadius: "4px", padding: "0.25rem", cursor: "pointer", display: "flex" }}
+                          >
+                            <Check size={12} />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            setInlineTagLeadId(lead.id);
+                            setInlineTagInput("");
+                          }}
+                          style={{ background: "rgba(128,128,128,0.15)", border: "1px stroke var(--border-color)", color: "var(--text-color)", borderRadius: "12px", padding: "0.15rem 0.45rem", fontSize: "0.7rem", fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.15rem" }}
+                          title="Agregar etiqueta a este contacto"
+                        >
+                          <Plus size={11} /> Tag
+                        </button>
+                      )}
+                    </div>
+
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", alignItems: "center" }}>
+                      {lead.email && (
+                        <button 
+                          onClick={() => {
+                            setEmailRecipient(lead.email);
+                            setEmailModalOpen(true);
+                          }}
+                          style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", opacity: 0.85 }}
+                          title="Enviar Email"
+                        >
+                          <Mail size={16} />
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => handleDeleteLead(lead.id)}
+                        style={{ background: "none", border: "none", color: "var(--danger, #ef4444)", cursor: "pointer", opacity: 0.7 }}
+                        title="Eliminar lead"
                       >
-                        <X size={12} />
-                      </button>
-                    </span>
-                  )) : null}
-
-                  {inlineTagLeadId === lead.id ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                      <input
-                        type="text"
-                        placeholder="Tag..."
-                        value={inlineTagInput}
-                        onChange={(e) => setInlineTagInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleAddInlineTag(lead.id, lead.tags);
-                          if (e.key === "Escape") setInlineTagLeadId(null);
-                        }}
-                        autoFocus
-                        style={{ padding: "0.2rem 0.4rem", fontSize: "0.75rem", borderRadius: "4px", border: "1px solid var(--primary)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", width: "80px" }}
-                      />
-                      <button
-                        onClick={() => handleAddInlineTag(lead.id, lead.tags)}
-                        style={{ background: "var(--primary)", border: "none", color: "#fff", borderRadius: "4px", padding: "0.25rem", cursor: "pointer", display: "flex" }}
-                      >
-                        <Check size={12} />
+                        <Trash2 size={16} />
                       </button>
                     </div>
-                  ) : (
-                    <button
-                      onClick={() => {
-                        setInlineTagLeadId(lead.id);
-                        setInlineTagInput("");
-                      }}
-                      style={{ background: "rgba(128,128,128,0.15)", border: "1px stroke var(--border-color)", color: "var(--text-color)", borderRadius: "12px", padding: "0.15rem 0.45rem", fontSize: "0.7rem", fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.15rem" }}
-                      title="Agregar etiqueta a este contacto"
-                    >
-                      <Plus size={11} /> Tag
-                    </button>
-                  )}
+                  </div>
+                );
+              })}
+              {filteredLeads.length === 0 && (
+                <div style={{ padding: "3rem", textAlign: "center", opacity: 0.5 }}>
+                  No se encontraron contactos.
                 </div>
+              )}
+            </div>
+          </div>
 
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", alignItems: "center" }}>
-                  {lead.email && (
-                    <button 
-                      onClick={() => {
-                        setEmailRecipient(lead.email);
-                        setEmailModalOpen(true);
-                      }}
-                      style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", opacity: 0.85 }}
-                      title="Enviar Email"
-                    >
-                      <Mail size={16} />
-                    </button>
-                  )}
-                  <button 
-                    onClick={() => handleDeleteLead(lead.id)}
-                    style={{ background: "none", border: "none", color: "var(--danger, #ef4444)", cursor: "pointer", opacity: 0.7 }}
-                    title="Eliminar lead"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
+          {selectedLeads.length > 0 && (
+            <div className={styles.actionBar}>
+              <div className={styles.selectedText}>
+                Contactos seleccionados: {selectedLeads.length}
               </div>
-            );
-          })}
-          {filteredLeads.length === 0 && (
-            <div style={{ padding: "3rem", textAlign: "center", opacity: 0.5 }}>
-              No se encontraron contactos.
+              <div style={{ display: "flex", gap: "0.75rem" }}>
+                <button 
+                  onClick={() => {
+                    setBulkTagAction("add");
+                    setBulkTagInput("");
+                    setShowBulkTagModal(true);
+                  }}
+                  style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", color: "var(--text-color)", padding: "0.5rem 1rem", borderRadius: "8px", fontWeight: "600", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.85rem" }}
+                >
+                  <TagIcon size={15} /> Asignar Tags
+                </button>
+                <button 
+                  onClick={() => {
+                    const selectedObjs = leads.filter(l => selectedLeads.includes(l.id) && l.email);
+                    const emails = selectedObjs.map(l => l.email).join(", ");
+                    setEmailRecipient(emails);
+                    setEmailModalOpen(true);
+                  }}
+                  style={{ backgroundColor: "var(--primary)", color: "white", padding: "0.5rem 1.25rem", borderRadius: "8px", border: "none", fontWeight: "600", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem" }}
+                >
+                  <Mail size={16} /> Enviar Email
+                </button>
+                <button 
+                  onClick={handleBulkDelete}
+                  style={{ backgroundColor: "var(--danger, #ef4444)", color: "white", padding: "0.5rem 1.25rem", borderRadius: "8px", border: "none", fontWeight: "600", cursor: "pointer", fontSize: "0.85rem" }}
+                >
+                  Eliminar
+                </button>
+              </div>
             </div>
           )}
-        </div>
-      </div>
+        </>
+      )}
 
-      {selectedLeads.length > 0 && (
-        <div className={styles.actionBar}>
-          <div className={styles.selectedText}>
-            Contactos seleccionados: {selectedLeads.length}
+      {/* Subpestaña 2: Gestión de Etiquetas */}
+      {activeTab === "tags" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          {/* Header del Administrador de Tags */}
+          <div style={{
+            backgroundColor: "var(--surface-color)",
+            border: "1px solid var(--border-color)",
+            borderRadius: "12px",
+            padding: "1.5rem",
+            display: "flex",
+            flexDirection: "column",
+            gap: "1rem"
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <TagIcon size={20} style={{ color: "var(--primary)" }} /> Administrador de Etiquetas
+                </h2>
+                <p style={{ margin: "0.25rem 0 0 0", opacity: 0.7, fontSize: "0.85rem" }}>
+                  Crea, renombra y gestiona las etiquetas aplicadas a tus contactos en tiempo real.
+                </p>
+              </div>
+
+              {/* Formulario para añadir nueva etiqueta */}
+              <form onSubmit={handleCreateGlobalTag} style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                <input
+                  type="text"
+                  placeholder="Nueva etiqueta..."
+                  value={newGlobalTagName}
+                  onChange={(e) => setNewGlobalTagName(e.target.value)}
+                  style={{
+                    padding: "0.6rem 0.85rem",
+                    borderRadius: "8px",
+                    border: "1px solid var(--border-color)",
+                    backgroundColor: "var(--bg-color)",
+                    color: "var(--text-color)",
+                    fontSize: "0.85rem",
+                    minWidth: "200px"
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={isPending || !newGlobalTagName.trim()}
+                  style={{
+                    backgroundColor: "var(--primary)",
+                    color: "#ffffff",
+                    border: "none",
+                    padding: "0.6rem 1.1rem",
+                    borderRadius: "8px",
+                    fontWeight: 700,
+                    fontSize: "0.85rem",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                    opacity: !newGlobalTagName.trim() ? 0.6 : 1
+                  }}
+                >
+                  <Plus size={16} /> Crear Tag
+                </button>
+              </form>
+            </div>
+
+            {/* Buscador de Tags */}
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", backgroundColor: "var(--bg-color)", border: "1px solid var(--border-color)", borderRadius: "8px", padding: "0.4rem 0.75rem" }}>
+              <Search size={16} style={{ opacity: 0.5 }} />
+              <input
+                type="text"
+                placeholder="Buscar etiqueta por nombre..."
+                value={tagSearchQuery}
+                onChange={(e) => setTagSearchQuery(e.target.value)}
+                style={{ border: "none", background: "transparent", color: "var(--text-color)", width: "100%", fontSize: "0.85rem", outline: "none" }}
+              />
+              {tagSearchQuery && (
+                <button onClick={() => setTagSearchQuery("")} style={{ background: "none", border: "none", color: "var(--text-color)", cursor: "pointer", display: "flex" }}>
+                  <X size={14} />
+                </button>
+              )}
+            </div>
           </div>
-          <div style={{ display: "flex", gap: "0.75rem" }}>
-            <button 
-              onClick={() => {
-                setBulkTagAction("add");
-                setBulkTagInput("");
-                setShowBulkTagModal(true);
-              }}
-              style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", color: "var(--text-color)", padding: "0.5rem 1rem", borderRadius: "8px", fontWeight: "600", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.85rem" }}
-            >
-              <TagIcon size={15} /> Asignar Tags
-            </button>
-            <button 
-              onClick={() => {
-                const selectedObjs = leads.filter(l => selectedLeads.includes(l.id) && l.email);
-                const emails = selectedObjs.map(l => l.email).join(", ");
-                setEmailRecipient(emails);
-                setEmailModalOpen(true);
-              }}
-              style={{ backgroundColor: "var(--primary)", color: "white", padding: "0.5rem 1.25rem", borderRadius: "8px", border: "none", fontWeight: "600", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem" }}
-            >
-              <Mail size={16} /> Enviar Email
-            </button>
-            <button 
-              onClick={handleBulkDelete}
-              style={{ backgroundColor: "var(--danger, #ef4444)", color: "white", padding: "0.5rem 1.25rem", borderRadius: "8px", border: "none", fontWeight: "600", cursor: "pointer", fontSize: "0.85rem" }}
-            >
-              Eliminar
-            </button>
+
+          {/* Grid de Tarjetas de Tags */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+            gap: "1rem"
+          }}>
+            {filteredTagsManagerList.map((tag) => {
+              const contactsWithTag = leads.filter(l => l.tags && l.tags.includes(tag));
+              const isEditing = editingTagOld === tag;
+
+              return (
+                <div
+                  key={tag}
+                  style={{
+                    backgroundColor: "var(--surface-color)",
+                    border: "1px solid var(--border-color)",
+                    borderRadius: "12px",
+                    padding: "1.25rem",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    gap: "1rem",
+                    boxShadow: "var(--shadow-sm)",
+                    transition: "all 0.2s"
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.5rem" }}>
+                    {isEditing ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", width: "100%" }}>
+                        <input
+                          type="text"
+                          value={editingTagNew}
+                          onChange={(e) => setEditingTagNew(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleRenameGlobalTag(tag);
+                            if (e.key === "Escape") setEditingTagOld(null);
+                          }}
+                          autoFocus
+                          style={{
+                            padding: "0.35rem 0.5rem",
+                            borderRadius: "6px",
+                            border: "1px solid var(--primary)",
+                            backgroundColor: "var(--bg-color)",
+                            color: "var(--text-color)",
+                            fontSize: "0.85rem",
+                            fontWeight: 600,
+                            flex: 1
+                          }}
+                        />
+                        <button
+                          onClick={() => handleRenameGlobalTag(tag)}
+                          style={{ backgroundColor: "var(--primary)", color: "#fff", border: "none", borderRadius: "6px", padding: "0.4rem", cursor: "pointer", display: "flex" }}
+                          title="Guardar nombre"
+                        >
+                          <Check size={14} />
+                        </button>
+                        <button
+                          onClick={() => setEditingTagOld(null)}
+                          style={{ backgroundColor: "transparent", color: "var(--text-color)", border: "1px solid var(--border-color)", borderRadius: "6px", padding: "0.4rem", cursor: "pointer", display: "flex" }}
+                          title="Cancelar"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                        <span style={{
+                          backgroundColor: "var(--text-color)",
+                          color: "var(--bg-color)",
+                          padding: "0.3rem 0.75rem",
+                          borderRadius: "16px",
+                          fontWeight: 700,
+                          fontSize: "0.85rem",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.35rem"
+                        }}>
+                          <TagIcon size={13} /> {tag}
+                        </span>
+                      </div>
+                    )}
+
+                    {!isEditing && (
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                        <button
+                          onClick={() => {
+                            setEditingTagOld(tag);
+                            setEditingTagNew(tag);
+                          }}
+                          style={{ background: "none", border: "none", color: "var(--text-color)", cursor: "pointer", opacity: 0.7, padding: "0.25rem", borderRadius: "4px" }}
+                          title="Renombrar etiqueta"
+                        >
+                          <Edit2 size={15} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteGlobalTag(tag)}
+                          style={{ background: "none", border: "none", color: "var(--danger, #ef4444)", cursor: "pointer", opacity: 0.7, padding: "0.25rem", borderRadius: "4px" }}
+                          title="Eliminar etiqueta"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--border-color)", paddingTop: "0.75rem", marginTop: "0.25rem" }}>
+                    <span style={{ fontSize: "0.8rem", opacity: 0.7, fontWeight: 500 }}>
+                      {contactsWithTag.length} {contactsWithTag.length === 1 ? "contacto" : "contactos"}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setSelectedTagFilter(tag);
+                        setActiveTab("contacts");
+                      }}
+                      style={{
+                        backgroundColor: "rgba(128,128,128,0.1)",
+                        border: "1px solid var(--border-color)",
+                        color: "var(--primary)",
+                        padding: "0.3rem 0.65rem",
+                        borderRadius: "6px",
+                        fontSize: "0.75rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.25rem"
+                      }}
+                    >
+                      <Eye size={12} /> Ver contactos
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {filteredTagsManagerList.length === 0 && (
+              <div style={{
+                gridColumn: "1 / -1",
+                padding: "3rem",
+                textAlign: "center",
+                backgroundColor: "var(--surface-color)",
+                border: "1px solid var(--border-color)",
+                borderRadius: "12px",
+                opacity: 0.6,
+                fontSize: "0.9rem"
+              }}>
+                {tagSearchQuery ? `No se encontraron etiquetas que coincidan con "${tagSearchQuery}".` : "No hay etiquetas registradas aún. ¡Crea tu primera etiqueta arriba!"}
+              </div>
+            )}
           </div>
         </div>
       )}

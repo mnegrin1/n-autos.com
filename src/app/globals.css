@@ -160,13 +160,15 @@ button {
 /* Button Styles: Flat by default, lift-on-hover with shadow */
 .btn-primary,
 .btn-secondary,
+.btn-text,
+.btn-ghost,
 .btn-danger {
   background-color: transparent;
-  border: 1px solid transparent;
-  padding: 0.6rem 1.2rem;
+  border: none;
+  padding: 0.5rem 0.85rem;
   border-radius: 8px;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   box-shadow: none;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
@@ -180,48 +182,55 @@ button {
 
 /* Primary Button */
 .btn-primary {
-  color: var(--primary);
+  background-color: var(--text-color);
+  color: var(--bg-color);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .btn-primary:hover {
-  background-color: var(--surface-color);
-  border-color: var(--border-color);
-  color: var(--primary-hover);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+  opacity: 0.9;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .btn-primary:active {
   transform: scale(0.98);
 }
 
-/* Secondary Button */
-.btn-secondary {
+/* Secondary & Text Buttons: Minimalist Text Only with Highlight on Hover */
+.btn-secondary,
+.btn-text,
+.btn-ghost {
   color: var(--text-color);
   opacity: 0.85;
+  background: transparent;
+  border: none;
 }
 
-.btn-secondary:hover {
-  background-color: var(--surface-color);
-  border-color: var(--border-color);
-  color: var(--text-color);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+.btn-secondary:hover,
+.btn-text:hover,
+.btn-ghost:hover {
+  color: var(--primary);
   opacity: 1;
+  background: transparent;
 }
 
-.btn-secondary:active {
+.btn-secondary:active,
+.btn-text:active,
+.btn-ghost:active {
   transform: scale(0.98);
 }
 
 /* Danger Button */
 .btn-danger {
   color: var(--danger);
+  background: transparent;
+  border: none;
 }
 
 .btn-danger:hover {
-  background-color: rgba(239, 68, 68, 0.04);
-  border-color: rgba(239, 68, 68, 0.15);
-  color: var(--danger);
-  box-shadow: 0 4px 10px rgba(239, 68, 68, 0.08), 0 1px 3px rgba(239, 68, 68, 0.04);
+  color: #dc2626;
+  opacity: 1;
 }
 
 .btn-danger:active {
