@@ -10,6 +10,7 @@ interface AnimatedSectionProps {
   direction?: "up" | "down" | "left" | "right" | "none";
   id?: string;
   as?: "div" | "section";
+  style?: React.CSSProperties;
 }
 
 export default function AnimatedSection({ 
@@ -18,7 +19,8 @@ export default function AnimatedSection({
   delay = 0,
   direction = "up",
   id,
-  as = "div"
+  as = "div",
+  style
 }: AnimatedSectionProps) {
   
   const getVariants = () => {
@@ -37,6 +39,7 @@ export default function AnimatedSection({
     <MotionComponent
       id={id}
       className={className}
+      style={style}
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true, margin: "-50px" }}

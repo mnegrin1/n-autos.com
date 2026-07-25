@@ -269,164 +269,168 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
 
   return (
     <div style={{ padding: "1.5rem" }}>
-      {/* Header & Primary Actions */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
-        <div>
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--text-color)", margin: "0 0 0.5rem 0" }}>
-            Publicaciones y Canales
-          </h1>
-          <p style={{ color: "var(--text-color)", opacity: 0.7, margin: 0 }}>
-            Gestiona la presencia de tus vehículos en la **Página Web**, **MercadoLibre**, **Facebook** e **Instagram Ads**.
-          </p>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-          {/* Sync indicator */}
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.8rem", color: "var(--text-color)", opacity: 0.8, backgroundColor: "var(--surface-color)", padding: "0.4rem 0.8rem", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
-            <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#10B981", display: "inline-block" }}></span>
-            <span>Auto-refresco 1m ({lastSyncedSecs}s)</span>
-            <button 
-              onClick={handleManualRefresh}
-              title="Refrescar ahora"
-              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", display: "flex", alignItems: "center", padding: "2px" }}
-            >
-              <RefreshCw size={14} className={isRefreshing || isPending ? "spin-animation" : ""} />
-            </button>
+      {/* Banner Superior Unificado sin esquinas redondeadas */}
+      <div style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "1.25rem",
+        padding: "1.5rem",
+        backgroundColor: "var(--surface-color)",
+        border: "1px solid var(--border-color)",
+        borderRadius: 0,
+        boxShadow: "var(--shadow-sm)",
+        marginBottom: "1.5rem"
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+          <div>
+            <h1 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-color)", margin: "0 0 0.25rem 0" }}>
+              Publicaciones y Canales
+            </h1>
+            <p style={{ color: "var(--text-color)", opacity: 0.7, margin: 0, fontSize: "0.88rem" }}>
+              Gestiona la presencia de tus vehículos en la <strong>Página Web</strong>, <strong>MercadoLibre</strong>, <strong>Facebook</strong> e <strong>Instagram Ads</strong>.
+            </p>
           </div>
 
-          {/* Import Buttons for FB, IG, ML */}
-          <button
-            onClick={() => setIsImportModalOpen(true)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.4rem",
-              padding: "0.55rem 0.9rem",
-              backgroundColor: "transparent",
-              color: "var(--text-color)",
-              border: "none",
-              fontWeight: 600,
-              fontSize: "0.85rem",
-              cursor: "pointer",
-              transition: "color 0.2s"
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.color = "#1877F2"}
-            onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-color)"}
-          >
-            <Download size={15} /> Importar de FB
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.8rem", color: "var(--text-color)", opacity: 0.8, backgroundColor: "var(--bg-color)", padding: "0.4rem 0.8rem", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
+              <span style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#10B981", display: "inline-block" }}></span>
+              <span>Auto-refresco 1m ({lastSyncedSecs}s)</span>
+              <button 
+                onClick={handleManualRefresh}
+                title="Refrescar ahora"
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--primary)", display: "flex", alignItems: "center", padding: "2px" }}
+              >
+                <RefreshCw size={14} className={isRefreshing || isPending ? "spin-animation" : ""} />
+              </button>
+            </div>
 
-          <button
-            onClick={() => setIsImportModalOpen(true)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.4rem",
-              padding: "0.55rem 0.9rem",
-              backgroundColor: "transparent",
-              color: "var(--text-color)",
-              border: "none",
-              fontWeight: 600,
-              fontSize: "0.85rem",
-              cursor: "pointer",
-              transition: "color 0.2s"
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.color = "#E1306C"}
-            onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-color)"}
-          >
-            <Download size={15} /> Importar de IG
-          </button>
-
-          <button
-            onClick={() => setIsImportModalOpen(true)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.4rem",
-              padding: "0.55rem 0.9rem",
-              backgroundColor: "transparent",
-              color: "var(--text-color)",
-              border: "none",
-              fontWeight: 600,
-              fontSize: "0.85rem",
-              cursor: "pointer",
-              transition: "color 0.2s"
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.color = "#eab308"}
-            onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-color)"}
-          >
-            <Download size={15} /> Importar de ML
-          </button>
-
-          {/* New Publish Button */}
-          <button
-            onClick={() => setIsPublishModalOpen(true)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              padding: "0.6rem 1.2rem",
-              backgroundColor: "var(--primary)",
-              color: "#fff",
-              border: "none",
-              borderRadius: "8px",
-              fontWeight: 600,
-              fontSize: "0.875rem",
-              cursor: "pointer",
-              boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
-            }}
-          >
-            <Plus size={18} /> Publicar
-          </button>
-        </div>
-      </div>
-
-      {/* Filter Tabs & Search */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
-        {/* Channel Filter Pills */}
-        <div style={{ display: "flex", gap: "0.5rem", backgroundColor: "var(--surface-color)", padding: "0.25rem", borderRadius: "10px", border: "1px solid var(--border-color)" }}>
-          {[
-            { id: "all", label: "Todos" },
-            { id: "web", label: "🌐 Página Web" },
-            { id: "mercadolibre", label: "MercadoLibre" },
-            { id: "facebook", label: "Facebook" },
-            { id: "instagram", label: "Instagram Ads" }
-          ].map(tab => (
             <button
-              key={tab.id}
-              onClick={() => setSelectedChannelFilter(tab.id)}
+              onClick={() => setIsImportModalOpen(true)}
               style={{
-                padding: "0.4rem 0.8rem",
-                borderRadius: "8px",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.4rem",
+                padding: "0.55rem 0.9rem",
+                backgroundColor: "transparent",
+                color: "var(--text-color)",
                 border: "none",
-                backgroundColor: selectedChannelFilter === tab.id ? "var(--primary)" : "transparent",
-                color: selectedChannelFilter === tab.id ? "#fff" : "var(--text-color)",
-                fontWeight: selectedChannelFilter === tab.id ? 600 : 500,
-                fontSize: "0.8rem",
+                fontWeight: 600,
+                fontSize: "0.85rem",
                 cursor: "pointer",
-                transition: "all 0.2s ease"
+                transition: "color 0.2s"
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = "#1877F2"}
+              onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-color)"}
+            >
+              <Download size={15} /> Importar de FB
+            </button>
+
+            <button
+              onClick={() => setIsImportModalOpen(true)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.4rem",
+                padding: "0.55rem 0.9rem",
+                backgroundColor: "transparent",
+                color: "var(--text-color)",
+                border: "none",
+                fontWeight: 600,
+                fontSize: "0.85rem",
+                cursor: "pointer",
+                transition: "color 0.2s"
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = "#E1306C"}
+              onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-color)"}
+            >
+              <Download size={15} /> Importar de IG
+            </button>
+
+            <button
+              onClick={() => setIsImportModalOpen(true)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.4rem",
+                padding: "0.55rem 0.9rem",
+                backgroundColor: "transparent",
+                color: "var(--text-color)",
+                border: "none",
+                fontWeight: 600,
+                fontSize: "0.85rem",
+                cursor: "pointer",
+                transition: "color 0.2s"
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.color = "#eab308"}
+              onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-color)"}
+            >
+              <Download size={15} /> Importar de ML
+            </button>
+
+            <button
+              onClick={() => setIsPublishModalOpen(true)}
+              className="btn-primary"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                padding: "0.6rem 1.2rem",
+                fontWeight: 600,
+                fontSize: "0.875rem"
               }}
             >
-              {tab.label}
+              <Plus size={18} /> Publicar
             </button>
-          ))}
+          </div>
         </div>
 
-        <input 
-          type="text"
-          placeholder="Buscar por vehículo o canal..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={{
-            padding: "0.55rem 1rem",
-            borderRadius: "8px",
-            border: "1px solid var(--border-color)",
-            backgroundColor: "var(--bg-color)",
-            color: "var(--text-color)",
-            width: "260px",
-            fontSize: "0.85rem"
-          }}
-        />
+        {/* Buscador y Filtros dentro del Banner Superior */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+          <div style={{ display: "flex", gap: "0.5rem", backgroundColor: "var(--bg-color)", padding: "0.25rem", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
+            {[
+              { id: "all", label: "Todos" },
+              { id: "web", label: "🌐 Página Web" },
+              { id: "mercadolibre", label: "MercadoLibre" },
+              { id: "facebook", label: "Facebook" },
+              { id: "instagram", label: "Instagram Ads" }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setSelectedChannelFilter(tab.id)}
+                style={{
+                  padding: "0.4rem 0.8rem",
+                  borderRadius: "6px",
+                  border: "none",
+                  backgroundColor: selectedChannelFilter === tab.id ? "var(--primary)" : "transparent",
+                  color: selectedChannelFilter === tab.id ? "#fff" : "var(--text-color)",
+                  fontWeight: selectedChannelFilter === tab.id ? 600 : 500,
+                  fontSize: "0.8rem",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease"
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <input 
+            type="text"
+            placeholder="Buscar por vehículo o canal..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              padding: "0.55rem 1rem",
+              borderRadius: "8px",
+              border: "1px solid var(--border-color)",
+              backgroundColor: "var(--bg-color)",
+              color: "var(--text-color)",
+              fontSize: "0.85rem",
+              minWidth: "240px",
+              outline: "none"
+            }}
+          />
+        </div>
       </div>
 
       {/* Publications List */}

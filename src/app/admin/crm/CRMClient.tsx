@@ -422,105 +422,104 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
 
   return (
     <div className={styles.crmContainer}>
-      <div className={styles.header}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <h1 style={{ margin: 0 }}>Contactos CRM</h1>
-            <span style={{ backgroundColor: 'var(--primary-light)', color: 'var(--primary)', padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 600 }}>
-              {filteredLeads.length} {filteredLeads.length === 1 ? 'contacto' : 'contactos'}
-            </span>
+      {/* Banner Superior Unificado */}
+      <div className={styles.topBanner}>
+        <div className={styles.topBannerHeader}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <h1 style={{ margin: 0 }}>Contactos CRM</h1>
+              <span style={{ backgroundColor: 'var(--primary-light)', color: 'var(--primary)', padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 600 }}>
+                {filteredLeads.length} {filteredLeads.length === 1 ? 'contacto' : 'contactos'}
+              </span>
+            </div>
+            <p style={{ marginTop: '0.25rem', opacity: 0.7 }}>Gestión de clientes y seguimiento de embudo en tiempo real.</p>
           </div>
-          <p style={{ marginTop: '0.25rem' }}>Gestión de clientes y seguimiento de embudo en tiempo real.</p>
+          <div style={{ display: "flex", gap: "1rem" }}>
+            <input 
+              type="file" 
+              accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" 
+              ref={fileInputRef} 
+              style={{ display: "none" }} 
+              onChange={handleFileUpload} 
+            />
+            <button 
+              type="button"
+              className="btn-text" 
+              style={{ 
+                backgroundColor: "transparent", 
+                border: "none", 
+                color: "var(--text-color)", 
+                display: "flex", 
+                alignItems: "center", 
+                gap: "0.4rem", 
+                padding: "0.5rem 0.85rem", 
+                fontWeight: "600", 
+                fontSize: "0.9rem", 
+                cursor: "pointer",
+                transition: "color 0.2s ease" 
+              }} 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isImporting}
+              onMouseEnter={(e) => e.currentTarget.style.color = "var(--primary)"}
+              onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-color)"}
+            >
+              <Upload size={16} /> {isImporting ? "Importando..." : "Importar contactos"}
+            </button>
+            <button className="btn-primary" style={{ backgroundColor: "var(--text-color)", borderColor: "var(--text-color)", color: "var(--bg-color)", display: "flex", alignItems: "center", gap: "0.25rem" }} onClick={handleOpenAddModal}>
+              <Plus size={16} /> Nuevo Contacto
+            </button>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: "1rem" }}>
-          <input 
-            type="file" 
-            accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" 
-            ref={fileInputRef} 
-            style={{ display: "none" }} 
-            onChange={handleFileUpload} 
-          />
-          <button 
+
+        {/* Subpestañas CRM: Todos los Contactos | Gestión de Etiquetas */}
+        <div style={{ display: "flex", gap: "0.75rem", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.75rem", paddingTop: "0.5rem" }}>
+          <button
             type="button"
-            className="btn-text" 
-            style={{ 
-              backgroundColor: "transparent", 
-              border: "none", 
-              color: "var(--text-color)", 
-              display: "flex", 
-              alignItems: "center", 
-              gap: "0.4rem", 
-              padding: "0.5rem 0.85rem", 
-              fontWeight: "600", 
-              fontSize: "0.9rem", 
+            onClick={() => setActiveTab("contacts")}
+            style={{
+              backgroundColor: activeTab === "contacts" ? "var(--bg-color)" : "transparent",
+              color: activeTab === "contacts" ? "var(--primary)" : "var(--text-color)",
+              border: "1px solid",
+              borderColor: activeTab === "contacts" ? "var(--primary)" : "var(--border-color)",
+              padding: "0.5rem 1.1rem",
+              borderRadius: "8px",
+              fontWeight: 700,
+              fontSize: "0.88rem",
               cursor: "pointer",
-              transition: "color 0.2s ease" 
-            }} 
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isImporting}
-            onMouseEnter={(e) => e.currentTarget.style.color = "var(--primary)"}
-            onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-color)"}
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              transition: "all 0.2s"
+            }}
           >
-            <Upload size={16} /> {isImporting ? "Importando..." : "Importar contactos"}
+            <User size={16} /> Todos los Contactos ({leads.length})
           </button>
-          <button className="btn-primary" style={{ backgroundColor: "var(--text-color)", borderColor: "var(--text-color)", color: "var(--bg-color)", display: "flex", alignItems: "center", gap: "0.25rem" }} onClick={handleOpenAddModal}>
-            <Plus size={16} /> Nuevo Contacto
+          <button
+            type="button"
+            onClick={() => setActiveTab("tags")}
+            style={{
+              backgroundColor: activeTab === "tags" ? "var(--bg-color)" : "transparent",
+              color: activeTab === "tags" ? "var(--primary)" : "var(--text-color)",
+              border: "1px solid",
+              borderColor: activeTab === "tags" ? "var(--primary)" : "var(--border-color)",
+              padding: "0.5rem 1.1rem",
+              borderRadius: "8px",
+              fontWeight: 700,
+              fontSize: "0.88rem",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              transition: "all 0.2s"
+            }}
+          >
+            <TagIcon size={16} /> Gestión de Tags ({allUniqueTags.length})
           </button>
         </div>
-      </div>
 
-      {/* Subpestañas CRM: Todos los Contactos | Gestión de Etiquetas */}
-      <div style={{ display: "flex", gap: "0.75rem", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.75rem" }}>
-        <button
-          type="button"
-          onClick={() => setActiveTab("contacts")}
-          style={{
-            backgroundColor: activeTab === "contacts" ? "var(--surface-color)" : "transparent",
-            color: activeTab === "contacts" ? "var(--primary)" : "var(--text-color)",
-            border: "1px solid",
-            borderColor: activeTab === "contacts" ? "var(--primary)" : "var(--border-color)",
-            padding: "0.55rem 1.25rem",
-            borderRadius: "8px",
-            fontWeight: 700,
-            fontSize: "0.88rem",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            boxShadow: activeTab === "contacts" ? "var(--shadow-sm)" : "none",
-            transition: "all 0.2s"
-          }}
-        >
-          <User size={16} /> Todos los Contactos ({leads.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("tags")}
-          style={{
-            backgroundColor: activeTab === "tags" ? "var(--surface-color)" : "transparent",
-            color: activeTab === "tags" ? "var(--primary)" : "var(--text-color)",
-            border: "1px solid",
-            borderColor: activeTab === "tags" ? "var(--primary)" : "var(--border-color)",
-            padding: "0.55rem 1.25rem",
-            borderRadius: "8px",
-            fontWeight: 700,
-            fontSize: "0.88rem",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            boxShadow: activeTab === "tags" ? "var(--shadow-sm)" : "none",
-            transition: "all 0.2s"
-          }}
-        >
-          <TagIcon size={16} /> Gestión de Tags ({allUniqueTags.length})
-        </button>
-      </div>
-
-      {/* Subpestaña 1: Todos los Contactos */}
-      {activeTab === "contacts" && (
-        <>
-          <div className={styles.searchContainer} style={{ flexDirection: "column", gap: "0.75rem", alignItems: "stretch" }}>
+        {/* Buscador dentro del Banner Superior */}
+        {activeTab === "contacts" && (
+          <div className={styles.searchContainer} style={{ flexDirection: "column", gap: "0.75rem", alignItems: "stretch", marginBottom: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <Search size={18} color="var(--text-color)" style={{ opacity: 0.5 }} />
               <input 
@@ -581,7 +580,12 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
               </div>
             )}
           </div>
+        )}
+      </div>
 
+      {/* Panel Principal debajo del Banner Superior */}
+      {activeTab === "contacts" && (
+        <>
           <div className={styles.tableContainer}>
             <div className={styles.tableHeader}>
               <input 

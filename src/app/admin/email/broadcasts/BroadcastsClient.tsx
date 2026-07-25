@@ -109,30 +109,38 @@ export default function BroadcastsClient({ initialBroadcasts, allLeads, currentU
 
   return (
     <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
-      {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem" }}>
+      {/* Banner Superior Unificado sin esquinas redondeadas */}
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        flexWrap: "wrap",
+        gap: "1rem",
+        padding: "1.5rem",
+        backgroundColor: "var(--surface-color)",
+        border: "1px solid var(--border-color)",
+        borderRadius: 0,
+        boxShadow: "var(--shadow-sm)",
+        marginBottom: "1.5rem"
+      }}>
         <div>
           <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: "800", display: "flex", alignItems: "center", gap: "0.6rem" }}>
-            <Mail size={24} style={{ color: "var(--primary)" }} /> Broadcasts & Envíos Masivos
+            <Mail size={22} style={{ color: "var(--primary)" }} /> Broadcasts & Envíos Masivos
           </h1>
-          <p style={{ marginTop: "0.35rem", opacity: 0.75, fontSize: "0.9rem" }}>
+          <p style={{ marginTop: "0.25rem", opacity: 0.75, fontSize: "0.88rem" }}>
             Envía comunicaciones dirigidas a tus contactos segmentados por etiquetas en tiempo real.
           </p>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
+          className="btn-primary"
           style={{
-            backgroundColor: "var(--text-color)",
-            color: "var(--bg-color)",
-            border: "none",
-            padding: "0.75rem 1.25rem",
-            borderRadius: "8px",
+            padding: "0.6rem 1.1rem",
             fontWeight: "700",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
-            gap: "0.5rem",
-            boxShadow: "0 2px 5px rgba(0,0,0,0.15)"
+            gap: "0.5rem"
           }}
         >
           <Plus size={18} /> Nuevo Broadcast

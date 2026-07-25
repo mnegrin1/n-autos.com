@@ -9,6 +9,9 @@ import {
   LayoutDashboard, 
   Building2, 
   Users, 
+  CreditCard,
+  Sliders,
+  MessageSquare,
   Settings, 
   LogOut, 
   Bell,
@@ -126,6 +129,18 @@ export default function SuperAdminLayout({
           <Link href="/superadmin/users" className={`${styles.navLink} ${pathname.startsWith("/superadmin/users") ? styles.activeNavLink : ""}`}>
             <Users size={16} />
             Usuarios Globales
+          </Link>
+          <Link href="/superadmin/plans" className={`${styles.navLink} ${pathname.startsWith("/superadmin/plans") ? styles.activeNavLink : ""}`}>
+            <CreditCard size={16} />
+            Planes de Pago
+          </Link>
+          <Link href="/superadmin/features" className={`${styles.navLink} ${pathname.startsWith("/superadmin/features") ? styles.activeNavLink : ""}`}>
+            <Sliders size={16} />
+            Funcionalidades CRM
+          </Link>
+          <Link href="/superadmin/support" className={`${styles.navLink} ${pathname.startsWith("/superadmin/support") ? styles.activeNavLink : ""}`}>
+            <MessageSquare size={16} />
+            Soporte & Mensajes
           </Link>
         </nav>
 

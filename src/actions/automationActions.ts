@@ -3,14 +3,27 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { revalidatePath } from "next/cache";
 
+export interface RuleActionItem {
+  id: string;
+  type: string; // 'send_email', 'send_message', 'add_tag', 'notify_agent'
+  value: string;
+  details?: {
+    subject?: string;
+    body?: string;
+    channel?: string;
+    tag?: string;
+  };
+}
+
 export interface AutomationRule {
   id: string;
   agency_id?: string;
   name: string;
   trigger_event: string; // ej: 'tag_added', 'lead_created', 'sale_registered'
   trigger_value?: string; // ej: 'Inversor'
-  action_type: string; // ej: 'send_email', 'add_tag', 'remove_tag', 'notify_agent'
+  action_type: string; // ej: 'send_email', 'send_message', 'add_tag', 'notify_agent'
   action_value?: string; // ej: 'Plantilla Ofertas'
+  actions?: RuleActionItem[];
   is_active: boolean;
   executions_count?: number;
   created_at?: string;
@@ -188,6 +201,7 @@ export async function createAutomationRuleAction(rule: Omit<AutomationRule, 'id'
       trigger_value: rule.trigger_value || "",
       action_type: rule.action_type,
       action_value: rule.action_value || "",
+      actions: rule.actions || [],
       is_active: rule.is_active !== undefined ? rule.is_active : true,
       executions_count: 0,
       created_at: new Date().toISOString()

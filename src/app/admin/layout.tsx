@@ -24,10 +24,13 @@ import {
   Search,
   PanelLeft,
   PanelLeftClose,
-  Zap
+  Zap,
+  Headphones
 } from "lucide-react";
 import ComposeEmailModal from "@/components/ComposeEmailModal";
 import QuickSearchModal from "@/components/QuickSearchModal";
+import SupportModal from "@/components/SupportModal";
+import { isFeatureEnabledForUser, subscribeFeatureFlags } from "@/lib/featureFlagsStore";
 
 export default function AutoAdminLayout({
   children,
@@ -54,6 +57,18 @@ export default function AutoAdminLayout({
   const [showNewDropdown, setShowNewDropdown] = useState(false);
   const [isComposeEmailOpen, setIsComposeEmailOpen] = useState(false);
   const newDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Support modal state
+  const [isSupportOpen, setIsSupportOpen] = useState(false);
+  const [featuresVersion, setFeaturesVersion] = useState(0);
+  const userEmail = "mauricio@automotora.com";
+
+  useEffect(() => {
+    const unsubscribe = subscribeFeatureFlags(() => {
+      setFeaturesVersion(v => v + 1);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const isExpanded = isPinned || isHovered || isMobileMenuOpen;
 
@@ -134,7 +149,12 @@ export default function AutoAdminLayout({
 
   const handleLogout = async () => {
     if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
-      await logout();
+      try {
+        document.cookie = "admin-session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;";
+        await logout();
+      } catch (e) {
+        console.error("Error cerrando sesión:", e);
+      }
       window.location.href = "/admin/login";
     }
   };
@@ -402,30 +422,42 @@ export default function AutoAdminLayout({
             <LayoutDashboard size={18} style={{ flexShrink: 0 }} />
             {isExpanded && <span>Dashboard</span>}
           </Link>
-          <Link href="/admin/vehicles" title="Inventario Stock" className={`${styles.navLink} ${pathname.startsWith("/admin/vehicles") ? styles.activeNavLink : ""}`}>
-            <Car size={18} style={{ flexShrink: 0 }} />
-            {isExpanded && <span>Inventario Stock</span>}
-          </Link>
-          <Link href="/admin/inbox" title="Bandeja de Entrada" className={`${styles.navLink} ${pathname.startsWith("/admin/inbox") ? styles.activeNavLink : ""}`}>
-            <MessageSquare size={18} style={{ flexShrink: 0 }} />
-            {isExpanded && <span>Bandeja de Entrada</span>}
-          </Link>
-          <Link href="/admin/publications" title="Publicaciones Activas" className={`${styles.navLink} ${pathname.startsWith("/admin/publications") ? styles.activeNavLink : ""}`}>
-            <Share2 size={18} style={{ flexShrink: 0 }} />
-            {isExpanded && <span>Publicaciones</span>}
-          </Link>
-          <Link href="/admin/crm" title="Contactos" className={`${styles.navLink} ${pathname.startsWith("/admin/crm") ? styles.activeNavLink : ""}`}>
-            <Users size={18} style={{ flexShrink: 0 }} />
-            {isExpanded && <span>Contactos</span>}
-          </Link>
-          <Link href="/admin/email/broadcasts" title="Email Broadcasts" className={`${styles.navLink} ${pathname.startsWith("/admin/email") ? styles.activeNavLink : ""}`}>
-            <Mail size={18} style={{ flexShrink: 0 }} />
-            {isExpanded && <span>Email Broadcasts</span>}
-          </Link>
-          <Link href="/admin/automations" title="Automatizaciones" className={`${styles.navLink} ${pathname.startsWith("/admin/automations") ? styles.activeNavLink : ""}`}>
-            <Zap size={18} style={{ flexShrink: 0 }} />
-            {isExpanded && <span>Automatizaciones</span>}
-          </Link>
+          {isFeatureEnabledForUser("vehicles", userEmail) && (
+            <Link href="/admin/vehicles" title="Inventario Stock" className={`${styles.navLink} ${pathname.startsWith("/admin/vehicles") ? styles.activeNavLink : ""}`}>
+              <Car size={18} style={{ flexShrink: 0 }} />
+              {isExpanded && <span>Inventario Stock</span>}
+            </Link>
+          )}
+          {isFeatureEnabledForUser("inbox", userEmail) && (
+            <Link href="/admin/inbox" title="Bandeja de Entrada" className={`${styles.navLink} ${pathname.startsWith("/admin/inbox") ? styles.activeNavLink : ""}`}>
+              <MessageSquare size={18} style={{ flexShrink: 0 }} />
+              {isExpanded && <span>Bandeja de Entrada</span>}
+            </Link>
+          )}
+          {isFeatureEnabledForUser("publications", userEmail) && (
+            <Link href="/admin/publications" title="Publicaciones Activas" className={`${styles.navLink} ${pathname.startsWith("/admin/publications") ? styles.activeNavLink : ""}`}>
+              <Share2 size={18} style={{ flexShrink: 0 }} />
+              {isExpanded && <span>Publicaciones</span>}
+            </Link>
+          )}
+          {isFeatureEnabledForUser("crm", userEmail) && (
+            <Link href="/admin/crm" title="Contactos" className={`${styles.navLink} ${pathname.startsWith("/admin/crm") ? styles.activeNavLink : ""}`}>
+              <Users size={18} style={{ flexShrink: 0 }} />
+              {isExpanded && <span>Contactos</span>}
+            </Link>
+          )}
+          {isFeatureEnabledForUser("email", userEmail) && (
+            <Link href="/admin/email/broadcasts" title="Email Broadcasts" className={`${styles.navLink} ${pathname.startsWith("/admin/email") ? styles.activeNavLink : ""}`}>
+              <Mail size={18} style={{ flexShrink: 0 }} />
+              {isExpanded && <span>Email Broadcasts</span>}
+            </Link>
+          )}
+          {isFeatureEnabledForUser("automations", userEmail) && (
+            <Link href="/admin/automations" title="Automatizaciones" className={`${styles.navLink} ${pathname.startsWith("/admin/automations") ? styles.activeNavLink : ""}`}>
+              <Zap size={18} style={{ flexShrink: 0 }} />
+              {isExpanded && <span>Automatizaciones</span>}
+            </Link>
+          )}
         </nav>
 
         {/* Footer del Sidebar: Tema, Configuración, Usuario y Pin Toggle */}
@@ -525,6 +557,17 @@ export default function AutoAdminLayout({
                   <button 
                     onClick={() => {
                       setShowDropdown(false);
+                      setIsSupportOpen(true);
+                    }}
+                    style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", fontWeight: 600, color: "var(--primary)", background: "none", border: "none", width: "100%", textAlign: "left", padding: "0.5rem", borderRadius: "6px", cursor: "pointer", transition: "background-color 0.2s" }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--primary-light)"}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                  >
+                    <Headphones size={14} /> Hablar con soporte
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setShowDropdown(false);
                       handleLogout();
                     }}
                     style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", fontWeight: 600, color: "var(--error, #ef4444)", background: "none", border: "none", width: "100%", textAlign: "left", padding: "0.5rem", borderRadius: "6px", cursor: "pointer", transition: "background-color 0.2s" }}
@@ -569,11 +612,6 @@ export default function AutoAdminLayout({
             >
               {isPinned ? <PanelLeftClose size={18} /> : <PanelLeft size={18} />}
             </button>
-            {isExpanded && (
-              <span style={{ fontSize: "0.75rem", color: "var(--text-color)", opacity: 0.6, fontWeight: 500, whiteSpace: "nowrap" }}>
-                {isPinned ? "Barra fija" : "Desplegar en hover"}
-              </span>
-            )}
           </div>
 
         </div>
@@ -606,6 +644,14 @@ export default function AutoAdminLayout({
         isOpen={isSearchOpen}
         onClose={() => setIsSearchOpen(false)}
         onOpenComposeEmail={() => setIsComposeEmailOpen(true)}
+      />
+
+      <SupportModal 
+        isOpen={isSupportOpen}
+        onClose={() => setIsSupportOpen(false)}
+        userEmail={userEmail}
+        userName="Mauricio Negrin"
+        agencyName="Test-Automotora"
       />
     </div>
   );

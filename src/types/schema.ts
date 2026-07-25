@@ -20,6 +20,10 @@ export interface Database {
           whatsapp: string | null
           cover_url: string | null
           publish_sold: boolean | null
+          web_template: string | null
+          hero_eyebrow: string | null
+          hero_title: string | null
+          hero_subtitle: string | null
           created_at: string
         }
         Insert: {
@@ -32,6 +36,10 @@ export interface Database {
           whatsapp?: string | null
           cover_url?: string | null
           publish_sold?: boolean | null
+          web_template?: string | null
+          hero_eyebrow?: string | null
+          hero_title?: string | null
+          hero_subtitle?: string | null
           created_at?: string
         }
         Update: {
@@ -44,6 +52,10 @@ export interface Database {
           whatsapp?: string | null
           cover_url?: string | null
           publish_sold?: boolean | null
+          web_template?: string | null
+          hero_eyebrow?: string | null
+          hero_title?: string | null
+          hero_subtitle?: string | null
           created_at?: string
         }
       }

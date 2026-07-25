@@ -3,7 +3,7 @@
 import { useState } from "react";
 import styles from "./home.module.css";
 import Link from "next/link";
-import { Search, Fuel } from "lucide-react";
+import { Search, Fuel, Sparkles, Shield, Zap, Award, SlidersHorizontal } from "lucide-react";
 
 interface Vehicle {
   id: string;
@@ -25,13 +25,21 @@ interface PortalShowroomClientProps {
   agencySlug: string;
   agencyName: string;
   publishSold: boolean;
+  webTemplate?: string;
+  heroEyebrow?: string;
+  heroTitle?: string;
+  heroSubtitle?: string;
 }
 
 export default function PortalShowroomClient({ 
   initialVehicles, 
   agencySlug, 
   agencyName, 
-  publishSold 
+  publishSold,
+  webTemplate = "standard",
+  heroEyebrow = "AUTOMOTORA OFICIAL",
+  heroTitle = "Encuentra tu próximo vehículo",
+  heroSubtitle = "Unidades seleccionadas que te brindan seguridad, potencia y tranquilidad en cada kilómetro."
 }: PortalShowroomClientProps) {
   const [activeVehicles] = useState<Vehicle[]>(initialVehicles.filter(v => v.status !== "vendido"));
   const [soldVehicles] = useState<Vehicle[]>(initialVehicles.filter(v => v.status === "vendido"));
@@ -76,20 +84,36 @@ export default function PortalShowroomClient({
 
   const coverImage = "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80";
 
+  // Template-specific root class
+  const templateClass = styles[`template_${webTemplate}`] || styles.template_standard;
+
   return (
-    <div className={styles.homeContainer}>
+    <div className={`${styles.homeContainer} ${templateClass}`}>
       {/* Hero Section */}
       <section 
         className={styles.heroSection}
         style={{
-          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.55)), url(${coverImage})`,
+          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.7)), url(${coverImage})`,
           backgroundSize: "cover",
           backgroundPosition: "center"
         }}
       >
         <div className={styles.heroContent}>
-          <h1 className={styles.heroTitle}>Encuentra tu próximo vehículo</h1>
-          <p className={styles.heroSubtitle}>Unidades seleccionadas que te brindan seguridad, potencia y tranquilidad en cada kilómetro.</p>
+          {heroEyebrow && (
+            <div className={styles.eyebrowWrapper}>
+              <span className={styles.heroEyebrow}>
+                {webTemplate === "glassmorphism" && <Sparkles size={14} />}
+                {webTemplate === "luxury" && <Award size={14} />}
+                {webTemplate === "sport" && <Zap size={14} />}
+                {webTemplate === "tech" && <SlidersHorizontal size={14} />}
+                {webTemplate === "editorial" && <Shield size={14} />}
+                {heroEyebrow}
+              </span>
+            </div>
+          )}
+
+          <h1 className={styles.heroTitle}>{heroTitle}</h1>
+          <p className={styles.heroSubtitle}>{heroSubtitle}</p>
           
           {/* Search box with tab controls */}
           <div className={styles.searchContainer}>
@@ -123,7 +147,7 @@ export default function PortalShowroomClient({
                 <input
                   type="text"
                   className={styles.searchInput}
-                  placeholder="Buscar marca o modelo (Chevrolet, Cruze...)"
+                  placeholder="Buscar marca o modelo (Ej: Audi, Cruze...)"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -165,7 +189,10 @@ export default function PortalShowroomClient({
       {/* Featured Section (Active Inventory) */}
       <section className={styles.featuredSection}>
         <div className={styles.featuredHeader}>
-          <h2>Vehículos Destacados</h2>
+          <div>
+            {webTemplate === "editorial" && <span className={styles.sectionCategoryTag}>CATÁALOGO EXCLUSIVO</span>}
+            <h2>Vehículos Destacados</h2>
+          </div>
           <span className={styles.viewAll} style={{ fontSize: "0.95rem" }}>
             {filteredActive.length} unidades disponibles
           </span>
@@ -189,24 +216,11 @@ export default function PortalShowroomClient({
                     alt={`${v.brand} ${v.model}`} 
                     className={styles.propertyImage} 
                   />
-                  <span className={styles.propertyTypeBadge} style={{ backgroundColor: "var(--primary)", color: "white" }}>
+                  <span className={styles.propertyTypeBadge}>
                     {v.transmission === "automatica" ? "Automático" : "Manual"}
                   </span>
                   {v.status === "reservado" && (
-                    <span 
-                      style={{ 
-                        position: "absolute", 
-                        bottom: "10px", 
-                        left: "10px", 
-                        backgroundColor: "#f59e0b", 
-                        color: "white", 
-                        padding: "0.2rem 0.6rem", 
-                        borderRadius: "4px", 
-                        fontSize: "0.75rem", 
-                        fontWeight: 700,
-                        textTransform: "uppercase" 
-                      }}
-                    >
+                    <span className={styles.reservedBadge}>
                       Reservado
                     </span>
                   )}
@@ -216,7 +230,7 @@ export default function PortalShowroomClient({
                   <div className={styles.propertyLocation}>
                     Año: {v.year} | {v.kms.toLocaleString()} km
                   </div>
-                  <div className={styles.propertyFeatures} style={{ display: "flex", gap: "0.75rem", fontSize: "0.8rem", opacity: 0.7 }}>
+                  <div className={styles.propertyFeatures}>
                     <span>⛽ {v.fuel.toUpperCase()}</span>
                     {v.color && <span>🎨 {v.color}</span>}
                   </div>
@@ -234,7 +248,10 @@ export default function PortalShowroomClient({
       {publishSold && soldVehicles.length > 0 && (
         <section className={styles.featuredSection} style={{ borderTop: "1px solid var(--border-color)", paddingTop: "3rem", marginTop: "3rem" }}>
           <div className={styles.featuredHeader}>
-            <h2>Entregados Recientemente (Vendidos)</h2>
+            <div>
+              {webTemplate === "editorial" && <span className={styles.sectionCategoryTag}>HISTORIAL DE ENTREGAS</span>}
+              <h2>Entregados Recientemente (Vendidos)</h2>
+            </div>
             <span className={styles.viewAll} style={{ fontSize: "0.95rem", opacity: 0.7 }}>
               {filteredSold.length} unidades entregadas
             </span>
@@ -289,7 +306,7 @@ export default function PortalShowroomClient({
                     <div className={styles.propertyLocation}>
                       Año: {v.year} | {v.kms.toLocaleString()} km
                     </div>
-                    <div className={styles.propertyFeatures} style={{ display: "flex", gap: "0.75rem", fontSize: "0.8rem", opacity: 0.7 }}>
+                    <div className={styles.propertyFeatures}>
                       <span>⛽ {v.fuel.toUpperCase()}</span>
                       {v.color && <span>🎨 {v.color}</span>}
                     </div>
@@ -307,12 +324,12 @@ export default function PortalShowroomClient({
       {/* About Section */}
       <section className={styles.aboutSection}>
         <div className={styles.aboutContent}>
-          <h2>Sobre Nosotros</h2>
+          <h2>Sobre {agencyName}</h2>
           <p className={styles.aboutHighlight}>
-            Tu Automotora... Un espacio dedicado a brindarte confianza y respaldo mecánico en cada unidad seleccionada.
+            Un espacio dedicado a brindarte confianza, transparencia y respaldo en cada unidad seleccionada.
           </p>
           <p className={styles.aboutText}>
-            Contamos con un equipo de profesionales listos para asesorarte en la financiación, permuta o test drive de tu próximo vehículo. Ven y descubre que el auto de tus sueños está aquí con nosotros.
+            Contamos con un equipo de asesores listos para orientarte en la financiación, permuta o test drive de tu próximo vehículo. Ven y descubre la mejor experiencia automotriz.
           </p>
         </div>
       </section>

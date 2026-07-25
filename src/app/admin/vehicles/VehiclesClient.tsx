@@ -219,55 +219,66 @@ export default function VehiclesClient({ initialVehicles, initialPublishSold }: 
 
   return (
     <div className={styles.propertiesContainer}>
-      <div className={styles.header}>
-        <div>
-          <h1>Inventario de Vehículos</h1>
-          <p>Gestiona el stock del concesionario de autos.</p>
+      {/* Banner Superior Unificado sin esquinas redondeadas */}
+      <div style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "1rem",
+        padding: "1.5rem",
+        backgroundColor: "var(--surface-color)",
+        border: "1px solid var(--border-color)",
+        borderRadius: 0,
+        boxShadow: "var(--shadow-sm)"
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 800 }}>Inventario de Vehículos</h1>
+            <p style={{ margin: "0.2rem 0 0 0", opacity: 0.7, fontSize: "0.88rem" }}>Gestiona el stock del concesionario de autos en tiempo real.</p>
+          </div>
+          <button className="btn-primary" style={{ display: "flex", alignItems: "center", gap: "0.25rem", padding: "0.6rem 1.1rem" }} onClick={openNewModal}>
+            <Plus size={16} /> Agregar Auto
+          </button>
         </div>
-        <button className="btn-primary" style={{ display: "flex", alignItems: "center", gap: "0.25rem" }} onClick={openNewModal}>
-          <Plus size={16} /> Agregar Auto
-        </button>
-      </div>
 
-      {/* Filters bar */}
-      <div className={styles.filters}>
-        <div style={{ position: "relative", flex: 1 }}>
-          <Search size={16} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", opacity: 0.5 }} />
-          <input
-            type="text"
-            className={styles.searchInput}
-            placeholder="Buscar por marca, modelo o patente..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ paddingLeft: "36px" }}
+        {/* Buscador y Filtros dentro del Banner Superior */}
+        <div className={styles.filters} style={{ marginBottom: 0 }}>
+          <div style={{ position: "relative", flex: 1 }}>
+            <Search size={16} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", opacity: 0.5 }} />
+            <input
+              type="text"
+              className={styles.searchInput}
+              placeholder="Buscar por marca, modelo o patente..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{ paddingLeft: "36px" }}
+            />
+          </div>
+          <select
+            className={styles.filterSelect}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="all">Todos los estados</option>
+            <option value="disponible">Disponibles</option>
+            <option value="reservado">Reservados</option>
+            <option value="vendido">Vendidos</option>
+          </select>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", justifyContent: "flex-end", fontSize: "0.85rem", fontWeight: "600" }}>
+          <input 
+            type="checkbox"
+            id="publishSoldCheckbox"
+            checked={publishSold}
+            onChange={async (e) => {
+              const val = e.target.checked;
+              setPublishSold(val);
+              await updateAgencySettings("00000000-0000-0000-0000-000000000000", { publish_sold: val });
+            }}
+            style={{ cursor: "pointer" }}
           />
+          <label htmlFor="publishSoldCheckbox" style={{ cursor: "pointer", opacity: 0.8 }}>Publicar vehículos ya vendidos</label>
         </div>
-        <select
-          className={styles.filterSelect}
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-        >
-          <option value="all">Todos los estados</option>
-          <option value="disponible">Disponibles</option>
-          <option value="reservado">Reservados</option>
-          <option value="vendido">Vendidos</option>
-        </select>
-      </div>
-
-      {/* Publish Sold checkbox */}
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "-0.5rem", marginBottom: "1.25rem", justifyContent: "flex-end", fontSize: "0.85rem", fontWeight: "600" }}>
-        <input 
-          type="checkbox"
-          id="publishSoldCheckbox"
-          checked={publishSold}
-          onChange={async (e) => {
-            const val = e.target.checked;
-            setPublishSold(val);
-            await updateAgencySettings("00000000-0000-0000-0000-000000000000", { publish_sold: val });
-          }}
-          style={{ cursor: "pointer" }}
-        />
-        <label htmlFor="publishSoldCheckbox" style={{ cursor: "pointer", opacity: 0.8 }}>Publicar vehículos ya vendidos</label>
       </div>
 
       {/* Table grid */}

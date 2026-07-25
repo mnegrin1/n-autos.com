@@ -18,6 +18,10 @@ export default async function PortalPage({
       agencySlug={agencySlug} 
       agencyName={agency?.name || "Automotora"} 
       publishSold={!!agency?.publish_sold}
+      webTemplate={agency?.web_template || "standard"}
+      heroEyebrow={agency?.hero_eyebrow || "AUTOMOTORA OFICIAL"}
+      heroTitle={agency?.hero_title || "Encuentra tu próximo vehículo"}
+      heroSubtitle={agency?.hero_subtitle || "Unidades seleccionadas que te brindan seguridad, potencia y tranquilidad en cada kilómetro."}
     />
   );
 }

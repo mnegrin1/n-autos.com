@@ -1,36 +1,59 @@
 .homeContainer {
   display: flex;
   flex-direction: column;
+  width: 100%;
+}
+
+.eyebrowWrapper {
+  margin-bottom: 1rem;
+}
+
+.heroEyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background-color: var(--primary);
+  color: white;
 }
 
 .heroSection {
-  min-height: 70vh;
+  min-height: 65vh;
   display: flex;
   align-items: center;
   justify-content: center;
   background: linear-gradient(to right bottom, var(--surface-hover), var(--bg-color));
-  padding: 4rem 2rem;
+  padding: 5rem 2rem;
   text-align: center;
+  position: relative;
 }
 
 .heroContent {
-  max-width: 800px;
+  max-width: 850px;
   width: 100%;
+  margin: 0 auto;
 }
 
 .heroTitle {
   font-size: 3.5rem;
   font-weight: 800;
   line-height: 1.1;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
   letter-spacing: -0.02em;
+  color: white;
 }
 
 .heroSubtitle {
-  font-size: 1.25rem;
-  color: var(--text-color);
-  opacity: 0.8;
-  margin-bottom: 3rem;
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.9);
+  opacity: 0.9;
+  margin-bottom: 2.5rem;
+  line-height: 1.6;
 }
 
 .searchContainer {
@@ -51,11 +74,11 @@
   background-color: rgba(25, 28, 32, 0.85);
   color: rgba(255, 255, 255, 0.8);
   border: none;
-  padding: 0.8rem 2rem;
+  padding: 0.8rem 1.75rem;
   border-top-left-radius: 12px;
   border-top-right-radius: 12px;
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.2s ease;
   backdrop-filter: blur(8px);
@@ -106,14 +129,15 @@
 .inputGroup {
   position: relative;
   flex: 2;
-  min-width: 220px;
+  min-width: 200px;
   display: flex;
   align-items: center;
 }
 
-.inputGroup:nth-child(2) {
+.inputGroup:nth-child(2),
+.inputGroup:nth-child(3) {
   flex: 1.5;
-  min-width: 180px;
+  min-width: 170px;
 }
 
 .inputIcon {
@@ -127,7 +151,7 @@
 .searchInput,
 .searchSelect {
   width: 100%;
-  padding: 1rem 1rem 1rem 2.8rem;
+  padding: 0.85rem 1rem 0.85rem 2.8rem;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   font-size: 0.95rem;
@@ -135,7 +159,7 @@
   color: #1e293b;
   outline: none;
   transition: all 0.2s ease;
-  height: 54px;
+  height: 50px;
 }
 
 :global(.theme-dark-dim) .searchInput,
@@ -147,44 +171,10 @@
   color: white;
 }
 
-.searchInput:focus,
-.searchSelect:focus {
-  border-color: var(--secondary);
-  background-color: white;
-  box-shadow: 0 0 0 3px var(--primary-light);
-}
-
-.searchButton {
-  background-color: var(--secondary);
-  color: white;
-  border: none;
-  padding: 0 2rem;
-  border-radius: 8px;
-  font-weight: 700;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  height: 54px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px var(--primary-light);
-  min-width: 130px;
-}
-
-.searchButton:hover {
-  filter: brightness(1.1);
-  transform: translateY(-1px);
-}
-
-.searchButton:active {
-  transform: translateY(0);
-}
-
 .featuredSection {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 6rem 2rem;
+  padding: 5rem 2rem;
   width: 100%;
 }
 
@@ -192,22 +182,18 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  margin-bottom: 3rem;
+  margin-bottom: 2.5rem;
 }
 
 .featuredHeader h2 {
   font-size: 2rem;
-  font-weight: 700;
+  font-weight: 800;
+  margin: 0;
 }
 
 .viewAll {
   color: var(--secondary);
   font-weight: 600;
-  transition: opacity 0.2s ease;
-}
-
-.viewAll:hover {
-  opacity: 0.8;
 }
 
 .propertyGrid {
@@ -227,7 +213,7 @@
 }
 
 .propertyCard:hover {
-  transform: translateY(-5px);
+  transform: translateY(-6px);
   box-shadow: var(--shadow-lg);
 }
 
@@ -241,13 +227,18 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.propertyCard:hover .propertyImage {
+  transform: scale(1.04);
 }
 
 .propertyTypeBadge {
   position: absolute;
   top: 1rem;
   left: 1rem;
-  background-color: rgba(255, 255, 255, 0.9);
+  background-color: rgba(255, 255, 255, 0.92);
   color: #111;
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
@@ -258,12 +249,25 @@
   backdrop-filter: blur(4px);
 }
 
+.reservedBadge {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  background-color: #f59e0b;
+  color: white;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .propertyInfo {
   padding: 1.5rem;
 }
 
 .propertyTitle {
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   font-weight: 700;
   margin-bottom: 0.25rem;
 }
@@ -298,8 +302,6 @@
   padding: 5rem 2rem;
   margin-top: 4rem;
   width: 100%;
-  border-radius: 16px;
-  box-shadow: var(--shadow-sm);
 }
 
 .aboutContent {
@@ -314,20 +316,288 @@
   margin-bottom: 1.5rem;
   color: var(--secondary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 .aboutHighlight {
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   font-weight: 600;
-  line-height: 1.6;
-  margin-bottom: 1.5rem;
-  color: var(--text-color);
+  margin-bottom: 1.25rem;
 }
 
 .aboutText {
-  font-size: 1.05rem;
+  font-size: 1rem;
   opacity: 0.8;
   line-height: 1.7;
-  color: var(--text-color);
+}
+
+/* ==========================================================================
+   TEMPLATE 1: STANDARD FUNCIONAL (Básico sin glamour)
+   ========================================================================== */
+.template_standard .heroSection {
+  background: linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.85));
+}
+.template_standard .heroEyebrow {
+  background-color: #475569;
+  color: white;
+}
+
+/* ==========================================================================
+   TEMPLATE 2: GLASSMORPHISM SHOWCASE (PREMIUM ⭐)
+   ========================================================================== */
+.template_glassmorphism .heroSection {
+  background: radial-gradient(circle at 50% 30%, rgba(16, 185, 129, 0.25) 0%, transparent 65%), linear-gradient(rgba(0,0,0,0.65), rgba(0,0,0,0.85));
+}
+.template_glassmorphism .heroEyebrow {
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  color: #34d399;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+}
+.template_glassmorphism .searchBox {
+  background: rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4) !important;
+}
+.template_glassmorphism .searchInput,
+.template_glassmorphism .searchSelect {
+  background: rgba(0, 0, 0, 0.25) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+}
+.template_glassmorphism .propertyCard {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+.template_glassmorphism .propertyCard:hover {
+  border-color: rgba(16, 185, 129, 0.5);
+  box-shadow: 0 12px 40px rgba(16, 185, 129, 0.2);
+}
+
+/* ==========================================================================
+   TEMPLATE 3: LUXURY EXECUTIVE DARK (PREMIUM ⭐)
+   ========================================================================== */
+.template_luxury {
+  background-color: #09090b !important;
+  color: #f4f4f5 !important;
+}
+.template_luxury .heroSection {
+  background: radial-gradient(circle at 50% 20%, rgba(245, 158, 11, 0.2) 0%, transparent 60%), linear-gradient(rgba(9, 9, 11, 0.8), rgba(9, 9, 11, 0.95));
+}
+.template_luxury .heroTitle {
+  font-family: Georgia, 'Times New Roman', serif;
+  background: linear-gradient(135deg, #ffffff 0%, #fef08a 50%, #eab308 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.template_luxury .heroEyebrow {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  color: #fef08a;
+  letter-spacing: 0.15em;
+}
+.template_luxury .searchBox {
+  background: #121215 !important;
+  border: 1px solid rgba(245, 158, 11, 0.3) !important;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.8) !important;
+}
+.template_luxury .searchInput,
+.template_luxury .searchSelect {
+  background: #18181c !important;
+  border-color: rgba(245, 158, 11, 0.2) !important;
+  color: #fef08a !important;
+}
+.template_luxury .propertyCard {
+  background: #121215;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+.template_luxury .propertyCard:hover {
+  border-color: #f59e0b;
+  box-shadow: 0 10px 30px rgba(245, 158, 11, 0.15);
+}
+.template_luxury .propertyPrice {
+  color: #fef08a !important;
+  font-family: Georgia, serif;
+}
+
+/* ==========================================================================
+   TEMPLATE 4: SPORT RACING & DYNAMIC (PREMIUM ⭐)
+   ========================================================================== */
+.template_sport {
+  background-color: #0b0f17 !important;
+}
+.template_sport .heroSection {
+  background: repeating-linear-gradient(45deg, rgba(239, 68, 68, 0.05), rgba(239, 68, 68, 0.05) 10px, transparent 10px, transparent 20px), linear-gradient(rgba(11, 15, 23, 0.75), rgba(11, 15, 23, 0.95));
+}
+.template_sport .heroTitle {
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.03em;
+}
+.template_sport .heroEyebrow {
+  background: #ef4444;
+  color: white;
+  transform: skewX(-12deg);
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.5);
+}
+.template_sport .searchBox {
+  background: #161b26 !important;
+  border: 2px solid #ef4444 !important;
+  border-radius: 4px !important;
+}
+.template_sport .tabButton {
+  border-radius: 4px 4px 0 0 !important;
+  transform: skewX(-8deg);
+}
+.template_sport .propertyCard {
+  background: #161b26;
+  border: 1px solid #2d3748;
+  border-radius: 8px;
+}
+.template_sport .propertyCard:hover {
+  border-color: #ef4444;
+  transform: translateY(-8px) skewX(-1deg);
+  box-shadow: 0 12px 30px rgba(239, 68, 68, 0.25);
+}
+.template_sport .propertyTypeBadge {
+  background-color: #ef4444;
+  color: white;
+  border-radius: 2px;
+}
+
+/* ==========================================================================
+   TEMPLATE 5: MINIMAL TECH / TESLA VIBE (PREMIUM ⭐)
+   ========================================================================== */
+.template_tech .heroSection {
+  background: linear-gradient(rgba(15, 23, 42, 0.6), rgba(15, 23, 42, 0.85));
+}
+.template_tech .heroEyebrow {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  font-weight: 600;
+  backdrop-filter: blur(10px);
+}
+.template_tech .heroTitle {
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+.template_tech .searchBox {
+  border-radius: 24px !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12) !important;
+}
+.template_tech .propertyCard {
+  border-radius: 24px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+}
+.template_tech .propertyCard:hover {
+  box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+  transform: translateY(-4px);
+}
+
+/* ==========================================================================
+   TEMPLATE 6: EDITORIAL MOTORS MAGAZINE (PREMIUM ⭐)
+   ========================================================================== */
+.template_editorial .heroSection {
+  text-align: left !important;
+  background: linear-gradient(to right, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 100%);
+}
+.template_editorial .heroContent {
+  margin: 0;
+}
+.template_editorial .heroTitle {
+  font-size: 4rem;
+  line-height: 1.05;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.template_editorial .sectionCategoryTag {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  color: var(--primary);
+  margin-bottom: 0.25rem;
+}
+.template_editorial .propertyCard {
+  border-radius: 0;
+  border: 1px solid var(--border-color);
+}
+.template_editorial .imageWrapper {
+  height: 260px;
+}
+
+/* ==========================================================================
+   RESPONSIVE DESIGN (MOBILE OPTIMIZATION)
+   ========================================================================== */
+@media (max-width: 768px) {
+  .heroSection {
+    min-height: auto;
+    padding: 3rem 1.25rem;
+  }
+
+  .heroTitle {
+    font-size: 2.2rem;
+    line-height: 1.2;
+    margin-bottom: 1rem;
+  }
+
+  .heroSubtitle {
+    font-size: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .searchTabs {
+    flex-wrap: wrap;
+  }
+
+  .tabButton {
+    flex: 1;
+    padding: 0.65rem 0.85rem;
+    font-size: 0.8rem;
+    text-align: center;
+  }
+
+  .searchBox {
+    flex-direction: column;
+    padding: 1rem;
+    gap: 0.75rem;
+  }
+
+  .inputGroup {
+    width: 100%;
+    min-width: 100%;
+  }
+
+  .featuredSection {
+    padding: 3rem 1.25rem;
+  }
+
+  .featuredHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .featuredHeader h2 {
+    font-size: 1.6rem;
+  }
+
+  .propertyGrid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .imageWrapper {
+    height: 200px;
+  }
+
+  .template_editorial .heroTitle {
+    font-size: 2.4rem;
+  }
 }
