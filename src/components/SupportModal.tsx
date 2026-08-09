@@ -38,8 +38,6 @@ export default function SupportModal({
     if (!isOpen) return;
 
     const userTickets = getSupportTickets().filter(t => t.userEmail === userEmail || true);
-    setTickets(userTickets);
-
     if (userTickets.length > 0 && !activeTicketId) {
       setActiveTicketId(userTickets[0].id);
       markTicketAsRead(userTickets[0].id, "user");
@@ -405,7 +403,7 @@ export default function SupportModal({
               </>
             ) : (
               <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.5, fontSize: "0.85rem" }}>
-                Presiona "Nueva Consulta" para iniciar una conversación con Soporte.
+                Presiona &quot;Nueva Consulta&quot; para iniciar una conversación con Soporte.
               </div>
             )}
           </div>

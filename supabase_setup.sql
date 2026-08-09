@@ -47,8 +47,17 @@ CREATE TABLE users (
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
     role VARCHAR(50) DEFAULT 'agent' CHECK (role IN ('admin', 'manager', 'agent')),
+    password_hash TEXT,
+    reset_code VARCHAR(10),
+    reset_expires_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Campos de autenticación y recuperación de contraseña para tablas ya existentes
+ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_code VARCHAR(10);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_expires_at TIMESTAMP WITH TIME ZONE;
+
 
 -- 6. Tabla de Eventos / Agenda (Events)
 CREATE TABLE events (
@@ -363,3 +372,18 @@ CREATE POLICY "Permitir webhooks públicos a inbox_conversations" ON inbox_conve
   FOR ALL TO anon
   USING (true)
   WITH CHECK (true);
+
+-- =========================================================================
+-- 11. TABLA DE HISTORIAL DE SUBDOMINIOS
+-- =========================================================================
+
+CREATE TABLE IF NOT EXISTS subdomain_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    agency_id UUID REFERENCES agencies(id) ON DELETE CASCADE,
+    old_subdomain VARCHAR(100) UNIQUE NOT NULL,
+    new_subdomain VARCHAR(100),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE subdomain_history ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Permitir lectura publica de historial de subdominios" ON subdomain_history FOR SELECT USING (true);

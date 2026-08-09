@@ -2,55 +2,14 @@
 
 import { supabase } from "@/lib/supabase";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getCurrentUser } from "@/actions/authActions";
 import { revalidatePath } from "next/cache";
 import { vehicleSchema, autoLeadSchema } from "@/lib/schemas";
+import { uploadMediaFiles } from "@/actions/storageActions";
 
-// Helper to save files to public/uploads
+// Helper to upload files to Supabase Storage
 async function saveUploadedFiles(files: any[]): Promise<{ images: string[], videos: string[] }> {
-  const images: string[] = [];
-  const videos: string[] = [];
-
-  let fsModule: any = null;
-  let pathModule: any = null;
-  if (typeof window === 'undefined' && process.env.NEXT_RUNTIME !== 'edge' && typeof process !== 'undefined' && typeof process.cwd === 'function') {
-    try {
-      fsModule = require('fs/promises');
-      pathModule = require('path');
-      
-      const uploadDir = pathModule.join(process.cwd(), "public", "uploads");
-      await fsModule.mkdir(uploadDir, { recursive: true });
-
-      for (const file of files) {
-        if (file && typeof file === "object" && file.size > 0 && file.name) {
-          try {
-            const isImg = file.type.startsWith("image/");
-            const prefix = isImg ? "img" : "vid";
-            const buffer = Buffer.from(await file.arrayBuffer());
-            const filename = `${Date.now()}-${prefix}-${file.name.replace(/\s+/g, "-")}`;
-            const filePath = pathModule.join(uploadDir, filename);
-            await fsModule.writeFile(filePath, buffer);
-            
-            const relativePath = `/uploads/${filename}`;
-            if (isImg) {
-              images.push(relativePath);
-            } else {
-              videos.push(relativePath);
-            }
-          } catch (err) {
-            console.error("Error saving vehicle multimedia file:", err);
-          }
-        }
-      }
-    } catch (e) {
-      console.error("Error writing files in autoActions:", e);
-    }
-  }
-
-  if (!fsModule || !pathModule) {
-    console.log("No filesystem access in Edge Runtime, skipping local file write.");
-  }
-
-  return { images, videos };
+  return await uploadMediaFiles(files, "vehicles");
 }
 
 export async function getVehicles(agencyId: string) {
@@ -640,7 +599,13 @@ export async function getAutoStats(agencyId: string) {
 // INTEGRATIONS & CHANNELS ACTIONS
 // ==========================================
 
-export async function getIntegrations() {
+export async function getIntegrations(agencyId?: string) {
+  let targetAgencyId = agencyId;
+  if (!targetAgencyId) {
+    const currentUser = await getCurrentUser();
+    targetAgencyId = currentUser?.agency_id || "00000000-0000-0000-0000-000000000000";
+  }
+
   const baseIntegrations = {
     mercadolibre: { connected: false, username: "", token: "", refresh_token: "", expires_at: 0, mode: "production" as "production" | "simulation" },
     facebook: { connected: false, pageName: "", token: "", refresh_token: "" },
@@ -651,7 +616,7 @@ export async function getIntegrations() {
   try {
     const { data, error } = await (supabaseAdmin.from("auto_integrations") as any)
       .select("*")
-      .eq("agency_id", "00000000-0000-0000-0000-000000000000");
+      .eq("agency_id", targetAgencyId);
       
     if (!error && data && data.length > 0) {
       const result = { ...baseIntegrations };
@@ -688,8 +653,15 @@ export async function getIntegrations() {
 export async function updateIntegration(
   channel: 'mercadolibre' | 'facebook' | 'instagram' | 'whatsapp',
   connected: boolean,
-  data?: any
+  data?: any,
+  agencyId?: string
 ) {
+  let targetAgencyId = agencyId;
+  if (!targetAgencyId) {
+    const currentUser = await getCurrentUser();
+    targetAgencyId = currentUser?.agency_id || "00000000-0000-0000-0000-000000000000";
+  }
+
   let username = "";
   let token = "";
   let refreshToken = "";
@@ -710,9 +682,15 @@ export async function updateIntegration(
   }
 
   try {
-    await (supabaseAdmin.from("auto_integrations") as any).upsert({
+    const { data: existing } = await (supabaseAdmin.from("auto_integrations") as any)
+      .select("id")
+      .eq("agency_id", targetAgencyId)
+      .eq("channel", channel)
+      .maybeSingle();
+
+    const payload = {
       channel,
-      agency_id: "00000000-0000-0000-0000-000000000000",
+      agency_id: targetAgencyId,
       connected,
       username,
       token,
@@ -720,7 +698,16 @@ export async function updateIntegration(
       expires_at: channel === 'mercadolibre' && expiresAt > 0 ? expiresAt : null,
       mode: channel === 'mercadolibre' ? mode : null,
       updated_at: new Date().toISOString()
-    }, { onConflict: "channel" });
+    };
+
+    if (existing && existing.id) {
+      await (supabaseAdmin.from("auto_integrations") as any)
+        .update(payload)
+        .eq("id", existing.id);
+    } else {
+      await (supabaseAdmin.from("auto_integrations") as any)
+        .insert([payload]);
+    }
   } catch (e) {
     console.error("Error updating integration in Supabase", e);
   }
@@ -728,17 +715,73 @@ export async function updateIntegration(
   revalidatePath("/admin/integrations");
   revalidatePath("/admin/inbox");
 
-  const updatedIntegrations = await getIntegrations();
+  const updatedIntegrations = await getIntegrations(targetAgencyId);
   return { success: true, integrations: updatedIntegrations };
 }
 
-export async function getVehiclePublications() {
-  const { data, error } = await (supabaseAdmin.from("auto_vehicle_publications") as any).select("*");
+export async function getVehiclePublications(agencyId?: string) {
+  let query = (supabaseAdmin.from("auto_vehicle_publications") as any).select("*");
+  if (agencyId) {
+    query = query.eq("agency_id", agencyId);
+  }
+  const { data, error } = await query;
   if (error) {
     console.error("Error reading vehicle publications from Supabase", error);
     return [];
   }
-  return data || [];
+  if (!data || data.length === 0) return [];
+
+  try {
+    const countMap: Record<string, number> = {};
+
+    // 1. Contar desde auto_publication_comments
+    const { data: commentsData } = await (supabaseAdmin.from("auto_publication_comments") as any).select("publication_id, vehicle_id, channel");
+    if (commentsData && commentsData.length > 0) {
+      for (const c of commentsData) {
+        if (c.publication_id) {
+          countMap[c.publication_id] = (countMap[c.publication_id] || 0) + 1;
+        }
+        if (c.vehicle_id && c.channel) {
+          const key = `${c.channel}-${c.vehicle_id}`;
+          countMap[key] = (countMap[key] || 0) + 1;
+        }
+      }
+    }
+
+    // 2. Contar desde inbox_conversations
+    const { data: inboxConvs } = await (supabaseAdmin.from("inbox_conversations") as any).select("vehicle_id, channel");
+    if (inboxConvs && inboxConvs.length > 0) {
+      for (const conv of inboxConvs) {
+        if (conv.vehicle_id && conv.channel) {
+          const key = `${conv.channel}-${conv.vehicle_id}`;
+          countMap[key] = (countMap[key] || 0) + 1;
+        }
+      }
+    }
+
+    // 3. Contar memoryCommentsStore
+    for (const key of Object.keys(memoryCommentsStore)) {
+      const arr = memoryCommentsStore[key];
+      if (arr && arr.length > 0) {
+        countMap[key] = Math.max(countMap[key] || 0, arr.length);
+      }
+    }
+
+    return data.map((pub: any) => {
+      const pubId = pub.id;
+      const channelKey = `${pub.channel}-${pub.vehicle_id}`;
+      const storedCount = typeof pub.questions_count === 'number' ? pub.questions_count : 0;
+      const calculatedCount = countMap[pubId] || countMap[channelKey] || 0;
+      const realCount = Math.max(storedCount, calculatedCount);
+
+      return {
+        ...pub,
+        questions_count: realCount
+      };
+    });
+  } catch (err) {
+    return data;
+  }
 }
 
 // Helper to refresh MercadoLibre Access Token
@@ -1296,9 +1339,18 @@ export async function importSelectedMLListings(selectedItems: any[]) {
 // INBOX & MESSAGING ACTIONS
 // ==========================================
 
-export async function getInboxConversations() {
-  const { data: dbConvs } = await (supabaseAdmin.from('inbox_conversations') as any).select('*');
+export async function getInboxConversations(agencyId?: string) {
+  let query = (supabaseAdmin.from('inbox_conversations') as any).select('*');
+  if (agencyId) {
+    query = query.eq('agency_id', agencyId);
+  }
+  const { data: dbConvs } = await query;
   let conversations = dbConvs || [];
+
+  const isDemoAgency = !agencyId || agencyId === "00000000-0000-0000-0000-000000000000" || agencyId === "tenant-carmax-001";
+  if (!isDemoAgency && conversations.length === 0) {
+    return [];
+  }
 
   try {
     const integrations = await getIntegrations();
@@ -1695,8 +1747,8 @@ export async function importSocialPost(channel: 'facebook' | 'instagram', postDa
     status: 'published',
     external_id: postData.id,
     external_url: postData.external_url || "#",
-    views: Math.floor(Math.random() * 150) + 10,
-    questions_count: Math.floor(Math.random() * 5),
+    views: 0,
+    questions_count: 0,
     published_at: postData.date || new Date().toISOString()
   };
 
@@ -1726,7 +1778,7 @@ export async function createOrUpdatePublication(params: {
       channel: params.channel,
       status: 'published',
       external_url: params.externalUrl || defaultUrl,
-      views: Math.floor(Math.random() * 20) + 1,
+      views: 0,
       questions_count: 0,
       published_at: new Date().toISOString()
     };
@@ -1764,8 +1816,8 @@ export async function importAndPublishToWeb(params: {
       channel: 'web',
       status: 'published',
       external_url: `/portal/demo/${params.vehicleId}`,
-      views: Math.floor(Math.random() * 45) + 5,
-      questions_count: Math.floor(Math.random() * 3),
+      views: 0,
+      questions_count: 0,
       published_at: new Date().toISOString()
     };
 
@@ -2084,3 +2136,373 @@ export async function syncMetaConversations(channel: "facebook" | "instagram") {
     return { success: false, error: error.message || "Error al sincronizar conversaciones." };
   }
 }
+
+// =========================================================================
+// GESTIÓN DE COMENTARIOS Y CONSULTAS PÚBLICAS DE PUBLICACIONES (IG, FB, ML, WEB)
+// =========================================================================
+
+export interface PublicationComment {
+  id: string;
+  publication_id: string;
+  vehicle_id: string;
+  channel: 'web' | 'mercadolibre' | 'facebook' | 'instagram' | 'whatsapp';
+  author_name: string;
+  author_avatar?: string;
+  text: string;
+  created_at: string;
+  status: 'pending' | 'replied';
+  reply_text?: string;
+  replied_at?: string;
+  external_comment_id?: string;
+}
+
+// Memory cache fallback for demo comments if DB table is initializing
+let memoryCommentsStore: Record<string, PublicationComment[]> = {};
+
+export async function getPublicationComments(publicationId: string, vehicleId: string, channel: string, externalId?: string) {
+  try {
+    const allComments: PublicationComment[] = [];
+    const commentIdSet = new Set<string>();
+
+    // 1. Consultar en Supabase auto_publication_comments por publication_id o vehicle_id
+    const { data: dbData } = await (supabaseAdmin.from("auto_publication_comments") as any)
+      .select("*")
+      .or(`publication_id.eq.${publicationId},and(vehicle_id.eq.${vehicleId},channel.eq.${channel})`)
+      .order("created_at", { ascending: false });
+
+    if (dbData && dbData.length > 0) {
+      for (const item of dbData) {
+        if (!commentIdSet.has(item.id)) {
+          commentIdSet.add(item.id);
+          allComments.push(item as PublicationComment);
+        }
+      }
+    }
+
+    // 2. Consultar conversaciones registradas en inbox_conversations para este vehículo/canal
+    const { data: inboxConvs } = await (supabaseAdmin.from("inbox_conversations") as any)
+      .select("*")
+      .eq("channel", channel);
+
+    if (inboxConvs && inboxConvs.length > 0) {
+      for (const conv of inboxConvs) {
+        const isMatch = conv.vehicle_id === vehicleId || conv.id.includes(vehicleId) || (externalId && conv.id.includes(externalId));
+        if (isMatch && conv.messages && Array.isArray(conv.messages)) {
+          for (const msg of conv.messages) {
+            if (msg.sender === 'lead' || msg.sender === 'user') {
+              const cId = `inbox-msg-${msg.id || conv.id}`;
+              if (!commentIdSet.has(cId)) {
+                commentIdSet.add(cId);
+                const agentReply = conv.messages.find((m: any) => (m.sender === 'agent' || m.sender === 'seller') && new Date(m.time) > new Date(msg.time));
+                allComments.push({
+                  id: cId,
+                  publication_id: publicationId,
+                  vehicle_id: vehicleId,
+                  channel: channel as any,
+                  author_name: conv.lead_name || `Cliente (${channel.toUpperCase()})`,
+                  author_avatar: conv.lead_avatar || (channel === 'facebook' ? 'FB' : channel === 'instagram' ? 'IG' : channel === 'mercadolibre' ? 'ML' : '🌐'),
+                  text: msg.text,
+                  created_at: msg.time || conv.last_message_time || new Date().toISOString(),
+                  status: agentReply ? 'replied' : 'pending',
+                  reply_text: agentReply?.text,
+                  replied_at: agentReply?.time,
+                  external_comment_id: conv.id
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 3. Si hay comentarios guardados en memoria de esta sesión, incluirlos
+    if (memoryCommentsStore[publicationId]) {
+      for (const item of memoryCommentsStore[publicationId]) {
+        if (!commentIdSet.has(item.id)) {
+          commentIdSet.add(item.id);
+          allComments.push(item);
+        }
+      }
+    }
+    const storeKey = `${channel}-${vehicleId}`;
+    if (memoryCommentsStore[storeKey]) {
+      for (const item of memoryCommentsStore[storeKey]) {
+        if (!commentIdSet.has(item.id)) {
+          commentIdSet.add(item.id);
+          allComments.push(item);
+        }
+      }
+    }
+
+    // 3. Obtener preguntas reales de MercadoLibre si es canal MercadoLibre
+    if (channel === 'mercadolibre') {
+      try {
+        const token = await refreshMLToken();
+        if (token) {
+          let url = "";
+          if (externalId) {
+            const itemId = externalId.replace(/^pub-/, "").replace(/^MLA-/, "MLA");
+            url = `https://api.mercadolibre.com/questions/search?item_id=${itemId}`;
+          } else {
+            // Intentar por seller
+            const meRes = await fetch("https://api.mercadolibre.com/users/me", {
+              headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (meRes.ok) {
+              const meData = await meRes.json();
+              if (meData?.id) {
+                url = `https://api.mercadolibre.com/questions/search?seller_id=${meData.id}&limit=50`;
+              }
+            }
+          }
+
+          if (url) {
+            const qRes = await fetch(url, {
+              headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (qRes.ok) {
+              const qData = await qRes.json();
+              const questions = qData.questions || [];
+              for (const q of questions) {
+                const cId = `ml-q-${q.id}`;
+                if (!commentIdSet.has(cId)) {
+                  commentIdSet.add(cId);
+                  allComments.push({
+                    id: cId,
+                    publication_id: publicationId,
+                    vehicle_id: vehicleId,
+                    channel: 'mercadolibre',
+                    author_name: q.from?.nickname || `Usuario ML (${q.from?.id || 'anon'})`,
+                    author_avatar: 'ML',
+                    text: q.text,
+                    created_at: new Date(q.date_created).toISOString(),
+                    status: q.answer ? 'replied' : 'pending',
+                    reply_text: q.answer?.text,
+                    replied_at: q.answer?.date_created ? new Date(q.answer.date_created).toISOString() : undefined,
+                    external_comment_id: q.id.toString()
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch (mlErr) {
+        console.error("Error al consultar preguntas reales de MercadoLibre:", mlErr);
+      }
+    }
+
+    // 4. Obtener comentarios reales de Meta (Facebook / Instagram) si está conectado
+    if ((channel === 'facebook' || channel === 'instagram') && externalId) {
+      try {
+        const integrations = await getIntegrations();
+        const integration = channel === 'facebook' ? integrations.facebook : integrations.instagram;
+        if (integration && integration.connected && integration.token) {
+          const postId = externalId.replace(/^(fb-post-|ig-ad-|pub-)/, "");
+          const res = await fetch(`https://graph.facebook.com/v20.0/${postId}/comments?fields=id,from,username,message,text,created_time,timestamp,comments,replies&access_token=${integration.token}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.data && Array.isArray(data.data)) {
+              for (const item of data.data) {
+                const cId = `meta-c-${item.id}`;
+                if (!commentIdSet.has(cId)) {
+                  commentIdSet.add(cId);
+                  allComments.push({
+                    id: cId,
+                    publication_id: publicationId,
+                    vehicle_id: vehicleId,
+                    channel: channel as any,
+                    author_name: item.from?.name || item.username || item.from?.username || `Usuario ${channel.toUpperCase()}`,
+                    author_avatar: channel === 'facebook' ? 'FB' : 'IG',
+                    text: item.message || item.text || "",
+                    created_at: item.created_time || item.timestamp || new Date().toISOString(),
+                    status: (item.comments?.data?.length || item.replies?.data?.length) ? 'replied' : 'pending',
+                    reply_text: item.comments?.data?.[0]?.message || item.replies?.data?.[0]?.text,
+                    external_comment_id: item.id
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch (metaErr) {
+        console.error(`Error al consultar comentarios reales de ${channel}:`, metaErr);
+      }
+    }
+
+    return allComments;
+  } catch (err: any) {
+    console.error("Error en getPublicationComments:", err);
+    return memoryCommentsStore[publicationId] || [];
+  }
+}
+
+export async function replyToPublicationComment(params: {
+  commentId: string;
+  publicationId: string;
+  replyText: string;
+  channel: string;
+  externalCommentId?: string;
+}) {
+  try {
+    const { commentId, publicationId, replyText, channel, externalCommentId } = params;
+    const nowStr = new Date().toISOString();
+
+    if (channel === 'mercadolibre' && externalCommentId && !externalCommentId.startsWith('ml-q-10')) {
+      const integrations = await getIntegrations();
+      const ml = integrations.mercadolibre;
+      if (ml && ml.connected && ml.mode === "production") {
+        const token = await refreshMLToken();
+        if (token) {
+          try {
+            await fetch("https://api.mercadolibre.com/answers", {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${token}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                question_id: Number(externalCommentId),
+                text: replyText
+              })
+            });
+          } catch (e) {
+            console.error("Fallo llamada a API de respuestas ML:", e);
+          }
+        }
+      }
+    }
+
+    if ((channel === 'facebook' || channel === 'instagram') && externalCommentId && !externalCommentId.startsWith('ig-c-') && !externalCommentId.startsWith('fb-c-')) {
+      try {
+        const integrations = await getIntegrations();
+        const integration = channel === 'facebook' ? integrations.facebook : integrations.instagram;
+        if (integration && integration.connected && integration.token) {
+          await fetch(`https://graph.facebook.com/v20.0/${externalCommentId}/comments?access_token=${integration.token}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: replyText })
+          });
+        }
+      } catch (e) {
+        console.error(`Fallo respuesta a comentario de ${channel}:`, e);
+      }
+    }
+
+    if (memoryCommentsStore[publicationId]) {
+      memoryCommentsStore[publicationId] = memoryCommentsStore[publicationId].map(c => {
+        if (c.id === commentId) {
+          return {
+            ...c,
+            status: 'replied',
+            reply_text: replyText,
+            replied_at: nowStr
+          };
+        }
+        return c;
+      });
+    }
+
+    try {
+      await (supabaseAdmin.from("auto_publication_comments") as any)
+        .update({
+          status: 'replied',
+          reply_text: replyText,
+          replied_at: nowStr
+        })
+        .eq("id", commentId);
+    } catch (e) {}
+
+    try {
+      const { data: pubData } = await (supabaseAdmin.from("auto_vehicle_publications") as any)
+        .select("questions_count")
+        .eq("id", publicationId)
+        .single();
+      
+      if (pubData) {
+        await (supabaseAdmin.from("auto_vehicle_publications") as any)
+          .update({ questions_count: (pubData.questions_count || 0) + 1 })
+          .eq("id", publicationId);
+      }
+    } catch (e) {}
+
+    revalidatePath("/admin/publications");
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error al responder comentario:", err);
+    return { success: false, error: err.message || "No se pudo enviar la respuesta." };
+  }
+}
+
+export async function generateAICommentReply(params: {
+  commentText: string;
+  vehicle: {
+    brand: string;
+    model: string;
+    year: number;
+    price: number;
+    currency: string;
+    fuel?: string;
+    transmission?: string;
+    kms?: number;
+  };
+}) {
+  const { commentText, vehicle } = params;
+  const lower = commentText.toLowerCase();
+
+  let response = `¡Hola! Gracias por consultar sobre el ${vehicle.brand} ${vehicle.model} (${vehicle.year}). `;
+
+  if (lower.includes("precio") || lower.includes("cuanto") || lower.includes("valor")) {
+    response += `El precio contado es de ${vehicle.currency} ${vehicle.price.toLocaleString()}. Te podemos ofrecer opciones de financiación personalizada. `;
+  } else if (lower.includes("km") || lower.includes("kilometros") || lower.includes("kilometraje")) {
+    response += `Cuenta actualmente con ${vehicle.kms ? vehicle.kms.toLocaleString() + ' kms' : 'excelente kilometraje original'}. `;
+  } else if (lower.includes("permuta") || lower.includes("tomo") || lower.includes("toman") || lower.includes("entrego")) {
+    response += `Sí, tomamos tu vehículo usado como parte de pago al mejor valor de plaza. `;
+  } else if (lower.includes("financiacion") || lower.includes("credito") || lower.includes("cuota")) {
+    response += `Contamos con financiación flexible de la casa y 100% bancaria hasta en 60 cuotas. `;
+  } else if (lower.includes("donde") || lower.includes("ubicacion") || lower.includes("ver") || lower.includes("prob")) {
+    response += `Puedes coordinar una visita y test drive en nuestro showroom. `;
+  } else {
+    response += `El vehículo se encuentra en excelente estado general y listo para transferir. `;
+  }
+
+  response += `¿Te gustaría agendar una prueba de manejo o enviarnos un WhatsApp para darte más detalles?`;
+
+  return { success: true, suggestedReply: response };
+}
+
+export async function addPublicationComment(params: {
+  publicationId: string;
+  vehicleId: string;
+  channel: 'web' | 'mercadolibre' | 'facebook' | 'instagram' | 'whatsapp';
+  authorName: string;
+  text: string;
+}) {
+  try {
+    const newComment: PublicationComment = {
+      id: `comment-custom-${Date.now()}`,
+      publication_id: params.publicationId,
+      vehicle_id: params.vehicleId,
+      channel: params.channel,
+      author_name: params.authorName || "Cliente",
+      author_avatar: params.channel === 'facebook' ? 'FB' : params.channel === 'instagram' ? 'IG' : params.channel === 'mercadolibre' ? 'ML' : '🌐',
+      text: params.text,
+      created_at: new Date().toISOString(),
+      status: 'pending'
+    };
+
+    if (!memoryCommentsStore[params.publicationId]) {
+      memoryCommentsStore[params.publicationId] = [];
+    }
+    memoryCommentsStore[params.publicationId].unshift(newComment);
+
+    try {
+      await (supabaseAdmin.from("auto_publication_comments") as any).insert([newComment]);
+    } catch (e) {}
+
+    revalidatePath("/admin/publications");
+    return { success: true, comment: newComment };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+

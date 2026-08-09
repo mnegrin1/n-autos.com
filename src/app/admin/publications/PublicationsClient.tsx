@@ -1,10 +1,19 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import { Link2, ExternalLink, Eye, MessageSquare, Car, Plus, RefreshCw, X, Check, Share2, Globe, Download, Sparkles } from "lucide-react";
+import { Link2, ExternalLink, Eye, MessageSquare, Car, Plus, RefreshCw, X, Check, Share2, Globe, Download, Sparkles, Send, Bot, Filter, MessageCircle, User, Clock, CheckCircle2, AlertCircle, CornerDownRight } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createOrUpdatePublication, importAndPublishToWeb, importSocialPost } from "@/actions/autoActions";
+import { 
+  createOrUpdatePublication, 
+  importAndPublishToWeb, 
+  importSocialPost, 
+  getPublicationComments, 
+  replyToPublicationComment, 
+  generateAICommentReply, 
+  addPublicationComment, 
+  PublicationComment 
+} from "@/actions/autoActions";
 
 interface Vehicle {
   id: string;
@@ -96,7 +105,146 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importingPostId, setImportingPostId] = useState<string | null>(null);
 
+  // Modal / Drawer "Comentarios y Consultas de Publicación" State
+  const [selectedPubForComments, setSelectedPubForComments] = useState<Publication | null>(null);
+  const [comments, setComments] = useState<PublicationComment[]>([]);
+  const [isLoadingComments, setIsLoadingComments] = useState(false);
+  const [commentFilter, setCommentFilter] = useState<'all' | 'pending' | 'replied'>('all');
+  const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
+  const [sendingReplyId, setSendingReplyId] = useState<string | null>(null);
+  const [generatingAiId, setGeneratingAiId] = useState<string | null>(null);
+
+  // Modal para agregar consulta de prueba
+  const [isAddCommentOpen, setIsAddCommentOpen] = useState(false);
+  const [newCommentText, setNewCommentText] = useState("");
+  const [newCommentAuthor, setNewCommentAuthor] = useState("");
+  const [isSubmittingNewComment, setIsSubmittingNewComment] = useState(false);
+
   const [isPending, startTransition] = useTransition();
+
+  // Handlers para la gestión de comentarios
+  const handleOpenComments = async (pub: Publication) => {
+    setSelectedPubForComments(pub);
+    setIsLoadingComments(true);
+    const pubId = pub.id || `${pub.channel}-${pub.vehicle_id}`;
+    try {
+      const data = await getPublicationComments(pubId, pub.vehicle_id, pub.channel, pub.external_id);
+      setComments(data);
+    } catch (err) {
+      console.error("Error al cargar comentarios:", err);
+    } finally {
+      setIsLoadingComments(false);
+    }
+  };
+
+  const handleSendReply = async (comment: PublicationComment) => {
+    const text = replyTexts[comment.id]?.trim();
+    if (!text) {
+      alert("Por favor escribe una respuesta antes de enviar.");
+      return;
+    }
+
+    setSendingReplyId(comment.id);
+    const pubId = selectedPubForComments?.id || `${selectedPubForComments?.channel}-${selectedPubForComments?.vehicle_id}`;
+
+    try {
+      const res = await replyToPublicationComment({
+        commentId: comment.id,
+        publicationId: pubId,
+        replyText: text,
+        channel: comment.channel,
+        externalCommentId: comment.external_comment_id
+      });
+
+      if (res.success) {
+        const nowStr = new Date().toISOString();
+        setComments(prev => prev.map(c => {
+          if (c.id === comment.id) {
+            return {
+              ...c,
+              status: 'replied',
+              reply_text: text,
+              replied_at: nowStr
+            };
+          }
+          return c;
+        }));
+
+        setPublications(prev => prev.map(p => {
+          const match = p.id ? p.id === pubId : (p.vehicle_id === selectedPubForComments?.vehicle_id && p.channel === selectedPubForComments?.channel);
+          if (match) {
+            return { ...p, questions_count: (p.questions_count || 0) + 1 };
+          }
+          return p;
+        }));
+
+        setReplyTexts(prev => ({ ...prev, [comment.id]: "" }));
+      } else {
+        alert(`Error al enviar respuesta: ${res.error || 'Intenta de nuevo'}`);
+      }
+    } catch (err: any) {
+      alert("Error al enviar respuesta: " + err.message);
+    } finally {
+      setSendingReplyId(null);
+    }
+  };
+
+  const handleGenerateAiReply = async (comment: PublicationComment) => {
+    if (!selectedPubForComments) return;
+    const v = vehicles.find(v => v.id === selectedPubForComments.vehicle_id);
+    if (!v) return;
+
+    setGeneratingAiId(comment.id);
+    try {
+      const res = await generateAICommentReply({
+        commentText: comment.text,
+        vehicle: {
+          brand: v.brand,
+          model: v.model,
+          year: v.year,
+          price: v.price,
+          currency: v.currency
+        }
+      });
+
+      if (res.success && res.suggestedReply) {
+        setReplyTexts(prev => ({ ...prev, [comment.id]: res.suggestedReply }));
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setGeneratingAiId(null);
+    }
+  };
+
+  const handleAddCommentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPubForComments || !newCommentText.trim()) return;
+    setIsSubmittingNewComment(true);
+
+    const pubId = selectedPubForComments.id || `${selectedPubForComments.channel}-${selectedPubForComments.vehicle_id}`;
+
+    try {
+      const res = await addPublicationComment({
+        publicationId: pubId,
+        vehicleId: selectedPubForComments.vehicle_id,
+        channel: selectedPubForComments.channel,
+        authorName: newCommentAuthor.trim() || (selectedPubForComments.channel === 'instagram' ? '@usuario_ig' : selectedPubForComments.channel === 'facebook' ? 'Usuario FB' : selectedPubForComments.channel === 'mercadolibre' ? 'COMPRADOR_ML' : 'Cliente Web'),
+        text: newCommentText.trim()
+      });
+
+      if (res.success && res.comment) {
+        setComments(prev => [res.comment!, ...prev]);
+        setNewCommentText("");
+        setNewCommentAuthor("");
+        setIsAddCommentOpen(false);
+      }
+    } catch (err: any) {
+      alert("Error al agregar consulta: " + err.message);
+    } finally {
+      setIsSubmittingNewComment(false);
+    }
+  };
 
   // Keep state in sync with server props
   useEffect(() => {
@@ -268,19 +416,24 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
   const selectedVehicle = vehicles.find(v => v.id === selectedVehicleId);
 
   return (
-    <div style={{ padding: "1.5rem" }}>
-      {/* Banner Superior Unificado sin esquinas redondeadas */}
+    <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
+      {/* UNIFIED SINGLE BLOCK CONTAINER OVER BACKGROUND */}
       <div style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "1.25rem",
-        padding: "1.5rem",
         backgroundColor: "var(--surface-color)",
         border: "1px solid var(--border-color)",
-        borderRadius: 0,
-        boxShadow: "var(--shadow-sm)",
-        marginBottom: "1.5rem"
+        borderRadius: "16px",
+        overflow: "hidden",
+        boxShadow: "var(--shadow-sm)"
       }}>
+        {/* Banner Superior Unificado */}
+        <div style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "1.25rem",
+          padding: "1.5rem",
+          backgroundColor: "var(--surface-color)",
+          borderBottom: "1px solid var(--border-color)"
+        }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
           <div>
             <h1 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-color)", margin: "0 0 0.25rem 0" }}>
@@ -434,7 +587,7 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
       </div>
 
       {/* Publications List */}
-      <div style={{ display: "grid", gap: "1rem" }}>
+      <div style={{ padding: "1.5rem", display: "grid", gap: "1rem" }}>
         {filteredPubs.length === 0 ? (
           <div style={{ 
             textAlign: "center", 
@@ -518,19 +671,36 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
                   </div>
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
-                  <div style={{ display: "flex", gap: "1.25rem", color: "var(--text-color)", opacity: 0.7 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }} title="Visitas">
+                <div style={{ display: "flex", alignItems: "center", gap: "1.25rem" }}>
+                  <div style={{ display: "flex", gap: "1rem", color: "var(--text-color)", opacity: 0.85 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }} title="Visitas">
                       <Eye size={16} />
                       <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>{pub.views || 0}</span>
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }} title="Consultas / Preguntas">
-                      <MessageSquare size={16} />
-                      <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>{pub.questions_count || 0}</span>
                     </div>
                   </div>
 
                   <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                    <button
+                      onClick={() => handleOpenComments(pub)}
+                      title="Abrir comentarios y preguntas de esta publicación"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.4rem",
+                        padding: "0.45rem 0.85rem",
+                        backgroundColor: "rgba(37, 99, 235, 0.12)",
+                        border: "1px solid rgba(37, 99, 235, 0.3)",
+                        borderRadius: "6px",
+                        color: "var(--primary)",
+                        fontSize: "0.82rem",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        transition: "all 0.2s ease"
+                      }}
+                    >
+                      <MessageSquare size={15} />
+                      <span>{pub.questions_count || 0} Comentarios</span>
+                    </button>
                     {/* Botón 1-Clic: Publicar en Página Web (si proviene de red social / ML) */}
                     {pub.channel !== 'web' && !isAlreadyOnWeb && (
                       <button
@@ -1006,6 +1176,432 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
           </div>
         </div>
       )}
+
+      {/* MODAL 3: GESTIÓN DE COMENTARIOS Y CONSULTAS DE PUBLICACIÓN */}
+      {selectedPubForComments && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.7)",
+          backdropFilter: "blur(6px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1100,
+          padding: "1rem"
+        }}>
+          <div style={{
+            backgroundColor: "var(--surface-color)",
+            borderRadius: "16px",
+            width: "100%",
+            maxWidth: "780px",
+            maxHeight: "90vh",
+            display: "flex",
+            flexDirection: "column",
+            border: "1px solid var(--border-color)",
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+            overflow: "hidden"
+          }}>
+            {/* Header */}
+            {(() => {
+              const currentVehicle = vehicles.find(v => v.id === selectedPubForComments.vehicle_id);
+              const channelBadge = selectedPubForComments.channel === 'web' ? { name: '🌐 Página Web', bg: '#10B981', color: '#fff' }
+                : selectedPubForComments.channel === 'mercadolibre' ? { name: 'MercadoLibre (Pregunta Pública)', bg: '#FFE600', color: '#333' }
+                : selectedPubForComments.channel === 'instagram' ? { name: 'Instagram (Comentario)', bg: '#E1306C', color: '#fff' }
+                : { name: 'Facebook (Comentario)', bg: '#1877F2', color: '#fff' };
+
+              const filteredComments = comments.filter(c => {
+                if (commentFilter === 'pending') return c.status === 'pending';
+                if (commentFilter === 'replied') return c.status === 'replied';
+                return true;
+              });
+
+              const pendingCount = comments.filter(c => c.status === 'pending').length;
+              const repliedCount = comments.filter(c => c.status === 'replied').length;
+
+              return (
+                <>
+                  <div style={{
+                    padding: "1.25rem 1.5rem",
+                    borderBottom: "1px solid var(--border-color)",
+                    backgroundColor: "var(--bg-color)",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    gap: "1rem"
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                      {currentVehicle?.images && currentVehicle.images[0] ? (
+                        <img src={currentVehicle.images[0]} alt="" style={{ width: "55px", height: "55px", objectFit: "cover", borderRadius: "10px" }} />
+                      ) : (
+                        <div style={{ width: "55px", height: "55px", backgroundColor: "var(--border-color)", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <Car size={24} opacity={0.5} />
+                        </div>
+                      )}
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+                          <h2 style={{ fontSize: "1.2rem", fontWeight: 800, margin: 0, color: "var(--text-color)" }}>
+                            {currentVehicle ? `${currentVehicle.brand} ${currentVehicle.model} (${currentVehicle.year})` : 'Vehículo'}
+                          </h2>
+                          <span style={{
+                            fontSize: "0.72rem",
+                            padding: "0.2rem 0.6rem",
+                            borderRadius: "6px",
+                            backgroundColor: channelBadge.bg,
+                            color: channelBadge.color,
+                            fontWeight: 800,
+                            textTransform: "uppercase"
+                          }}>
+                            {channelBadge.name}
+                          </span>
+                        </div>
+                        <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.85rem", color: "var(--text-color)", opacity: 0.7 }}>
+                          Gestión y respuesta de comentarios y consultas públicas de la publicación
+                        </p>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <button
+                        onClick={() => setIsAddCommentOpen(!isAddCommentOpen)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.35rem",
+                          padding: "0.45rem 0.8rem",
+                          backgroundColor: "var(--primary-light)",
+                          color: "var(--primary)",
+                          border: "none",
+                          borderRadius: "6px",
+                          fontSize: "0.8rem",
+                          fontWeight: 600,
+                          cursor: "pointer"
+                        }}
+                      >
+                        <Plus size={15} /> Nueva Consulta
+                      </button>
+                      <button
+                        onClick={() => setSelectedPubForComments(null)}
+                        style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-color)", opacity: 0.6, padding: "0.3rem" }}
+                      >
+                        <X size={22} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Formulario rápido para agregar consulta de prueba */}
+                  {isAddCommentOpen && (
+                    <form onSubmit={handleAddCommentSubmit} style={{
+                      padding: "1rem 1.5rem",
+                      backgroundColor: "rgba(37, 99, 235, 0.05)",
+                      borderBottom: "1px solid var(--border-color)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "0.75rem"
+                    }}>
+                      <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--primary)" }}>
+                        Simular nueva consulta o comentario de un cliente:
+                      </div>
+                      <div style={{ display: "flex", gap: "0.75rem" }}>
+                        <input
+                          type="text"
+                          placeholder="Nombre del usuario (ej: @juan_autos)"
+                          value={newCommentAuthor}
+                          onChange={(e) => setNewCommentAuthor(e.target.value)}
+                          style={{
+                            width: "220px",
+                            padding: "0.45rem 0.75rem",
+                            borderRadius: "6px",
+                            border: "1px solid var(--border-color)",
+                            fontSize: "0.82rem",
+                            backgroundColor: "var(--bg-color)",
+                            color: "var(--text-color)"
+                          }}
+                        />
+                        <input
+                          type="text"
+                          placeholder="Escribe la pregunta pública..."
+                          value={newCommentText}
+                          onChange={(e) => setNewCommentText(e.target.value)}
+                          style={{
+                            flex: 1,
+                            padding: "0.45rem 0.75rem",
+                            borderRadius: "6px",
+                            border: "1px solid var(--border-color)",
+                            fontSize: "0.82rem",
+                            backgroundColor: "var(--bg-color)",
+                            color: "var(--text-color)"
+                          }}
+                          required
+                        />
+                        <button
+                          type="submit"
+                          disabled={isSubmittingNewComment}
+                          style={{
+                            padding: "0.45rem 1rem",
+                            backgroundColor: "var(--primary)",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: "6px",
+                            fontSize: "0.82rem",
+                            fontWeight: 600,
+                            cursor: "pointer"
+                          }}
+                        >
+                          {isSubmittingNewComment ? "Guardando..." : "Agregar"}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {/* Tabs de Filtro */}
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "0.75rem 1.5rem",
+                    borderBottom: "1px solid var(--border-color)",
+                    backgroundColor: "var(--surface-color)"
+                  }}>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      {[
+                        { id: 'all', label: `Todas (${comments.length})` },
+                        { id: 'pending', label: `Pendientes (${pendingCount})` },
+                        { id: 'replied', label: `Respondidas (${repliedCount})` }
+                      ].map(tab => (
+                        <button
+                          key={tab.id}
+                          onClick={() => setCommentFilter(tab.id as any)}
+                          style={{
+                            padding: "0.35rem 0.75rem",
+                            borderRadius: "6px",
+                            border: "none",
+                            backgroundColor: commentFilter === tab.id ? "var(--primary)" : "transparent",
+                            color: commentFilter === tab.id ? "#fff" : "var(--text-color)",
+                            fontWeight: commentFilter === tab.id ? 700 : 500,
+                            fontSize: "0.8rem",
+                            cursor: "pointer"
+                          }}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div style={{ fontSize: "0.8rem", color: "var(--text-color)", opacity: 0.6 }}>
+                      {comments.length} consultas registradas
+                    </div>
+                  </div>
+
+                  {/* Lista de Comentarios */}
+                  <div style={{
+                    flex: 1,
+                    overflowY: "auto",
+                    padding: "1.5rem",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "1.25rem",
+                    backgroundColor: "var(--bg-color)"
+                  }}>
+                    {isLoadingComments ? (
+                      <div style={{ textAlign: "center", padding: "3rem", color: "var(--text-color)", opacity: 0.6 }}>
+                        <RefreshCw size={24} className="spin-animation" style={{ marginBottom: "0.5rem" }} />
+                        <div>Cargando comentarios...</div>
+                      </div>
+                    ) : filteredComments.length === 0 ? (
+                      <div style={{ textAlign: "center", padding: "3rem", backgroundColor: "var(--surface-color)", borderRadius: "12px", border: "1px dashed var(--border-color)" }}>
+                        <MessageSquare size={32} opacity={0.3} style={{ marginBottom: "0.5rem" }} />
+                        <p style={{ color: "var(--text-color)", opacity: 0.7, margin: 0, fontWeight: 500 }}>
+                          No hay comentarios en este filtro.
+                        </p>
+                      </div>
+                    ) : (
+                      filteredComments.map(comment => {
+                        const isReplied = comment.status === 'replied';
+                        const timeAgo = new Date(comment.created_at).toLocaleDateString("es-ES", {
+                          day: "numeric",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit"
+                        });
+
+                        return (
+                          <div
+                            key={comment.id}
+                            style={{
+                              backgroundColor: "var(--surface-color)",
+                              borderRadius: "12px",
+                              border: "1px solid var(--border-color)",
+                              padding: "1.25rem",
+                              boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "0.85rem"
+                            }}
+                          >
+                            {/* Header del Comentario */}
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                                <div style={{
+                                  width: "34px",
+                                  height: "34px",
+                                  borderRadius: "50%",
+                                  backgroundColor: comment.channel === 'mercadolibre' ? '#FFE600' : comment.channel === 'instagram' ? '#E1306C' : comment.channel === 'facebook' ? '#1877F2' : '#10B981',
+                                  color: comment.channel === 'mercadolibre' ? '#333' : '#fff',
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontWeight: 800,
+                                  fontSize: "0.75rem"
+                                }}>
+                                  {comment.author_avatar || 'U'}
+                                </div>
+                                <div>
+                                  <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "var(--text-color)" }}>
+                                    {comment.author_name}
+                                  </div>
+                                  <div style={{ fontSize: "0.75rem", color: "var(--text-color)", opacity: 0.6, display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                                    <Clock size={12} /> {timeAgo}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <span style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "0.3rem",
+                                fontSize: "0.75rem",
+                                padding: "0.2rem 0.6rem",
+                                borderRadius: "20px",
+                                backgroundColor: isReplied ? "rgba(16, 185, 129, 0.15)" : "rgba(245, 158, 11, 0.15)",
+                                color: isReplied ? "#10B981" : "#F59E0B",
+                                fontWeight: 700
+                              }}>
+                                {isReplied ? (
+                                  <><CheckCircle2 size={13} /> Respondido</>
+                                ) : (
+                                  <><AlertCircle size={13} /> Pendiente</>
+                                )}
+                              </span>
+                            </div>
+
+                            {/* Texto del comentario del cliente */}
+                            <div style={{
+                              fontSize: "0.92rem",
+                              color: "var(--text-color)",
+                              lineHeight: 1.45,
+                              fontWeight: 500,
+                              paddingLeft: "0.2rem"
+                            }}>
+                              "{comment.text}"
+                            </div>
+
+                            {/* Respuesta Existente del Vendedor */}
+                            {isReplied && comment.reply_text && (
+                              <div style={{
+                                marginTop: "0.25rem",
+                                padding: "0.85rem 1rem",
+                                backgroundColor: "var(--bg-color)",
+                                borderRadius: "8px",
+                                borderLeft: "3px solid var(--primary)",
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "0.35rem"
+                              }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.78rem", fontWeight: 700, color: "var(--primary)" }}>
+                                  <CornerDownRight size={14} /> Respuesta de la Automotora
+                                </div>
+                                <div style={{ fontSize: "0.88rem", color: "var(--text-color)", lineHeight: 1.4 }}>
+                                  {comment.reply_text}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Área de Entrada para Responder */}
+                            <div style={{
+                              marginTop: "0.5rem",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "0.6rem"
+                            }}>
+                              <textarea
+                                rows={2}
+                                placeholder={isReplied ? "Modificar o enviar una nueva respuesta..." : "Escribe una respuesta pública..."}
+                                value={replyTexts[comment.id] || ""}
+                                onChange={(e) => setReplyTexts(prev => ({ ...prev, [comment.id]: e.target.value }))}
+                                style={{
+                                  width: "100%",
+                                  padding: "0.65rem 0.85rem",
+                                  borderRadius: "8px",
+                                  border: "1px solid var(--border-color)",
+                                  backgroundColor: "var(--bg-color)",
+                                  color: "var(--text-color)",
+                                  fontSize: "0.85rem",
+                                  fontFamily: "inherit",
+                                  resize: "vertical",
+                                  outline: "none"
+                                }}
+                              />
+
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleGenerateAiReply(comment)}
+                                  disabled={generatingAiId === comment.id}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "0.35rem",
+                                    padding: "0.4rem 0.75rem",
+                                    backgroundColor: "rgba(139, 92, 246, 0.12)",
+                                    color: "#8B5CF6",
+                                    border: "1px solid rgba(139, 92, 246, 0.3)",
+                                    borderRadius: "6px",
+                                    fontSize: "0.78rem",
+                                    fontWeight: 700,
+                                    cursor: generatingAiId === comment.id ? "not-allowed" : "pointer"
+                                  }}
+                                >
+                                  <Sparkles size={14} className={generatingAiId === comment.id ? "spin-animation" : ""} />
+                                  {generatingAiId === comment.id ? "Generando con IA..." : "Sugerir con IA 🪄"}
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleSendReply(comment)}
+                                  disabled={sendingReplyId === comment.id || !replyTexts[comment.id]?.trim()}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "0.4rem",
+                                    padding: "0.45rem 1rem",
+                                    backgroundColor: "var(--primary)",
+                                    color: "#fff",
+                                    border: "none",
+                                    borderRadius: "6px",
+                                    fontSize: "0.82rem",
+                                    fontWeight: 700,
+                                    cursor: sendingReplyId === comment.id || !replyTexts[comment.id]?.trim() ? "not-allowed" : "pointer",
+                                    opacity: sendingReplyId === comment.id || !replyTexts[comment.id]?.trim() ? 0.6 : 1
+                                  }}
+                                >
+                                  <Send size={14} />
+                                  {sendingReplyId === comment.id ? "Enviando..." : "Responder"}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+      </div>
 
       {/* Global CSS helper for spinning refresh icon */}
       <style jsx global>{`

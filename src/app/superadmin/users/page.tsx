@@ -9,37 +9,24 @@ import {
   FeatureDefinition, 
   UserFeatureOverrideState 
 } from "@/lib/featureFlagsStore";
-import { Plus, Search, ShieldAlert, Mail, Sliders, X, Check, Globe } from "lucide-react";
+import { getRegisteredUsers, subscribeSuperAdminStore, deleteRegisteredUser, SuperAdminUser } from "@/lib/superadminStore";
+import { Plus, Search, ShieldAlert, Mail, Sliders, X, Check, Globe, Trash2 } from "lucide-react";
 
 export default function SuperAdminUsers() {
-  const [users, setUsers] = useState([
-    {
-      id: "1",
-      name: "Mauricio Negrin",
-      email: "mauricio@automotora.com",
-      agency: "Test-Automotora",
-      role: "Admin (Agencia)",
-      status: "active",
-      createdAt: "18 Jul 2026"
-    },
-    {
-      id: "2",
-      name: "Admin Principal",
-      email: "admin@n-sistemas.com",
-      agency: "N-Sistemas (Plataforma)",
-      role: "Superadmin",
-      status: "active",
-      createdAt: "1 Ene 2026"
-    }
-  ]);
+  const [users, setUsers] = useState<SuperAdminUser[]>([]);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedUser, setSelectedUser] = useState<typeof users[0] | null>(null);
+  const [selectedUser, setSelectedUser] = useState<SuperAdminUser | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [features, setFeatures] = useState<FeatureDefinition[]>([]);
   const [userOverrides, setUserOverrides] = useState<Record<string, Record<string, UserFeatureOverrideState>>>({});
 
   useEffect(() => {
+    setUsers(getRegisteredUsers());
+    const unsubStore = subscribeSuperAdminStore(() => {
+      setUsers(getRegisteredUsers());
+    });
+
     setFeatures(getGlobalFeatures());
     setUserOverrides(getUserOverrides());
 
@@ -47,8 +34,21 @@ export default function SuperAdminUsers() {
       setFeatures(getGlobalFeatures());
       setUserOverrides(getUserOverrides());
     });
-    return () => unsubscribe();
+
+    return () => {
+      unsubStore();
+      unsubscribe();
+    };
   }, []);
+
+  const handleDeleteUser = (user: SuperAdminUser) => {
+    if (confirm(`¿Estás seguro de eliminar al usuario ${user.name} (${user.email})?`)) {
+      deleteRegisteredUser(user.id);
+      deleteRegisteredUser(user.email);
+      setUsers(getRegisteredUsers());
+    }
+  };
+
 
   const handleOpenUserFeatures = (user: typeof users[0]) => {
     setSelectedUser(user);
@@ -191,6 +191,25 @@ export default function SuperAdminUsers() {
                         }}
                       >
                         <Sliders size={14} /> Funcionalidades
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteUser(user)}
+                        title="Eliminar usuario"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.4rem",
+                          backgroundColor: "rgba(239, 68, 68, 0.1)",
+                          color: "#ef4444",
+                          border: "none",
+                          padding: "0.45rem 0.75rem",
+                          borderRadius: "8px",
+                          fontSize: "0.8rem",
+                          fontWeight: 700,
+                          cursor: "pointer"
+                        }}
+                      >
+                        <Trash2 size={14} /> Eliminar
                       </button>
                     </div>
                   </td>

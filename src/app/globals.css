@@ -293,3 +293,23 @@ html.bg-pattern-gradient body::before {
   50% { background-position: 100% 100%, 0% 50%, 50% 0%; }
   100% { background-position: 0% 100%, 50% 100%, 100% 0%; }
 }
+
+/* --- TEMPLATE FONT ENFORCEMENT RULES FOR PORTAL SHOWROOM --- */
+.tmpl-luxury, .tmpl-luxury *, .tmpl-luxury h1, .tmpl-luxury h2, .tmpl-luxury h3, .tmpl-luxury h4, .tmpl-luxury p, .tmpl-luxury span {
+  font-family: 'Cinzel', serif !important;
+}
+.tmpl-sport, .tmpl-sport *, .tmpl-sport h1, .tmpl-sport h2, .tmpl-sport h3, .tmpl-sport h4, .tmpl-sport p, .tmpl-sport span {
+  font-family: 'Space Grotesk', sans-serif !important;
+}
+.tmpl-editorial, .tmpl-editorial *, .tmpl-editorial h1, .tmpl-editorial h2, .tmpl-editorial h3, .tmpl-editorial h4, .tmpl-editorial p, .tmpl-editorial span {
+  font-family: 'Syne', sans-serif !important;
+}
+.tmpl-tech, .tmpl-tech *, .tmpl-tech h1, .tmpl-tech h2, .tmpl-tech h3, .tmpl-tech h4, .tmpl-tech p, .tmpl-tech span {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+}
+.tmpl-glassmorphism, .tmpl-glassmorphism *, .tmpl-glassmorphism h1, .tmpl-glassmorphism h2, .tmpl-glassmorphism h3, .tmpl-glassmorphism h4, .tmpl-glassmorphism p, .tmpl-glassmorphism span {
+  font-family: 'Outfit', sans-serif !important;
+}
+.tmpl-standard, .tmpl-standard *, .tmpl-standard h1, .tmpl-standard h2, .tmpl-standard h3, .tmpl-standard h4, .tmpl-standard p, .tmpl-standard span {
+  font-family: 'Inter', sans-serif !important;
+}

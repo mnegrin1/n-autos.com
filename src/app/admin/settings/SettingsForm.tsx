@@ -3,10 +3,14 @@
 import { useState, useTransition, useEffect } from "react";
 import styles from "./settings.module.css";
 import { updateAgencySettings } from "@/actions/agencyActions";
-import { Save, CheckCircle, Palette, Users, Settings as SettingsIcon, Globe, Sparkles, Monitor, Smartphone, LayoutGrid, Check } from "lucide-react";
+import { updateTenantAgencyName } from "@/lib/tenantStore";
+import { Save, CheckCircle, Palette, Users, Settings as SettingsIcon, Globe, Sparkles, Monitor, Smartphone, LayoutGrid, Check, Lock, ShieldAlert } from "lucide-react";
+import BrandingRequestModal from "@/components/BrandingRequestModal";
+import { getPendingBrandingRequest, subscribeBrandingRequestStore, BrandingChangeRequest } from "@/lib/brandingRequestStore";
 import IntegrationsClient from "../integrations/IntegrationsClient";
 import UsersList from "./UsersList";
 import EmailDomainSettings from "./EmailDomainSettings";
+import ChangePasswordModal from "@/components/ChangePasswordModal";
 
 interface Agency {
   id: string;
@@ -145,6 +149,20 @@ export default function SettingsForm({
 
   // Preview Mode State
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
+
+  // Anti-fraud Branding Request State
+  const [isBrandingModalOpen, setIsBrandingModalOpen] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [pendingRequest, setPendingRequest] = useState<BrandingChangeRequest | null>(null);
+
+  useEffect(() => {
+    const updatePending = () => {
+      setPendingRequest(getPendingBrandingRequest(agency.id));
+    };
+    updatePending();
+    const unsub = subscribeBrandingRequestStore(updatePending);
+    return () => unsub();
+  }, [agency.id]);
 
   const [success, setSuccess] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -293,12 +311,84 @@ export default function SettingsForm({
             
             {/* 2. Información Comercial */}
             <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-              <h3 style={{ fontSize: "1.1rem", fontWeight: "700", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <SettingsIcon size={18} style={{ color: "var(--primary)" }} /> Información Comercial
+              <h3 style={{ fontSize: "1.1rem", fontWeight: "700", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem", margin: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <SettingsIcon size={18} style={{ color: "var(--primary)" }} /> Información Comercial y Marca
+                </span>
               </h3>
 
+              {/* Banner de Solicitud Pendiente */}
+              {pendingRequest && (
+                <div style={{
+                  backgroundColor: "rgba(245, 158, 11, 0.12)",
+                  border: "1px solid rgba(245, 158, 11, 0.35)",
+                  borderRadius: "12px",
+                  padding: "1rem 1.25rem",
+                  color: "#f59e0b",
+                  fontSize: "0.88rem",
+                  lineHeight: "1.4"
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontWeight: 700, marginBottom: "0.35rem", fontSize: "0.95rem" }}>
+                    <ShieldAlert size={18} /> Solicitud de Cambio Pendiente de Aprobación por el Super Admin
+                  </div>
+                  <div>
+                    Solicitaste actualizar el nombre a <strong>&ldquo;{pendingRequest.requestedName}&rdquo;</strong> y el subdominio a <strong>&ldquo;{pendingRequest.requestedSubdomain}&rdquo;</strong>.
+                  </div>
+                  <div style={{ fontSize: "0.8rem", opacity: 0.85, marginTop: "0.35rem", fontStyle: "italic" }}>
+                    Justificación enviada: &ldquo;{pendingRequest.reason}&rdquo;
+                  </div>
+                </div>
+              )}
+
+              {/* Banner de Seguridad Antifraude */}
+              <div style={{
+                backgroundColor: "rgba(37, 99, 235, 0.08)",
+                border: "1px solid rgba(37, 99, 235, 0.25)",
+                borderRadius: "12px",
+                padding: "1rem 1.25rem",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: "1rem"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flex: 1, minWidth: "280px" }}>
+                  <div style={{ width: "36px", height: "36px", borderRadius: "8px", backgroundColor: "rgba(37, 99, 235, 0.15)", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <Lock size={18} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: "0.9rem" }}>Protección Antifraude de Nombre y Subdominio</div>
+                    <div style={{ fontSize: "0.8rem", opacity: 0.75 }}>
+                      Para prevenir suplantación de identidad, la modificación del nombre o subdominio requiere solicitud de autorización justificada al Super Admin.
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsBrandingModalOpen(true)}
+                  style={{
+                    padding: "0.6rem 1.2rem",
+                    borderRadius: "8px",
+                    border: "none",
+                    backgroundColor: "var(--primary)",
+                    color: "#fff",
+                    fontWeight: 700,
+                    fontSize: "0.85rem",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                    boxShadow: "0 2px 8px var(--primary-light)"
+                  }}
+                >
+                  <ShieldAlert size={16} /> Solicitar Cambio al Super Admin
+                </button>
+              </div>
+
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <label style={{ fontSize: "0.85rem", fontWeight: "600" }}>Nombre de la Automotora *</label>
+                <label style={{ fontSize: "0.85rem", fontWeight: "600", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  <Lock size={14} style={{ opacity: 0.6 }} /> Nombre de la Automotora *
+                </label>
                 <input
                   type="text"
                   required
@@ -772,8 +862,60 @@ export default function SettingsForm({
             <UsersList agencyId={agency.id} initialUsers={initialUsers} />
           </div>
 
+          <div className={styles.sectionDivider} />
+
+          {/* 8. Seguridad y Accesos */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+            <h3 style={{ fontSize: "1.1rem", fontWeight: "700", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <Lock size={18} style={{ color: "#10b981" }} /> Seguridad y Accesos
+            </h3>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "var(--bg-color)", padding: "1.25rem 1.5rem", borderRadius: "12px", border: "1px solid var(--border-color)", flexWrap: "wrap", gap: "1rem" }}>
+              <div>
+                <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700 }}>Contraseña de la Cuenta</h4>
+                <p style={{ margin: "0.25rem 0 0", fontSize: "0.83rem", opacity: 0.7 }}>Cambia tu clave de acceso al panel de control en cualquier momento.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPasswordModalOpen(true)}
+                style={{
+                  backgroundColor: "var(--surface-color)",
+                  border: "1px solid var(--border-color)",
+                  color: "var(--text-color)",
+                  padding: "0.65rem 1.25rem",
+                  borderRadius: "8px",
+                  fontWeight: 600,
+                  fontSize: "0.88rem",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem"
+                }}
+              >
+                <Lock size={16} style={{ color: "#10b981" }} /> Cambiar Contraseña
+              </button>
+            </div>
+          </div>
+
         </div>
       </div>
+
+      {/* Modal de Solicitud de Cambio de Branding (Antifraude) */}
+      <BrandingRequestModal
+        isOpen={isBrandingModalOpen}
+        onClose={() => setIsBrandingModalOpen(false)}
+        agencyId={agency.id}
+        currentName={name}
+        currentSubdomain={agency.subdomain || "hola"}
+        onRequestSubmitted={() => {
+          setPendingRequest(getPendingBrandingRequest(agency.id));
+        }}
+      />
+
+      {/* Modal de Cambio de Contraseña */}
+      <ChangePasswordModal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+      />
     </div>
   );
 }

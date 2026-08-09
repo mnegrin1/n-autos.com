@@ -12,9 +12,12 @@
   },
   "routes": [
     {
-      "pattern": "prueba.n-sistemas.com",
-      "zone_name": "n-sistemas.com",
-      "custom_domain": true
+      "pattern": "*.n-sistemas.com/*",
+      "zone_name": "n-sistemas.com"
+    },
+    {
+      "pattern": "n-sistemas.com/*",
+      "zone_name": "n-sistemas.com"
     }
   ],
   "vars": {

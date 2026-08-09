@@ -3,8 +3,9 @@
 import { useState, useTransition } from "react";
 import styles from "./detail.module.css";
 import { createAutoLead } from "@/actions/autoActions";
-import { MessageSquare, Phone, Mail, User, CheckCircle, Image as ImageIcon } from "lucide-react";
+import { MessageSquare, Phone, Mail, User, CheckCircle, Image as ImageIcon, Calculator } from "lucide-react";
 import VehicleGallery, { type UnifiedMediaItem } from "./VehicleGallery";
+import FinancingCalculatorModal from "@/components/FinancingCalculatorModal";
 
 interface Vehicle {
   id: string;
@@ -35,6 +36,7 @@ interface VehicleDetailClientProps {
 
 export default function VehicleDetailClient({ vehicle, agencyName, whatsappPhone }: VehicleDetailClientProps) {
   const [success, setSuccess] = useState(false);
+  const [showFinancingModal, setShowFinancingModal] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const [formState, setFormState] = useState({
@@ -54,7 +56,7 @@ export default function VehicleDetailClient({ vehicle, agencyName, whatsappPhone
 
     startTransition(async () => {
       const res = await createAutoLead({
-        agencyId: vehicle.agency_id,
+        agencyId: (vehicle as any).agency_id || "",
         name: formState.name,
         email: formState.email,
         phone: formState.phone,
@@ -217,6 +219,30 @@ export default function VehicleDetailClient({ vehicle, agencyName, whatsappPhone
             <div className={styles.price}>
               {vehicle.currency} {vehicle.price.toLocaleString()}
             </div>
+            
+            <button
+              type="button"
+              onClick={() => setShowFinancingModal(true)}
+              style={{
+                marginTop: "0.85rem",
+                width: "100%",
+                padding: "0.65rem 1rem",
+                borderRadius: "10px",
+                border: "1px solid #38bdf8",
+                backgroundColor: "rgba(56, 189, 248, 0.12)",
+                color: "#38bdf8",
+                fontWeight: 700,
+                fontSize: "0.88rem",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.5rem",
+                transition: "all 0.2s ease"
+              }}
+            >
+              <Calculator size={16} /> Simular Financiación Bancaria (BCU)
+            </button>
           </div>
 
           {vehicle.status === "vendido" ? (
@@ -292,6 +318,20 @@ export default function VehicleDetailClient({ vehicle, agencyName, whatsappPhone
           )}
         </div>
       </div>
+
+      {showFinancingModal && (
+        <FinancingCalculatorModal
+          isOpen={showFinancingModal}
+          onClose={() => setShowFinancingModal(false)}
+          vehicle={{
+            brand: vehicle.brand,
+            model: vehicle.model,
+            year: vehicle.year,
+            price: vehicle.price,
+            currency: vehicle.currency,
+          }}
+        />
+      )}
     </div>
   );
 }

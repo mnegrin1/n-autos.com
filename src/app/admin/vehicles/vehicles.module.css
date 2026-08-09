@@ -46,11 +46,8 @@
 }
 
 .tableContainer {
-  background-color: var(--bg-color);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
+  background-color: var(--surface-color);
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
 }
 
 .table {

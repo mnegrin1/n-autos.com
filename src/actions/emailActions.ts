@@ -31,6 +31,53 @@ export async function sendEmailAction(to: string, subject: string, html: string)
 }
 
 /**
+ * Envía un correo con el código de recuperación de contraseña (OTP) de 6 dígitos.
+ */
+export async function sendPasswordResetEmail(to: string, code: string, userName?: string) {
+  const subject = `${code} es tu código de recuperación de contraseña - Tu Automotora`;
+  const nameDisplay = userName ? userName : "Usuario";
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Recuperación de Contraseña</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f4f6f8; margin: 0; padding: 20px; color: #1e293b; }
+        .container { max-width: 520px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+        .brand { font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 24px; text-align: center; }
+        .brand span { color: #10b981; }
+        .title { font-size: 18px; font-weight: 700; color: #1e293b; margin-bottom: 12px; text-align: center; }
+        .text { font-size: 14px; color: #64748b; line-height: 1.6; margin-bottom: 24px; text-align: center; }
+        .otp-box { background-color: #f1f5f9; border: 2px dashed #10b981; border-radius: 10px; padding: 20px; text-align: center; margin: 24px 0; }
+        .otp-code { font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #0f172a; font-family: monospace; }
+        .warning { font-size: 12px; color: #94a3b8; text-align: center; margin-top: 16px; }
+        .footer { border-top: 1px solid #e2e8f0; margin-top: 32px; padding-top: 16px; font-size: 11px; color: #94a3b8; text-align: center; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="brand">Tu <span>Automotora</span></div>
+        <div class="title">Recuperación de Contraseña</div>
+        <div class="text">Hola <strong>${nameDisplay}</strong>,<br>Hemos recibido una solicitud para restablecer la contraseña de tu cuenta. Usa el siguiente código temporal de verificación de 6 dígitos:</div>
+        <div class="otp-box">
+          <div class="otp-code">${code}</div>
+        </div>
+        <div class="text">Ingresa este código en la pantalla de inicio de sesión para crear una nueva contraseña.</div>
+        <div class="warning">🔒 Este código expira en <strong>15 minutos</strong>. Si tú no solicitaste este cambio, puedes ignorar este correo de forma segura.</div>
+        <div class="footer">&copy; ${new Date().getFullYear()} Plataforma de Gestión Automotriz. Todos los derechos reservados.</div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return await sendEmailAction(to, subject, html);
+}
+
+
+/**
  * Se encarga de procesar el webhook entrante de Resend
  * y guardarlo como una conversación de tipo 'email' en Supabase.
  */

@@ -51,7 +51,16 @@ export default function SuperAdminPlans() {
       badge: "Nuevo",
       features: ["Soporte estándar", "Acceso al CRM"],
       maxVehicles: "10",
+      maxVehiclesCount: 10,
       maxUsers: "2",
+      maxUsersCount: 2,
+      crmLevel: "Estándar",
+      whatsappInbox: "1 Canal",
+      emailBroadcasts: "500 emails/mes",
+      multichannelPublish: "MercadoLibre + Redes",
+      aiAssistant: "Plantillas IA",
+      customDomain: "Subdominio",
+      supportLevel: "Email",
       active: true
     });
     setIsModalOpen(true);

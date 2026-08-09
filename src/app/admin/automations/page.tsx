@@ -1,12 +1,14 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getAutomationRulesAction, getWorkflowsAction } from "@/actions/automationActions";
 import { getAgents } from "@/actions/otherActions";
+import { getCurrentUser } from "@/actions/authActions";
 import AutomationsClient from "./AutomationsClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function AutomationsPage() {
-  const agencyId = "00000000-0000-0000-0000-000000000000";
+  const currentUser = await getCurrentUser();
+  const agencyId = currentUser?.agency_id || "00000000-0000-0000-0000-000000000000";
 
   // 1. Obtener reglas, flujos y agentes
   const rules = await getAutomationRulesAction(agencyId);
@@ -21,7 +23,7 @@ export default async function AutomationsPage() {
   const rawTags = (leadsData || []).flatMap((l: any) => Array.isArray(l.tags) ? l.tags : []);
   const availableTags = Array.from(new Set([...rawTags, "Inversor", "Web Lead", "VIP", "Lead Nuevo", "Interesado", "Contactado"])).sort();
 
-  const currentUser = { agency_id: agencyId, name: "Mauricio Negrin", role: "admin" };
+  const userPayload = { agency_id: agencyId, name: currentUser?.name || "Administrador", role: currentUser?.role || "admin" };
 
   return (
     <AutomationsClient
@@ -29,7 +31,7 @@ export default async function AutomationsPage() {
       initialWorkflows={workflows}
       availableTags={availableTags}
       initialAgents={agents}
-      currentUser={currentUser}
+      currentUser={userPayload}
     />
   );
 }

@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       // Buscamos la integración que corresponda a este user_id (seller_id)
       // Como el user_id puede estar guardado en username como "Vendedor ML (ID: xxxx)" o en otro formato, 
       // y MercadoLibre usa el user_id como identificador de la cuenta
-      let integration = integrations?.find(int => int.username?.includes(userId?.toString()) || int.settings?.user_id === userId);
+      let integration = integrations?.find((int: any) => int.username?.includes(userId?.toString()) || int.settings?.user_id === userId);
       
       // Si no la encontramos por ID estricto pero hay una sola integración, la usamos (fallback para demo/MVP)
       if (!integration && integrations && integrations.length > 0) {

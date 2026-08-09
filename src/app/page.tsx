@@ -6,17 +6,24 @@ import Image from "next/image";
 import styles from "./page.module.css";
 import FreeTrialForm from "@/components/FreeTrialForm";
 import AnimatedSection from "@/components/AnimatedSection";
-import { MessageCircle, Shield, TrendingUp, Check, Zap, Sparkles } from "lucide-react";
+import CheckoutModal from "@/components/CheckoutModal";
+import { MessageCircle, Shield, TrendingUp, Check, Zap, Sparkles, ChevronDown, ChevronUp, Layers, CheckCircle2, Minus } from "lucide-react";
 import { getPlans, PaymentPlan } from "@/lib/plansStore";
 
 export default function Home() {
   const [plans, setPlans] = useState<PaymentPlan[]>([]);
   const [isYearly, setIsYearly] = useState(false);
+  const [selectedPlanForCheckout, setSelectedPlanForCheckout] = useState<PaymentPlan | null>(null);
+  const [showMatrix, setShowMatrix] = useState(true);
 
   useEffect(() => {
     const loaded = getPlans().filter(p => p.active);
     setPlans(loaded);
   }, []);
+
+  const handleSelectPlan = (plan: PaymentPlan) => {
+    setSelectedPlanForCheckout(plan);
+  };
 
   return (
     <div className={styles.landingContainer}>
@@ -41,11 +48,11 @@ export default function Home() {
             Plataforma tecnológica premium para automotoras. Automatizá tu seguimiento, respondé al instante y organizá a tu equipo de ventas sin depender de sistemas rígidos.
           </p>
           <div className={styles.ctaButtons}>
-            <a href="#prueba" className="btn-primary" style={{ padding: "1rem 2rem", fontSize: "1.1rem" }}>
-              Comenzar Prueba Gratis
+            <a href="#planes" className="btn-primary" style={{ padding: "1rem 2rem", fontSize: "1.1rem" }}>
+              Ver Planes y Probar Starter
             </a>
             <Link href="/admin" className="btn-secondary" style={{ padding: "1rem 2rem", fontSize: "1.1rem" }}>
-              Ver Demo
+              Ver Demo Admin
             </Link>
           </div>
           
@@ -84,12 +91,15 @@ export default function Home() {
 
         {/* Sección de Planes de Pago */}
         <AnimatedSection as="section" id="planes" className={styles.featuresSection} delay={0.3} style={{ backgroundColor: "var(--bg-color)" }}>
-          <div style={{ textAlign: "center", marginBottom: "2rem" }}>
+          <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", backgroundColor: "rgba(37, 99, 235, 0.1)", color: "#2563eb", padding: "0.35rem 0.85rem", borderRadius: "20px", fontSize: "0.85rem", fontWeight: 700, marginBottom: "0.75rem" }}>
+              <Sparkles size={16} /> 4 NIVELES DE POTENCIA PARA TU NEGOCIO
+            </div>
             <h2 className={styles.sectionTitle} style={{ marginBottom: "0.5rem" }}>
               Planes a la medida de tu automotora
             </h2>
-            <p style={{ fontSize: "1.1rem", opacity: 0.8, maxWidth: "600px", margin: "0 auto 1.5rem" }}>
-              Elige la opción que mejor se adapte al tamaño de tu negocio. Transparente, sin contratos forzosos.
+            <p style={{ fontSize: "1.1rem", opacity: 0.8, maxWidth: "650px", margin: "0 auto 1.5rem" }}>
+              Elige entre <strong>Gratis, Starter, Premium o Ultra</strong>. Escala funciones según tu volumen de vehículos y agentes de ventas.
             </p>
 
             {/* Switch Mensual / Anual */}
@@ -134,28 +144,38 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Cards Grid de los 4 Planes */}
           <div style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-            gap: "2rem",
-            maxWidth: "1200px",
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gap: "1.5rem",
+            maxWidth: "1280px",
             width: "100%",
-            margin: "0 auto"
+            margin: "0 auto 3rem auto"
           }}>
             {plans.map((plan) => {
               const price = isYearly ? plan.priceYearly : plan.priceMonthly;
+              const isStarter = plan.id === "plan-starter";
               return (
                 <div
                   key={plan.id}
                   style={{
                     backgroundColor: "var(--surface-color)",
                     borderRadius: "20px",
-                    border: plan.isPopular ? "2px solid var(--primary)" : "1px solid var(--border-color)",
-                    padding: "2.25rem 1.75rem",
+                    border: isStarter 
+                      ? "2px solid #2563eb" 
+                      : plan.isPopular 
+                        ? "2px solid #a855f7" 
+                        : "1px solid var(--border-color)",
+                    padding: "2rem 1.5rem",
                     display: "flex",
                     flexDirection: "column",
                     position: "relative",
-                    boxShadow: plan.isPopular ? "0 20px 40px -10px rgba(37, 99, 235, 0.25)" : "0 10px 25px rgba(0,0,0,0.05)",
+                    boxShadow: isStarter 
+                      ? "0 20px 35px -10px rgba(37, 99, 235, 0.3)" 
+                      : plan.isPopular 
+                        ? "0 20px 35px -10px rgba(168, 85, 247, 0.25)" 
+                        : "0 10px 25px rgba(0,0,0,0.04)",
                     transition: "transform 0.3s ease"
                   }}
                 >
@@ -164,8 +184,12 @@ export default function Home() {
                       position: "absolute",
                       top: "1.25rem",
                       right: "1.25rem",
-                      backgroundColor: plan.isPopular ? "var(--primary)" : "rgba(128,128,128,0.15)",
-                      color: plan.isPopular ? "#fff" : "var(--text-color)",
+                      backgroundColor: isStarter 
+                        ? "#2563eb" 
+                        : plan.isPopular 
+                          ? "#a855f7" 
+                          : "rgba(128,128,128,0.15)",
+                      color: isStarter || plan.isPopular ? "#fff" : "var(--text-color)",
                       padding: "0.3rem 0.85rem",
                       borderRadius: "20px",
                       fontSize: "0.75rem",
@@ -176,35 +200,36 @@ export default function Home() {
                     </span>
                   )}
 
-                  <h3 style={{ fontSize: "1.6rem", fontWeight: 800, margin: "0 0 0.5rem 0" }}>{plan.name}</h3>
-                  <p style={{ fontSize: "0.9rem", opacity: 0.75, minHeight: "2.6rem", margin: "0 0 1.5rem 0" }}>
+                  <h3 style={{ fontSize: "1.5rem", fontWeight: 800, margin: "0 0 0.4rem 0" }}>{plan.name}</h3>
+                  <p style={{ fontSize: "0.85rem", opacity: 0.75, minHeight: "2.8rem", margin: "0 0 1.25rem 0", lineHeight: "1.4" }}>
                     {plan.description}
                   </p>
 
-                  <div style={{ marginBottom: "2rem", display: "flex", alignItems: "baseline", gap: "0.3rem" }}>
-                    <span style={{ fontSize: "2.75rem", fontWeight: 900 }}>${price}</span>
-                    <span style={{ fontSize: "0.95rem", opacity: 0.7 }}>USD / mes</span>
+                  <div style={{ marginBottom: "1.5rem", display: "flex", alignItems: "baseline", gap: "0.3rem" }}>
+                    <span style={{ fontSize: "2.5rem", fontWeight: 900 }}>${price}</span>
+                    <span style={{ fontSize: "0.85rem", opacity: 0.7 }}>USD / mes</span>
                   </div>
 
-                  <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: "1.5rem", marginBottom: "2rem", flex: 1 }}>
-                    <p style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.6, marginBottom: "1rem" }}>
-                      Incluido en este plan:
+                  <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: "1.25rem", marginBottom: "1.75rem", flex: 1 }}>
+                    <p style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", opacity: 0.6, marginBottom: "0.85rem" }}>
+                      Características clave:
                     </p>
-                    <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                    <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "0.65rem" }}>
                       {plan.features.map((feat, idx) => (
-                        <li key={idx} style={{ display: "flex", alignItems: "center", gap: "0.75rem", fontSize: "0.9rem" }}>
+                        <li key={idx} style={{ display: "flex", alignItems: "flex-start", gap: "0.6rem", fontSize: "0.85rem", lineHeight: "1.3" }}>
                           <div style={{
-                            width: "20px",
-                            height: "20px",
+                            width: "18px",
+                            height: "18px",
                             borderRadius: "50%",
-                            backgroundColor: "rgba(16, 185, 129, 0.15)",
-                            color: "#10b981",
+                            backgroundColor: isStarter ? "rgba(37, 99, 235, 0.15)" : "rgba(16, 185, 129, 0.15)",
+                            color: isStarter ? "#2563eb" : "#10b981",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            flexShrink: 0
+                            flexShrink: 0,
+                            marginTop: "2px"
                           }}>
-                            <Check size={13} strokeWidth={3} />
+                            <Check size={12} strokeWidth={3} />
                           </div>
                           <span>{feat}</span>
                         </li>
@@ -212,27 +237,157 @@ export default function Home() {
                     </ul>
                   </div>
 
-                  <a
-                    href="#prueba"
+                  <button
+                    type="button"
+                    onClick={() => handleSelectPlan(plan)}
                     style={{
-                      display: "block",
-                      textAlign: "center",
-                      padding: "0.85rem 1.5rem",
+                      width: "100%",
+                      padding: "0.85rem 1.25rem",
                       borderRadius: "10px",
-                      backgroundColor: plan.isPopular ? "var(--primary)" : "transparent",
-                      color: plan.isPopular ? "#fff" : "var(--text-color)",
-                      border: plan.isPopular ? "none" : "1px solid var(--border-color)",
+                      backgroundColor: isStarter 
+                        ? "#2563eb" 
+                        : plan.isPopular 
+                          ? "#a855f7" 
+                          : "transparent",
+                      color: isStarter || plan.isPopular ? "#fff" : "var(--text-color)",
+                      border: isStarter || plan.isPopular ? "none" : "1px solid var(--border-color)",
                       fontWeight: 700,
                       fontSize: "0.95rem",
-                      textDecoration: "none",
+                      cursor: "pointer",
                       transition: "all 0.2s ease"
                     }}
                   >
-                    {plan.priceMonthly === 0 ? "Comenzar Gratis" : plan.isPopular ? "Elegir Plan Pro" : "Contactar Ventas"}
-                  </a>
+                    {plan.priceMonthly === 0 
+                      ? "Comenzar Gratis" 
+                      : isStarter 
+                        ? "Probar Plan Starter (Simular)" 
+                        : plan.isPopular 
+                          ? "Elegir Plan Premium" 
+                          : "Contratar Ultra"}
+                  </button>
                 </div>
               );
             })}
+          </div>
+
+          {/* Botón & Matriz Comparativa Detallada */}
+          <div style={{ maxWidth: "1280px", margin: "0 auto" }}>
+            <button
+              onClick={() => setShowMatrix(!showMatrix)}
+              style={{
+                width: "100%",
+                padding: "1rem 1.5rem",
+                backgroundColor: "var(--surface-color)",
+                border: "1px solid var(--border-color)",
+                borderRadius: "14px",
+                fontWeight: 700,
+                fontSize: "1rem",
+                color: "var(--text-color)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: "1.5rem",
+                boxShadow: "0 4px 6px rgba(0,0,0,0.02)"
+              }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                <Layers size={20} style={{ color: "#2563eb" }} />
+                Matriz Comparativa de Características (Gratis vs Starter vs Premium vs Ultra)
+              </span>
+              {showMatrix ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+            </button>
+
+            {showMatrix && (
+              <div
+                style={{
+                  backgroundColor: "var(--surface-color)",
+                  borderRadius: "16px",
+                  border: "1px solid var(--border-color)",
+                  overflowX: "auto",
+                  boxShadow: "0 10px 30px rgba(0,0,0,0.04)"
+                }}
+              >
+                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.9rem" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid var(--border-color)", backgroundColor: "rgba(0,0,0,0.02)" }}>
+                      <th style={{ padding: "1.25rem 1.5rem", width: "28%", fontWeight: 800 }}>Función / Capacidad</th>
+                      <th style={{ padding: "1.25rem 1rem", width: "18%", textAlign: "center" }}>🆓 Gratis</th>
+                      <th style={{ padding: "1.25rem 1rem", width: "18%", textAlign: "center", backgroundColor: "rgba(37, 99, 235, 0.06)" }}>
+                        <span style={{ color: "#2563eb", fontWeight: 800 }}>🚀 Starter (Simulado)</span>
+                      </th>
+                      <th style={{ padding: "1.25rem 1rem", width: "18%", textAlign: "center" }}>⭐ Premium</th>
+                      <th style={{ padding: "1.25rem 1rem", width: "18%", textAlign: "center" }}>👑 Ultra</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr style={{ borderBottom: "1px solid var(--border-color)" }}>
+                      <td style={{ padding: "1rem 1.5rem", fontWeight: 700 }}>Límite de Vehículos</td>
+                      <td style={{ padding: "1rem", textAlign: "center" }}>Hasta 5</td>
+                      <td style={{ padding: "1rem", textAlign: "center", backgroundColor: "rgba(37, 99, 235, 0.04)", fontWeight: 800, color: "#2563eb" }}>Hasta 20</td>
+                      <td style={{ padding: "1rem", textAlign: "center" }}>Hasta 100</td>
+                      <td style={{ padding: "1rem", textAlign: "center", fontWeight: 700 }}>Ilimitados</td>
+                    </tr>
+                    <tr style={{ borderBottom: "1px solid var(--border-color)" }}>
+                      <td style={{ padding: "1rem 1.5rem", fontWeight: 700 }}>Usuarios de Ventas</td>
+                      <td style={{ padding: "1rem", textAlign: "center" }}>1 usuario</td>
+                      <td style={{ padding: "1rem", textAlign: "center", backgroundColor: "rgba(37, 99, 235, 0.04)", fontWeight: 800, color: "#2563eb" }}>Hasta 2 usuarios</td>
+                      <td style={{ padding: "1rem", textAlign: "center" }}>Hasta 5 usuarios</td>
+                      <td style={{ padding: "1rem", textAlign: "center", fontWeight: 700 }}>Ilimitados</td>
+                    </tr>
+                    <tr style={{ borderBottom: "1px solid var(--border-color)" }}>
+                      <td style={{ padding: "1rem 1.5rem", fontWeight: 700 }}>CRM & Pipeline de Leads</td>
+                      <td style={{ padding: "1rem", textAlign: "center" }}>Básico</td>
+                      <td style={{ padding: "1rem", textAlign: "center", backgroundColor: "rgba(37, 99, 235, 0.04)" }}>Estándar (Pipeline + Asignación)</td>
+                      <td style={{ padding: "1rem", textAlign: "center" }}>Avanzado (Embudos + Metas)</td>
+                      <td style={{ padding: "1rem", textAlign: "center" }}>Custom + API & Webhooks</td>
+                    </tr>
+                    <tr style={{ borderBottom: "1px solid var(--border-color)" }}>
+                      <td style={{ padding: "1rem 1.5rem", fontWeight: 700 }}>Inbox WhatsApp</td>
+                      <td style={{ padding: "1rem", textAlign: "center", opacity: 0.5 }}>No disponible</td>
+                      <td style={{ padding: "1rem", textAlign: "center", backgroundColor: "rgba(37, 99, 235, 0.04)" }}>1 Canal Conectado</td>
+                      <td style={{ padding: "1rem", textAlign: "center" }}>Multicanal (Meta API)</td>
+                      <td style={{ padding: "1rem", textAlign: "center" }}>Ilimitado + Agentes IA</td>
+                    </tr>
+                    <tr style={{ borderBottom: "1px solid var(--border-color)" }}>
+                      <td style={{ padding: "1rem 1.5rem", fontWeight: 700 }}>Email Broadcasts</td>
+                      <td style={{ padding: "1rem", textAlign: "center", opacity: 0.5 }}>No disponible</td>
+                      <td style={{ padding: "1rem", textAlign: "center", backgroundColor: "rgba(37, 99, 235, 0.04)" }}>500 emails / mes</td>
+                      <td style={{ padding: "1rem", textAlign: "center" }}>5,000 emails / mes</td>
+                      <td style={{ padding: "1rem", textAlign: "center" }}>Ilimitados + IP propia</td>
+                    </tr>
+                    <tr style={{ borderBottom: "1px solid var(--border-color)" }}>
+                      <td style={{ padding: "1rem 1.5rem", fontWeight: 700 }}>Publicación Multicanal</td>
+                      <td style={{ padding: "1rem", textAlign: "center" }}>Manual</td>
+                      <td style={{ padding: "1rem", textAlign: "center", backgroundColor: "rgba(37, 99, 235, 0.04)" }}>MercadoLibre + Redes</td>
+                      <td style={{ padding: "1rem", textAlign: "center" }}>Publicación Ilimitada 1-Clic</td>
+                      <td style={{ padding: "1rem", textAlign: "center" }}>Automatización Total</td>
+                    </tr>
+                    <tr style={{ borderBottom: "1px solid var(--border-color)" }}>
+                      <td style={{ padding: "1rem 1.5rem", fontWeight: 700 }}>Asistente IA & Respuestas</td>
+                      <td style={{ padding: "1rem", textAlign: "center", opacity: 0.5 }}>No disponible</td>
+                      <td style={{ padding: "1rem", textAlign: "center", backgroundColor: "rgba(37, 99, 235, 0.04)" }}>Respuestas IA + Plantillas</td>
+                      <td style={{ padding: "1rem", textAlign: "center" }}>IA Agente Completo</td>
+                      <td style={{ padding: "1rem", textAlign: "center" }}>IA Custom / Fine-tune</td>
+                    </tr>
+                    <tr style={{ borderBottom: "1px solid var(--border-color)" }}>
+                      <td style={{ padding: "1rem 1.5rem", fontWeight: 700 }}>Dominio Propio</td>
+                      <td style={{ padding: "1rem", textAlign: "center" }}>Subdominio .n-sistemas.com</td>
+                      <td style={{ padding: "1rem", textAlign: "center", backgroundColor: "rgba(37, 99, 235, 0.04)" }}>Subdominio + CNAME</td>
+                      <td style={{ padding: "1rem", textAlign: "center" }}>Dominio .com + SSL</td>
+                      <td style={{ padding: "1rem", textAlign: "center" }}>Dominio + Email Verificado</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: "1rem 1.5rem", fontWeight: 700 }}>Soporte Técnico</td>
+                      <td style={{ padding: "1rem", textAlign: "center" }}>Email estándar</td>
+                      <td style={{ padding: "1rem", textAlign: "center", backgroundColor: "rgba(37, 99, 235, 0.04)" }}>Email & Chat Prioritario</td>
+                      <td style={{ padding: "1rem", textAlign: "center" }}>Soporte 24/7 WhatsApp</td>
+                      <td style={{ padding: "1rem", textAlign: "center" }}>Ejecutivo Dedicado VIP</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </AnimatedSection>
 
@@ -244,8 +399,18 @@ export default function Home() {
       </main>
 
       <footer className={styles.footer}>
-        <p>© {new Date().getFullYear()} n-autos.com. Todos los derechos reservados.</p>
+        <p>© {new Date().getFullYear()} n-sistemas.com. Todos los derechos reservados.</p>
       </footer>
+
+      {/* Checkout Modal Simulation */}
+      {selectedPlanForCheckout && (
+        <CheckoutModal
+          plan={selectedPlanForCheckout}
+          isYearly={isYearly}
+          onClose={() => setSelectedPlanForCheckout(null)}
+        />
+      )}
     </div>
   );
 }
+

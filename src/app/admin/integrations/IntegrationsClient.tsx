@@ -26,6 +26,7 @@ interface IntegrationsClientProps {
   initialVehicles?: any[];
   initialIntegrations: Integrations;
   initialPublications?: any[];
+  agencyId?: string;
   appId?: string;
   appUrl?: string;
   errorMsg?: string;
@@ -34,6 +35,7 @@ interface IntegrationsClientProps {
 
 export default function IntegrationsClient({
   initialIntegrations,
+  agencyId,
   appId,
   appUrl,
   errorMsg,
@@ -60,28 +62,15 @@ export default function IntegrationsClient({
       } else {
         msg = `Error: ${errorMsg}`;
       }
-      setTimeout(() => alert(msg), 100);
-      
-      const newUrl = new URL(window.location.href);
-      newUrl.searchParams.delete('error');
-      newUrl.searchParams.delete('detail');
-      window.history.replaceState({}, '', newUrl);
-    }
-    if (successMsg) {
-      setTimeout(() => alert("¡Integración conectada con éxito!"), 100);
-      const newUrl = new URL(window.location.href);
-      newUrl.searchParams.delete('success');
-      window.history.replaceState({}, '', newUrl);
+      alert(msg);
+    } else if (successMsg) {
+      alert("¡Integración conectada con éxito!");
     }
   }, [errorMsg, successMsg]);
 
-  const handleOpenConnect = (channel: string) => {
-    if (channel === 'facebook') {
-      window.location.href = '/api/auth/facebook';
-      return;
-    }
-    if (channel === 'instagram') {
-      window.location.href = '/api/auth/instagram';
+  const handleConnectClick = (channel: 'mercadolibre' | 'facebook' | 'instagram' | 'whatsapp') => {
+    if (channel === 'facebook' || channel === 'instagram') {
+      window.location.href = `/api/auth/meta?type=${channel}`;
       return;
     }
     if (channel === 'mercadolibre') {
@@ -96,7 +85,7 @@ export default function IntegrationsClient({
 
   const handleConnectSubmit = async (channel: 'whatsapp' | 'mercadolibre') => {
     startTransition(async () => {
-      const res = await updateIntegration(channel, true, connectData);
+      const res = await updateIntegration(channel, true, connectData, agencyId);
       if (res.success && res.integrations) {
         setIntegrations(res.integrations as Integrations);
         setShowConnectModal(null);
@@ -107,7 +96,7 @@ export default function IntegrationsClient({
   const handleDisconnect = async (channel: 'mercadolibre' | 'facebook' | 'instagram' | 'whatsapp') => {
     if (confirm(`¿Estás seguro de que deseas desconectar la integración con ${channel.toUpperCase()}?`)) {
       startTransition(async () => {
-        const res = await updateIntegration(channel, false);
+        const res = await updateIntegration(channel, false, undefined, agencyId);
         if (res.success && res.integrations) {
           setIntegrations(res.integrations as Integrations);
         }
@@ -281,7 +270,7 @@ export default function IntegrationsClient({
                     </button>
                   ) : (
                     <button 
-                      onClick={() => handleOpenConnect(ch.id)}
+                      onClick={() => handleConnectClick(ch.id)}
                       disabled={isPending}
                       style={{
                         display: 'flex',

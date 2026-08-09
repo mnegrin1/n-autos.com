@@ -15,6 +15,10 @@ export interface Database {
           name: string
           slug: string
           subdomain: string | null
+          custom_domain: string | null
+          custom_domain_status: string | null
+          custom_domain_hostname_id: string | null
+          custom_domain_ssl_status: string | null
           logo_url: string | null
           primary_color: string | null
           whatsapp: string | null
@@ -31,6 +35,10 @@ export interface Database {
           name: string
           slug: string
           subdomain?: string | null
+          custom_domain?: string | null
+          custom_domain_status?: string | null
+          custom_domain_hostname_id?: string | null
+          custom_domain_ssl_status?: string | null
           logo_url?: string | null
           primary_color?: string | null
           whatsapp?: string | null
@@ -47,6 +55,10 @@ export interface Database {
           name?: string
           slug?: string
           subdomain?: string | null
+          custom_domain?: string | null
+          custom_domain_status?: string | null
+          custom_domain_hostname_id?: string | null
+          custom_domain_ssl_status?: string | null
           logo_url?: string | null
           primary_color?: string | null
           whatsapp?: string | null

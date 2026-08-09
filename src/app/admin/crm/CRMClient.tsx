@@ -60,6 +60,25 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailRecipient, setEmailRecipient] = useState("");
 
+  // Preview & Column Mapping State for File Import
+  const [importPreviewData, setImportPreviewData] = useState<{
+    fileName: string;
+    rawHeaders: string[];
+    rawRows: any[][];
+  } | null>(null);
+
+  const [columnMapping, setColumnMapping] = useState<{
+    nameIdx: number;
+    emailIdx: number;
+    phoneIdx: number;
+    vehicleIdx: number;
+  }>({
+    nameIdx: -1,
+    emailIdx: -1,
+    phoneIdx: -1,
+    vehicleIdx: -1,
+  });
+
   const [isPending, startTransition] = useTransition();
 
   const searchParams = useSearchParams();
@@ -79,58 +98,89 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
         const ws = workbook.Sheets[wsname];
         const data = xlsx.utils.sheet_to_json(ws, { header: 1 }) as any[][];
         
-        if (data.length < 2) {
-          alert("El archivo no contiene suficientes datos.");
+        if (!data || data.length < 2) {
+          alert("El archivo no contiene suficientes datos o filas.");
+          setIsImporting(false);
           return;
         }
 
-        const headers = data[0].map((h: string) => h ? h.toString().toLowerCase().trim() : "");
-        const rows = data.slice(1);
+        const rawHeaders = data[0].map((h: any) => h ? String(h).trim() : "");
+        const rawRows = data.slice(1).filter((row) => row && row.some((cell: any) => cell !== null && cell !== ""));
         
-        const nameIdx = headers.findIndex((h: string) => h.includes("nombre") || h.includes("name") || h.includes("cliente"));
-        const emailIdx = headers.findIndex((h: string) => h.includes("correo") || h.includes("email"));
-        const phoneIdx = headers.findIndex((h: string) => h.includes("telefono") || h.includes("teléfono") || h.includes("phone") || h.includes("celular"));
-        const vehicleIdx = headers.findIndex((h: string) => h.includes("vehiculo") || h.includes("vehículo") || h.includes("vehicle") || h.includes("auto"));
+        const lowerHeaders = rawHeaders.map(h => h.toLowerCase());
         
-        if (nameIdx === -1) {
-          alert("No se encontró una columna válida para el 'Nombre'.");
-          return;
-        }
+        // Auto-detect column mapping
+        let autoNameIdx = lowerHeaders.findIndex(h => h.includes("nombre") || h.includes("name") || h.includes("cliente") || h.includes("contacto") || h.includes("apellido"));
+        if (autoNameIdx === -1) autoNameIdx = 0; // Default to first column if not found
 
-        const newLeadsData = rows.map((row) => {
-          if (!row[nameIdx]) return null;
-          return {
-            agencyId: currentUser.agency_id,
-            name: String(row[nameIdx] || ""),
-            email: emailIdx !== -1 ? String(row[emailIdx] || "") : "",
-            phone: phoneIdx !== -1 ? String(row[phoneIdx] || "") : "",
-            vehicle: vehicleIdx !== -1 ? String(row[vehicleIdx] || "Sin vehículo") : "Sin vehículo",
-            message: "Importado desde archivo",
-            tags: ["Importado"]
-          };
-        }).filter(Boolean) as any[];
+        let autoEmailIdx = lowerHeaders.findIndex(h => h.includes("correo") || h.includes("email") || h.includes("mail"));
+        let autoPhoneIdx = lowerHeaders.findIndex(h => h.includes("telefono") || h.includes("teléfono") || h.includes("phone") || h.includes("celular") || h.includes("movil") || h.includes("whatsapp"));
+        let autoVehicleIdx = lowerHeaders.findIndex(h => h.includes("vehiculo") || h.includes("vehículo") || h.includes("vehicle") || h.includes("auto") || h.includes("coche"));
 
-        if (newLeadsData.length === 0) {
-          alert("No se encontraron contactos válidos en el archivo.");
-          return;
-        }
+        setColumnMapping({
+          nameIdx: autoNameIdx,
+          emailIdx: autoEmailIdx,
+          phoneIdx: autoPhoneIdx,
+          vehicleIdx: autoVehicleIdx,
+        });
 
-        const res = await bulkCreateAutoLeads(newLeadsData);
-        if (res.success) {
-          alert(`Se importaron ${newLeadsData.length} contactos exitosamente.`);
-          window.location.reload();
-        } else {
-          alert("Ocurrió un error al importar los contactos.");
-        }
+        setImportPreviewData({
+          fileName: file.name,
+          rawHeaders,
+          rawRows
+        });
       } catch (err) {
         console.error("Error parsing file:", err);
-        alert("Hubo un error al procesar el archivo.");
+        alert("Hubo un error al procesar el archivo Excel / CSV.");
       } finally {
         setIsImporting(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     };
     reader.readAsBinaryString(file);
+  };
+
+  const handleConfirmImport = async () => {
+    if (!importPreviewData) return;
+    if (columnMapping.nameIdx === -1) {
+      alert("Por favor selecciona una columna para el Nombre de los contactos.");
+      return;
+    }
+
+    startTransition(async () => {
+      const newLeadsData = importPreviewData.rawRows.map((row) => {
+        const nameVal = row[columnMapping.nameIdx] ? String(row[columnMapping.nameIdx]).trim() : "";
+        if (!nameVal) return null;
+
+        const emailVal = columnMapping.emailIdx !== -1 && row[columnMapping.emailIdx] ? String(row[columnMapping.emailIdx]).trim() : "";
+        const phoneVal = columnMapping.phoneIdx !== -1 && row[columnMapping.phoneIdx] ? String(row[columnMapping.phoneIdx]).trim() : "";
+        const vehicleVal = columnMapping.vehicleIdx !== -1 && row[columnMapping.vehicleIdx] ? String(row[columnMapping.vehicleIdx]).trim() : "Sin vehículo";
+
+        return {
+          agencyId: currentUser.agency_id,
+          name: nameVal,
+          email: emailVal,
+          phone: phoneVal,
+          vehicle: vehicleVal || "Sin vehículo",
+          message: "Importado desde archivo " + importPreviewData.fileName,
+          tags: ["Importado"]
+        };
+      }).filter(Boolean) as any[];
+
+      if (newLeadsData.length === 0) {
+        alert("No se encontraron filas con un nombre válido en la columna seleccionada.");
+        return;
+      }
+
+      const res = await bulkCreateAutoLeads(newLeadsData);
+      if (res.success) {
+        alert(`¡Éxito! Se importaron ${newLeadsData.length} contactos correctamente.`);
+        setImportPreviewData(null);
+        window.location.reload();
+      } else {
+        alert("Ocurrió un error al importar los contactos: " + (res.error || ""));
+      }
+    });
   };
 
   useEffect(() => {
@@ -422,7 +472,8 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
 
   return (
     <div className={styles.crmContainer}>
-      {/* Banner Superior Unificado */}
+      <div className={styles.singleSolidBlock}>
+        {/* Banner Superior Unificado */}
       <div className={styles.topBanner}>
         <div className={styles.topBannerHeader}>
           <div>
@@ -831,158 +882,194 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
             </div>
           </div>
 
-          {/* Grid de Tarjetas de Tags */}
+          {/* Lista Estructurada de Etiquetas */}
           <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-            gap: "1rem"
+            backgroundColor: "var(--surface-color)",
+            border: "1px solid var(--border-color)",
+            borderRadius: "12px",
+            overflow: "hidden",
+            boxShadow: "var(--shadow-sm)"
           }}>
-            {filteredTagsManagerList.map((tag) => {
-              const contactsWithTag = leads.filter(l => l.tags && l.tags.includes(tag));
-              const isEditing = editingTagOld === tag;
+            {/* Header de la Tabla */}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "2fr 1fr 1fr",
+              padding: "0.85rem 1.25rem",
+              backgroundColor: "rgba(128,128,128,0.05)",
+              borderBottom: "1px solid var(--border-color)",
+              fontSize: "0.75rem",
+              fontWeight: 700,
+              color: "var(--text-color)",
+              opacity: 0.7,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em"
+            }}>
+              <span>Nombre de la Etiqueta</span>
+              <span>Contactos Vinculados</span>
+              <span style={{ textAlign: "right" }}>Acciones</span>
+            </div>
 
-              return (
-                <div
-                  key={tag}
-                  style={{
-                    backgroundColor: "var(--surface-color)",
-                    border: "1px solid var(--border-color)",
-                    borderRadius: "12px",
-                    padding: "1.25rem",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    gap: "1rem",
-                    boxShadow: "var(--shadow-sm)",
-                    transition: "all 0.2s"
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "0.5rem" }}>
-                    {isEditing ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", width: "100%" }}>
-                        <input
-                          type="text"
-                          value={editingTagNew}
-                          onChange={(e) => setEditingTagNew(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleRenameGlobalTag(tag);
-                            if (e.key === "Escape") setEditingTagOld(null);
-                          }}
-                          autoFocus
-                          style={{
-                            padding: "0.35rem 0.5rem",
-                            borderRadius: "6px",
-                            border: "1px solid var(--primary)",
-                            backgroundColor: "var(--bg-color)",
-                            color: "var(--text-color)",
-                            fontSize: "0.85rem",
-                            fontWeight: 600,
-                            flex: 1
-                          }}
-                        />
-                        <button
-                          onClick={() => handleRenameGlobalTag(tag)}
-                          style={{ backgroundColor: "var(--primary)", color: "#fff", border: "none", borderRadius: "6px", padding: "0.4rem", cursor: "pointer", display: "flex" }}
-                          title="Guardar nombre"
-                        >
-                          <Check size={14} />
-                        </button>
-                        <button
-                          onClick={() => setEditingTagOld(null)}
-                          style={{ backgroundColor: "transparent", color: "var(--text-color)", border: "1px solid var(--border-color)", borderRadius: "6px", padding: "0.4rem", cursor: "pointer", display: "flex" }}
-                          title="Cancelar"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ) : (
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                        <span style={{
-                          backgroundColor: "var(--text-color)",
-                          color: "var(--bg-color)",
-                          padding: "0.3rem 0.75rem",
-                          borderRadius: "16px",
-                          fontWeight: 700,
-                          fontSize: "0.85rem",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "0.35rem"
-                        }}>
-                          <TagIcon size={13} /> {tag}
-                        </span>
-                      </div>
-                    )}
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {filteredTagsManagerList.length === 0 ? (
+                <div style={{ padding: "3rem", textAlign: "center", opacity: 0.5, fontSize: "0.9rem" }}>
+                  No se encontraron etiquetas.
+                </div>
+              ) : (
+                filteredTagsManagerList.map((tag) => {
+                  const contactsWithTag = leads.filter(l => l.tags && l.tags.includes(tag));
+                  const isEditing = editingTagOld === tag;
 
-                    {!isEditing && (
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                        <button
-                          onClick={() => {
-                            setEditingTagOld(tag);
-                            setEditingTagNew(tag);
-                          }}
-                          style={{ background: "none", border: "none", color: "var(--text-color)", cursor: "pointer", opacity: 0.7, padding: "0.25rem", borderRadius: "4px" }}
-                          title="Renombrar etiqueta"
-                        >
-                          <Edit2 size={15} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteGlobalTag(tag)}
-                          style={{ background: "none", border: "none", color: "var(--danger, #ef4444)", cursor: "pointer", opacity: 0.7, padding: "0.25rem", borderRadius: "4px" }}
-                          title="Eliminar etiqueta"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--border-color)", paddingTop: "0.75rem", marginTop: "0.25rem" }}>
-                    <span style={{ fontSize: "0.8rem", opacity: 0.7, fontWeight: 500 }}>
-                      {contactsWithTag.length} {contactsWithTag.length === 1 ? "contacto" : "contactos"}
-                    </span>
-                    <button
-                      onClick={() => {
-                        setSelectedTagFilter(tag);
-                        setActiveTab("contacts");
-                      }}
+                  return (
+                    <div
+                      key={tag}
                       style={{
-                        backgroundColor: "rgba(128,128,128,0.1)",
-                        border: "1px solid var(--border-color)",
-                        color: "var(--primary)",
-                        padding: "0.3rem 0.65rem",
-                        borderRadius: "6px",
-                        fontSize: "0.75rem",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        display: "flex",
+                        display: "grid",
+                        gridTemplateColumns: "2fr 1fr 1fr",
                         alignItems: "center",
-                        gap: "0.25rem"
+                        padding: "0.85rem 1.25rem",
+                        borderBottom: "1px solid var(--border-color)",
+                        transition: "background-color 0.15s ease"
                       }}
                     >
-                      <Eye size={12} /> Ver contactos
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+                      {/* Columna 1: Nombre del Tag */}
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        {isEditing ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", width: "100%", maxWidth: "320px" }}>
+                            <input
+                              type="text"
+                              value={editingTagNew}
+                              onChange={(e) => setEditingTagNew(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleRenameGlobalTag(tag);
+                                if (e.key === "Escape") setEditingTagOld(null);
+                              }}
+                              autoFocus
+                              style={{
+                                padding: "0.4rem 0.65rem",
+                                borderRadius: "6px",
+                                border: "1px solid var(--primary)",
+                                backgroundColor: "var(--bg-color)",
+                                color: "var(--text-color)",
+                                fontSize: "0.85rem",
+                                fontWeight: 600,
+                                flex: 1
+                              }}
+                            />
+                            <button
+                              onClick={() => handleRenameGlobalTag(tag)}
+                              style={{ backgroundColor: "var(--primary)", color: "#fff", border: "none", borderRadius: "6px", padding: "0.45rem 0.6rem", cursor: "pointer", display: "flex", alignItems: "center" }}
+                              title="Guardar cambio"
+                            >
+                              <Check size={14} />
+                            </button>
+                            <button
+                              onClick={() => setEditingTagOld(null)}
+                              style={{ backgroundColor: "transparent", color: "var(--text-color)", border: "1px solid var(--border-color)", borderRadius: "6px", padding: "0.45rem 0.6rem", cursor: "pointer", display: "flex", alignItems: "center" }}
+                              title="Cancelar"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <span style={{
+                            backgroundColor: "rgba(128,128,128,0.1)",
+                            color: "var(--text-color)",
+                            border: "1px solid var(--border-color)",
+                            padding: "0.3rem 0.75rem",
+                            borderRadius: "16px",
+                            fontWeight: 700,
+                            fontSize: "0.85rem",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "0.35rem"
+                          }}>
+                            <TagIcon size={13} style={{ color: "var(--primary)" }} /> {tag}
+                          </span>
+                        )}
+                      </div>
 
-            {filteredTagsManagerList.length === 0 && (
-              <div style={{
-                gridColumn: "1 / -1",
-                padding: "3rem",
-                textAlign: "center",
-                backgroundColor: "var(--surface-color)",
-                border: "1px solid var(--border-color)",
-                borderRadius: "12px",
-                opacity: 0.6,
-                fontSize: "0.9rem"
-              }}>
-                {tagSearchQuery ? `No se encontraron etiquetas que coincidan con "${tagSearchQuery}".` : "No hay etiquetas registradas aún. ¡Crea tu primera etiqueta arriba!"}
-              </div>
-            )}
+                      {/* Columna 2: Cantidad de contactos */}
+                      <div style={{ fontSize: "0.85rem", color: "var(--text-color)", fontWeight: 500 }}>
+                        <span style={{ fontWeight: 700, color: "var(--primary)" }}>{contactsWithTag.length}</span> {contactsWithTag.length === 1 ? "contacto" : "contactos"}
+                      </div>
+
+                      {/* Columna 3: Acciones */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "0.5rem" }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedTagFilter(tag);
+                            setActiveTab("contacts");
+                          }}
+                          className="btn-text"
+                          style={{
+                            fontSize: "0.8rem",
+                            fontWeight: 600,
+                            color: "var(--primary)",
+                            padding: "0.3rem 0.6rem",
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.3rem"
+                          }}
+                          title="Filtrar contactos por esta etiqueta"
+                        >
+                          <Filter size={13} /> Filtrar
+                        </button>
+
+                        {!isEditing && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingTagOld(tag);
+                                setEditingTagNew(tag);
+                              }}
+                              className="btn-text"
+                              style={{
+                                fontSize: "0.8rem",
+                                fontWeight: 600,
+                                color: "var(--text-color)",
+                                padding: "0.3rem 0.5rem",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "0.3rem"
+                              }}
+                              title="Renombrar etiqueta"
+                            >
+                              <Edit2 size={14} /> Editar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteGlobalTag(tag)}
+                              className="btn-text"
+                              style={{
+                                fontSize: "0.8rem",
+                                fontWeight: 600,
+                                color: "var(--danger, #ef4444)",
+                                padding: "0.3rem 0.5rem",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "0.3rem"
+                              }}
+                              title="Eliminar etiqueta"
+                            >
+                              <Trash2 size={14} /> Eliminar
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
       )}
+      </div>
 
       {/* Add Lead Modal */}
       {showAddModal && (
@@ -1229,6 +1316,223 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
                   {isPending ? "Procesando..." : "Aplicar Cambios"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL POPUP: VISTA PREVIA E IMPORTACIÓN CON MAPEO DE COLUMNAS */}
+      {importPreviewData && (
+        <div 
+          style={{ 
+            position: "fixed", 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            backgroundColor: "rgba(0,0,0,0.6)", 
+            backdropFilter: "blur(4px)",
+            display: "flex", 
+            alignItems: "center", 
+            justifyContent: "center", 
+            zIndex: 1000,
+            padding: "1rem"
+          }}
+        >
+          <div 
+            style={{ 
+              backgroundColor: "var(--surface-color)", 
+              border: "1px solid var(--border-color)", 
+              borderRadius: "16px", 
+              padding: "1.75rem", 
+              width: "100%", 
+              maxWidth: "780px",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.3)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "1.25rem"
+            }}
+          >
+            {/* Header del Modal */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: "1rem" }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <Upload size={20} style={{ color: "var(--primary)" }} /> Vista Previa e Importación de Contactos
+                </h3>
+                <p style={{ margin: "0.25rem 0 0 0", opacity: 0.75, fontSize: "0.85rem" }}>
+                  Archivo: <strong>{importPreviewData.fileName}</strong> ({importPreviewData.rawRows.length} contactos detectados)
+                </p>
+              </div>
+              <button type="button" onClick={() => setImportPreviewData(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-color)" }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Mapeo de Columnas (Selector Inteligente) */}
+            <div style={{ backgroundColor: "var(--bg-color)", border: "1px solid var(--border-color)", borderRadius: "12px", padding: "1.25rem", display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  ⚙️ Asignación de Columnas (Mapeo de Campos)
+                </h4>
+                <span style={{ fontSize: "0.75rem", opacity: 0.7, fontStyle: "italic" }}>
+                  Ajusta la columna correspondiente si la auto-detección no coincide
+                </span>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "1rem" }}>
+                {/* Campo Nombre */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+                  <label style={{ fontSize: "0.82rem", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span>Nombre / Apellido <span style={{ color: "#ef4444" }}>*</span></span>
+                  </label>
+                  <select
+                    value={columnMapping.nameIdx}
+                    onChange={(e) => setColumnMapping(prev => ({ ...prev, nameIdx: Number(e.target.value) }))}
+                    style={{ padding: "0.55rem 0.75rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--surface-color)", color: "var(--text-color)", fontSize: "0.85rem", fontWeight: 600 }}
+                  >
+                    <option value={-1}>-- Seleccionar Columna --</option>
+                    {importPreviewData.rawHeaders.map((header, idx) => (
+                      <option key={idx} value={idx}>
+                        Columna {idx + 1}: "{header || `Columna ${idx + 1}`}"
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Campo Email */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+                  <label style={{ fontSize: "0.82rem", fontWeight: 700 }}>
+                    Correo Electrónico (Email)
+                  </label>
+                  <select
+                    value={columnMapping.emailIdx}
+                    onChange={(e) => setColumnMapping(prev => ({ ...prev, emailIdx: Number(e.target.value) }))}
+                    style={{ padding: "0.55rem 0.75rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--surface-color)", color: "var(--text-color)", fontSize: "0.85rem", fontWeight: 600 }}
+                  >
+                    <option value={-1}>-- Ignorar / No incluir --</option>
+                    {importPreviewData.rawHeaders.map((header, idx) => (
+                      <option key={idx} value={idx}>
+                        Columna {idx + 1}: "{header || `Columna ${idx + 1}`}"
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Campo Teléfono */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+                  <label style={{ fontSize: "0.82rem", fontWeight: 700 }}>
+                    Teléfono / WhatsApp / Celular
+                  </label>
+                  <select
+                    value={columnMapping.phoneIdx}
+                    onChange={(e) => setColumnMapping(prev => ({ ...prev, phoneIdx: Number(e.target.value) }))}
+                    style={{ padding: "0.55rem 0.75rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--surface-color)", color: "var(--text-color)", fontSize: "0.85rem", fontWeight: 600 }}
+                  >
+                    <option value={-1}>-- Ignorar / No incluir --</option>
+                    {importPreviewData.rawHeaders.map((header, idx) => (
+                      <option key={idx} value={idx}>
+                        Columna {idx + 1}: "{header || `Columna ${idx + 1}`}"
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Campo Vehículo */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+                  <label style={{ fontSize: "0.82rem", fontWeight: 700 }}>
+                    Vehículo de Interés
+                  </label>
+                  <select
+                    value={columnMapping.vehicleIdx}
+                    onChange={(e) => setColumnMapping(prev => ({ ...prev, vehicleIdx: Number(e.target.value) }))}
+                    style={{ padding: "0.55rem 0.75rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--surface-color)", color: "var(--text-color)", fontSize: "0.85rem", fontWeight: 600 }}
+                  >
+                    <option value={-1}>-- Ignorar / No incluir --</option>
+                    {importPreviewData.rawHeaders.map((header, idx) => (
+                      <option key={idx} value={idx}>
+                        Columna {idx + 1}: "{header || `Columna ${idx + 1}`}"
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Tabla de Vista Previa (Primeras 5 Filas) */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--text-color)", opacity: 0.85 }}>
+                🔍 Vista previa en tiempo real de los datos a importar (primeras 5 filas):
+              </span>
+
+              <div style={{ border: "1px solid var(--border-color)", borderRadius: "10px", overflow: "hidden", backgroundColor: "var(--surface-color)" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                  <thead>
+                    <tr style={{ backgroundColor: "var(--bg-color)", borderBottom: "1px solid var(--border-color)", textAlign: "left" }}>
+                      <th style={{ padding: "0.6rem 0.85rem", width: "40px" }}>#</th>
+                      <th style={{ padding: "0.6rem 0.85rem", color: "var(--primary)" }}>Nombre Mapeado</th>
+                      <th style={{ padding: "0.6rem 0.85rem" }}>Email Mapeado</th>
+                      <th style={{ padding: "0.6rem 0.85rem" }}>Teléfono Mapeado</th>
+                      <th style={{ padding: "0.6rem 0.85rem" }}>Vehículo Mapeado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {importPreviewData.rawRows.slice(0, 5).map((row, idx) => {
+                      const nameVal = columnMapping.nameIdx !== -1 ? row[columnMapping.nameIdx] : null;
+                      const emailVal = columnMapping.emailIdx !== -1 ? row[columnMapping.emailIdx] : null;
+                      const phoneVal = columnMapping.phoneIdx !== -1 ? row[columnMapping.phoneIdx] : null;
+                      const vehicleVal = columnMapping.vehicleIdx !== -1 ? row[columnMapping.vehicleIdx] : null;
+
+                      return (
+                        <tr key={idx} style={{ borderBottom: "1px solid var(--border-color)" }}>
+                          <td style={{ padding: "0.5rem 0.85rem", opacity: 0.5 }}>{idx + 1}</td>
+                          <td style={{ padding: "0.5rem 0.85rem", fontWeight: 700 }}>
+                            {nameVal ? String(nameVal) : <span style={{ color: "#ef4444", fontWeight: 500 }}>(Sin nombre)</span>}
+                          </td>
+                          <td style={{ padding: "0.5rem 0.85rem", opacity: emailVal ? 1 : 0.4 }}>{emailVal ? String(emailVal) : "-"}</td>
+                          <td style={{ padding: "0.5rem 0.85rem", opacity: phoneVal ? 1 : 0.4 }}>{phoneVal ? String(phoneVal) : "-"}</td>
+                          <td style={{ padding: "0.5rem 0.85rem", opacity: vehicleVal ? 1 : 0.4 }}>{vehicleVal ? String(vehicleVal) : "-"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Acciones del Modal */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--border-color)", paddingTop: "1rem" }}>
+              <button
+                type="button"
+                onClick={() => setImportPreviewData(null)}
+                style={{ backgroundColor: "transparent", border: "1px solid var(--border-color)", padding: "0.65rem 1.25rem", borderRadius: "8px", fontWeight: 600, color: "var(--text-color)", cursor: "pointer" }}
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmImport}
+                disabled={isPending || columnMapping.nameIdx === -1}
+                style={{
+                  backgroundColor: "var(--primary)",
+                  color: "#ffffff",
+                  border: "none",
+                  padding: "0.65rem 1.4rem",
+                  borderRadius: "8px",
+                  fontWeight: 700,
+                  fontSize: "0.88rem",
+                  cursor: columnMapping.nameIdx === -1 ? "not-allowed" : "pointer",
+                  opacity: columnMapping.nameIdx === -1 ? 0.6 : 1,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem"
+                }}
+              >
+                <Check size={16} />
+                {isPending ? "Importando..." : `Confirmar e Importar ${importPreviewData.rawRows.length} Contactos`}
+              </button>
             </div>
           </div>
         </div>

@@ -10,7 +10,16 @@ export interface PaymentPlan {
   isPopular?: boolean;
   features: string[];
   maxVehicles: string;
+  maxVehiclesCount: number;
   maxUsers: string;
+  maxUsersCount: number;
+  crmLevel: string;
+  whatsappInbox: string;
+  emailBroadcasts: string;
+  multichannelPublish: string;
+  aiAssistant: string;
+  customDomain: string;
+  supportLevel: string;
   active: boolean;
 }
 
@@ -30,27 +39,79 @@ export const DEFAULT_PLANS: PaymentPlan[] = [
       "Soporte por email"
     ],
     maxVehicles: "5",
+    maxVehiclesCount: 5,
     maxUsers: "1",
+    maxUsersCount: 1,
+    crmLevel: "Básico",
+    whatsappInbox: "No disponible",
+    emailBroadcasts: "No disponible",
+    multichannelPublish: "Manual",
+    aiAssistant: "No disponible",
+    customDomain: "Subdominio .n-sistemas.com",
+    supportLevel: "Email estándar",
     active: true
   },
   {
-    id: "plan-pro",
-    name: "Pro",
+    id: "plan-starter",
+    name: "Starter",
+    priceMonthly: 19,
+    priceYearly: 15,
+    description: "Para automotoras en crecimiento que buscan digitalizar su inventario.",
+    badge: "Crecimiento",
+    isPopular: false,
+    features: [
+      "Hasta 20 vehículos en inventario",
+      "Hasta 2 usuarios de ventas",
+      "CRM de leads con pipeline",
+      "1 canal WhatsApp Conectado",
+      "Hasta 500 emails/mes de broadcast",
+      "Publicación MercadoLibre & Redes",
+      "Respuestas IA y plantillas rápidas",
+      "Soporte prioritario por email y chat"
+    ],
+    maxVehicles: "20",
+    maxVehiclesCount: 20,
+    maxUsers: "2",
+    maxUsersCount: 2,
+    crmLevel: "Estándar (Pipeline + Asignación)",
+    whatsappInbox: "1 Canal Conectado",
+    emailBroadcasts: "Hasta 500 emails/mes",
+    multichannelPublish: "MercadoLibre + Redes",
+    aiAssistant: "Respuestas IA + Plantillas",
+    customDomain: "Subdominio + CNAME Básico",
+    supportLevel: "Email & Chat Prioritario",
+    active: true
+  },
+  {
+    id: "plan-premium",
+    name: "Premium",
     priceMonthly: 49,
     priceYearly: 39,
     description: "La solución completa para potenciar tus ventas y automatizar el CRM.",
     badge: "Más Popular",
     isPopular: true,
     features: [
-      "Vehículos e inventario ilimitados",
+      "Hasta 100 vehículos en inventario",
       "Hasta 5 usuarios de ventas",
-      "Integración WhatsApp inbox",
-      "Publicación multicanal en 1 clic",
-      "Email Broadcasts y plantillas",
-      "Soporte prioritario 24/7"
+      "CRM Avanzado con automatización de embudos",
+      "Inbox WhatsApp Multicanal (Meta API)",
+      "Hasta 5,000 emails/mes de broadcast",
+      "Publicación 1-Clic Ilimitada",
+      "Agente IA de atención automatizada",
+      "Dominio propio .com con SSL",
+      "Soporte 24/7 vía WhatsApp"
     ],
-    maxVehicles: "Ilimitados",
+    maxVehicles: "100",
+    maxVehiclesCount: 100,
     maxUsers: "5",
+    maxUsersCount: 5,
+    crmLevel: "Avanzado (Embudo + Metas)",
+    whatsappInbox: "Multicanal (Meta API)",
+    emailBroadcasts: "Hasta 5,000 emails/mes",
+    multichannelPublish: "Publicación Ilimitada 1-Clic",
+    aiAssistant: "IA Agente Completo",
+    customDomain: "Dominio Propio .com + SSL",
+    supportLevel: "Soporte 24/7 WhatsApp",
     active: true
   },
   {
@@ -60,16 +121,29 @@ export const DEFAULT_PLANS: PaymentPlan[] = [
     priceYearly: 79,
     description: "Máxima potencia con automatizaciones avanzadas y soporte dedicado VIP.",
     badge: "Empresas",
+    isPopular: false,
     features: [
-      "Todo lo incluido en el Plan Pro",
-      "Usuarios e inmobiliarias ilimitadas",
-      "Automatizaciones avanzadas e IA",
-      "Dominio de email propio verificado",
-      "Reportes analíticos de conversión",
+      "Vehículos e inventario ilimitados",
+      "Usuarios e imobiliarias ilimitadas",
+      "CRM Custom + API & Webhooks",
+      "WhatsApp Ilimitado + Agentes IA Autónomos",
+      "Emails Broadcast Ilimitados + IP Dedicada",
+      "Automatización multicanal total",
+      "IA Personalizada y entrenada a medida",
+      "Dominio propio + Email Verificado",
       "Ejecutivo de cuenta dedicado VIP"
     ],
     maxVehicles: "Ilimitados",
+    maxVehiclesCount: 999999,
     maxUsers: "Ilimitados",
+    maxUsersCount: 999999,
+    crmLevel: "Personalizado + API & Webhooks",
+    whatsappInbox: "Ilimitado + Agentes IA",
+    emailBroadcasts: "Ilimitados + IP propia",
+    multichannelPublish: "Automatización Total",
+    aiAssistant: "IA Custom / Fine-tune",
+    customDomain: "Dominio + Email Verificado",
+    supportLevel: "Ejecutivo Dedicado VIP",
     active: true
   }
 ];
@@ -129,3 +203,4 @@ export function togglePlanActive(planId: string): void {
   const updated = current.map(p => p.id === planId ? { ...p, active: !p.active } : p);
   savePlans(updated);
 }
+

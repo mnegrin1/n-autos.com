@@ -52,7 +52,7 @@ export default function EmailDomainSettings({ agencyId }: EmailDomainSettingsPro
     startTransition(async () => {
       const res = await verifyCustomDomain(agencyId);
       if (res.success) {
-        setIsVerified(res.verified);
+        setIsVerified(Boolean(res.verified));
         if (res.records) setRecords(res.records);
         if (res.verified) {
           alert("¡Felicitaciones! Tu dominio ha sido verificado con éxito.");

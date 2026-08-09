@@ -2,12 +2,16 @@
 
 import { useState, useTransition, useEffect } from "react";
 import styles from "./vehicles.module.css";
-import { Plus, Search, Edit2, Trash2, X, SlidersHorizontal, Image as ImageIcon } from "lucide-react";
-import { createVehicle, updateVehicle, deleteVehicle } from "@/actions/autoActions";
+import { Plus, Search, Edit2, Trash2, X, SlidersHorizontal, Image as ImageIcon, Sparkles, Calculator, FileSpreadsheet } from "lucide-react";
+import { createVehicle, updateVehicle, deleteVehicle, getVehicles } from "@/actions/autoActions";
 import Link from "next/link";
 import MediaUpload, { type MediaItem } from "./MediaUpload";
 import { useSearchParams, useRouter } from "next/navigation";
 import { updateAgencySettings } from "@/actions/agencyActions";
+import { getTenantSession, subscribeTenantSession, TenantSession } from "@/lib/tenantStore";
+import { getPlans } from "@/lib/plansStore";
+import FinancingCalculatorModal from "@/components/FinancingCalculatorModal";
+import VehicleExcelImporterModal from "@/components/VehicleExcelImporterModal";
 
 interface Vehicle {
   id: string;
@@ -57,7 +61,11 @@ export default function VehiclesClient({ initialVehicles, initialPublishSold }: 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   
+  const [tenantSession, setTenantSession] = useState<TenantSession>(getTenantSession());
   const [showModal, setShowModal] = useState(false);
+  const [showQuotaModal, setShowQuotaModal] = useState(false);
+  const [showExcelModal, setShowExcelModal] = useState(false);
+  const [financingVehicle, setFinancingVehicle] = useState<Vehicle | null>(null);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [formState, setFormState] = useState(emptyFormState);
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
@@ -70,10 +78,19 @@ export default function VehiclesClient({ initialVehicles, initialPublishSold }: 
   const router = useRouter();
 
   useEffect(() => {
+    setTenantSession(getTenantSession());
+    const unsubscribe = subscribeTenantSession((updated) => setTenantSession(updated));
+    return () => unsubscribe();
+  }, []);
+
+  const activePlans = getPlans();
+  const currentPlan = activePlans.find(p => p.id === tenantSession.planId) || activePlans[1];
+  const maxVehiclesAllowed = currentPlan.maxVehiclesCount || 20;
+
+  useEffect(() => {
     const action = searchParams.get("action");
     if (action === "new") {
       openNewModal();
-      // clean params
       router.replace("/admin/vehicles");
     }
   }, [searchParams]);
@@ -91,6 +108,10 @@ export default function VehiclesClient({ initialVehicles, initialPublishSold }: 
   });
 
   const openNewModal = () => {
+    if (vehicles.length >= maxVehiclesAllowed) {
+      setShowQuotaModal(true);
+      return;
+    }
     setFormState(emptyFormState);
     setEditingVehicle(null);
     setMediaItems([]);
@@ -218,26 +239,94 @@ export default function VehiclesClient({ initialVehicles, initialPublishSold }: 
   };
 
   return (
-    <div className={styles.propertiesContainer}>
-      {/* Banner Superior Unificado sin esquinas redondeadas */}
+    <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
+      {/* UNIFIED SINGLE BLOCK CONTAINER OVER BACKGROUND */}
       <div style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "1rem",
-        padding: "1.5rem",
         backgroundColor: "var(--surface-color)",
         border: "1px solid var(--border-color)",
-        borderRadius: 0,
+        borderRadius: "16px",
+        overflow: "hidden",
         boxShadow: "var(--shadow-sm)"
       }}>
+        {/* Banner Superior Unificado */}
+        <div style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "1rem",
+          padding: "1.5rem",
+          backgroundColor: "var(--surface-color)",
+          borderBottom: "1px solid var(--border-color)"
+        }}>
+        {/* Banner de Cuotas y Límites del Plan */}
+        <div
+          style={{
+            backgroundColor: "rgba(37, 99, 235, 0.06)",
+            border: "1px solid rgba(37, 99, 235, 0.2)",
+            borderRadius: "12px",
+            padding: "0.85rem 1.25rem",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "0.75rem"
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+            <Sparkles size={18} style={{ color: "#2563eb" }} />
+            <span style={{ fontSize: "0.88rem", color: "var(--text-color)" }}>
+              Límite de Inventario <strong>Plan {tenantSession.planName}</strong>: <strong style={{ color: "#2563eb" }}>{vehicles.length} de {maxVehiclesAllowed === 999999 ? "∞" : maxVehiclesAllowed} vehículos</strong> publicados
+            </span>
+          </div>
+
+          <Link
+            href="/admin/upgrade"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.35rem",
+              fontSize: "0.82rem",
+              fontWeight: 800,
+              color: "#2563eb",
+              textDecoration: "none",
+              backgroundColor: "#fff",
+              border: "1px solid #2563eb",
+              padding: "0.35rem 0.85rem",
+              borderRadius: "8px"
+            }}
+          >
+            Mejorar Plan a Premium →
+          </Link>
+        </div>
+
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
           <div>
             <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 800 }}>Inventario de Vehículos</h1>
             <p style={{ margin: "0.2rem 0 0 0", opacity: 0.7, fontSize: "0.88rem" }}>Gestiona el stock del concesionario de autos en tiempo real.</p>
           </div>
-          <button className="btn-primary" style={{ display: "flex", alignItems: "center", gap: "0.25rem", padding: "0.6rem 1.1rem" }} onClick={openNewModal}>
-            <Plus size={16} /> Agregar Auto
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <button
+              type="button"
+              onClick={() => setShowExcelModal(true)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.4rem",
+                padding: "0.6rem 1.1rem",
+                borderRadius: "8px",
+                border: "1px solid #10b981",
+                backgroundColor: "rgba(16, 185, 129, 0.1)",
+                color: "#10b981",
+                fontWeight: 700,
+                fontSize: "0.88rem",
+                cursor: "pointer",
+              }}
+            >
+              <FileSpreadsheet size={16} /> Importar Excel
+            </button>
+            <button className="btn-primary" style={{ display: "flex", alignItems: "center", gap: "0.25rem", padding: "0.6rem 1.1rem" }} onClick={openNewModal}>
+              <Plus size={16} /> Agregar Auto
+            </button>
+          </div>
         </div>
 
         {/* Buscador y Filtros dentro del Banner Superior */}
@@ -337,7 +426,15 @@ export default function VehiclesClient({ initialVehicles, initialPublishSold }: 
                     </span>
                   </td>
                   <td style={{ textAlign: "center" }}>
-                    <div className={styles.actionsWrapper} style={{ justifyContent: "center" }}>
+                    <div className={styles.actionsWrapper} style={{ justifyContent: "center", gap: "0.4rem" }}>
+                      <button
+                        className={styles.actionBtn}
+                        style={{ color: "#38bdf8", display: "inline-flex", alignItems: "center", gap: "0.2rem" }}
+                        onClick={() => setFinancingVehicle(v)}
+                        title="Simular Financiación Bancaria BCU"
+                      >
+                        <Calculator size={13} /> Financiación
+                      </button>
                       <Link href={`/portal/demo/${v.id}`} target="_blank" className={styles.actionBtn} style={{ color: "#10b981" }}>
                         Ver
                       </Link>
@@ -354,6 +451,7 @@ export default function VehiclesClient({ initialVehicles, initialPublishSold }: 
             )}
           </tbody>
         </table>
+      </div>
       </div>
 
       {/* Form Modal */}
@@ -541,6 +639,65 @@ export default function VehiclesClient({ initialVehicles, initialPublishSold }: 
             </form>
           </div>
         </div>
+      )}
+
+      {/* Modal de Límite de Cuota Alcanzado */}
+      {showQuotaModal && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent} style={{ maxWidth: "500px", padding: "2rem", textAlign: "center" }}>
+            <div style={{ width: "56px", height: "56px", borderRadius: "50%", backgroundColor: "rgba(239, 68, 68, 0.1)", color: "#ef4444", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1rem auto" }}>
+              <Sparkles size={28} />
+            </div>
+            <h2 style={{ fontSize: "1.35rem", fontWeight: 800, margin: "0 0 0.5rem 0" }}>
+              Límite del Plan {tenantSession.planName} Alcanzado
+            </h2>
+            <p style={{ color: "var(--text-color)", opacity: 0.8, fontSize: "0.9rem", marginBottom: "1.5rem" }}>
+              Tu automotora ha alcanzado el límite máximo de <strong>{maxVehiclesAllowed} vehículos</strong> incluidos en el Plan {tenantSession.planName}. Para publicar más unidades, pásate al Plan Premium o Ultra.
+            </p>
+            <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
+              <button
+                type="button"
+                className={styles.btnCancel}
+                onClick={() => setShowQuotaModal(false)}
+              >
+                Cerrar
+              </button>
+              <Link
+                href="/admin/upgrade"
+                className="btn-primary"
+                style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.75rem 1.25rem", textDecoration: "none", borderRadius: "8px", fontWeight: 700 }}
+              >
+                Ver Planes y Mejorar →
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Calculadora de Financiación Bancaria */}
+      {financingVehicle && (
+        <FinancingCalculatorModal
+          isOpen={!!financingVehicle}
+          onClose={() => setFinancingVehicle(null)}
+          vehicle={{
+            brand: financingVehicle.brand,
+            model: financingVehicle.model,
+            year: financingVehicle.year,
+            price: financingVehicle.price,
+            currency: financingVehicle.currency,
+          }}
+        />
+      )}
+
+      {/* Modal Importador Masivo Excel */}
+      {showExcelModal && (
+        <VehicleExcelImporterModal
+          isOpen={showExcelModal}
+          onClose={() => setShowExcelModal(false)}
+          onSuccess={() => {
+            router.refresh();
+          }}
+        />
       )}
     </div>
   );

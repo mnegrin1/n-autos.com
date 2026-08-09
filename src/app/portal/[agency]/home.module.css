@@ -1,20 +1,248 @@
+.visitorLightMode {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+.visitorLightMode .featuredSection {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+.visitorLightMode .featuredHeader h2,
+.visitorLightMode .featuredHeader p,
+.visitorLightMode .sectionCategoryTag {
+  color: #0f172a !important;
+}
+.visitorLightMode .vehicleCard {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06) !important;
+}
+.visitorLightMode .vehicleCard h3,
+.visitorLightMode .vehicleCard p,
+.visitorLightMode .vehicleCard span,
+.visitorLightMode .vehicleCard div,
+.visitorLightMode .vehicleTitle {
+  color: #0f172a !important;
+}
+.visitorLightMode .vehiclePrice {
+  color: #059669 !important;
+}
+.visitorLightMode .specLabel {
+  color: #64748b !important;
+}
+.visitorLightMode .specValue {
+  color: #0f172a !important;
+}
+.visitorLightMode .pillarCard {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+.visitorLightMode .pillarCard h3,
+.visitorLightMode .pillarCard p {
+  color: #0f172a !important;
+}
+.visitorLightMode .aboutSection,
+.visitorLightMode .aboutCard {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+.visitorLightMode .aboutSection h2,
+.visitorLightMode .aboutSection h3,
+.visitorLightMode .aboutSection p,
+.visitorLightMode .aboutSection span {
+  color: #0f172a !important;
+}
+.visitorLightMode .contactSection {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+.visitorLightMode .contactDetailItem {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+.visitorLightMode .contactSection h2,
+.visitorLightMode .contactSection h3,
+.visitorLightMode .contactSection p,
+.visitorLightMode .contactSection strong,
+.visitorLightMode .contactDetailItem p,
+.visitorLightMode .contactDetailItem strong {
+  color: #0f172a !important;
+}
+.visitorLightMode .contactForm {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+.visitorLightMode .contactForm input,
+.visitorLightMode .contactForm select {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
 .homeContainer {
   display: flex;
   flex-direction: column;
   width: 100%;
+  position: relative;
+}
+
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background-color: rgba(10, 14, 23, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  padding: 0.85rem 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.visitorLightMode .navbar {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-bottom-color: #e2e8f0 !important;
+}
+
+.navContainer {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.brandLogoWrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: var(--text-color);
+}
+
+.brandLogoImg {
+  max-height: 42px;
+  max-width: 160px;
+  width: auto;
+  object-fit: contain;
+  border-radius: 6px;
+}
+
+.brandTitle {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-color);
+}
+
+.visitorLightMode .brandTitle {
+  color: #0f172a !important;
+}
+
+.navMenu {
+  display: flex;
+  align-items: center;
+  gap: 1.75rem;
+}
+
+@media (max-width: 768px) {
+  .navMenu {
+    display: none;
+  }
+}
+
+.navLink {
+  color: var(--text-color);
+  opacity: 0.85;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.visitorLightMode .navLink {
+  color: #0f172a !important;
+}
+
+.navLink:hover {
+  color: var(--primary);
+  opacity: 1;
+}
+
+.headerWhatsappBtn {
+  background-color: var(--primary);
+  color: #ffffff !important;
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+}
+
+.headerWhatsappBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+}
+
+.glassBackgroundGlows {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 900px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.glowBlob1 {
+  position: absolute;
+  top: 10%;
+  left: 15%;
+  width: 450px;
+  height: 450px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.28) 0%, rgba(16, 185, 129, 0) 70%);
+  filter: blur(50px);
+  animation: floatBlob 12s infinite alternate ease-in-out;
+}
+
+.glowBlob2 {
+  position: absolute;
+  top: 25%;
+  right: 15%;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.22) 0%, rgba(6, 182, 212, 0) 70%);
+  filter: blur(60px);
+  animation: floatBlob 15s infinite alternate-reverse ease-in-out;
+}
+
+@keyframes floatBlob {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(30px, -40px) scale(1.1); }
+  100% { transform: translate(-20px, 30px) scale(0.95); }
 }
 
 .eyebrowWrapper {
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
 }
 
 .heroEyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.35rem 0.9rem;
+  gap: 0.5rem;
+  padding: 0.4rem 1rem;
   border-radius: 9999px;
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -31,6 +259,7 @@
   padding: 5rem 2rem;
   text-align: center;
   position: relative;
+  z-index: 2;
 }
 
 .heroContent {
@@ -176,6 +405,8 @@
   margin: 0 auto;
   padding: 5rem 2rem;
   width: 100%;
+  position: relative;
+  z-index: 2;
 }
 
 .featuredHeader {
@@ -196,23 +427,24 @@
   font-weight: 600;
 }
 
-.propertyGrid {
+.vehicleGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 2rem;
 }
 
-.propertyCard {
+.vehicleCard {
   border-radius: 16px;
   overflow: hidden;
   background-color: var(--surface-color);
   border: 1px solid var(--border-color);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   box-shadow: var(--shadow-sm);
-  display: block;
+  display: flex;
+  flex-direction: column;
 }
 
-.propertyCard:hover {
+.vehicleCard:hover {
   transform: translateY(-6px);
   box-shadow: var(--shadow-lg);
 }
@@ -223,18 +455,18 @@
   width: 100%;
 }
 
-.propertyImage {
+.vehicleImage {
   width: 100%;
   height: 100%;
   object-fit: cover;
   transition: transform 0.4s ease;
 }
 
-.propertyCard:hover .propertyImage {
+.vehicleCard:hover .vehicleImage {
   transform: scale(1.04);
 }
 
-.propertyTypeBadge {
+.vehicleTypeBadge {
   position: absolute;
   top: 1rem;
   left: 1rem;
@@ -262,37 +494,63 @@
   text-transform: uppercase;
 }
 
-.propertyInfo {
+.vehicleInfo {
   padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
-.propertyTitle {
+.vehicleTitle {
   font-size: 1.15rem;
   font-weight: 700;
   margin-bottom: 0.25rem;
 }
 
-.propertyLocation {
+.vehicleSpecs {
   color: var(--text-color);
   opacity: 0.7;
   font-size: 0.9rem;
   margin-bottom: 1rem;
 }
 
-.propertyFeatures {
+.vehicleFeatures {
   display: flex;
   gap: 1rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
   font-size: 0.85rem;
   font-weight: 500;
   color: var(--text-color);
   opacity: 0.8;
 }
 
-.propertyPrice {
+.cardFooterRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--border-color);
+}
+
+.vehiclePrice {
   font-size: 1.35rem;
   font-weight: 800;
   color: var(--secondary);
+}
+
+.cardDetailBtn {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: transform 0.2s ease;
+}
+
+.vehicleCard:hover .cardDetailBtn {
+  transform: translateX(4px);
 }
 
 .aboutSection {
@@ -305,33 +563,245 @@
 }
 
 .aboutContent {
-  max-width: 800px;
+  max-width: 1100px;
   margin: 0 auto;
   text-align: center;
 }
 
-.aboutContent h2 {
-  font-size: 1.8rem;
-  font-weight: 700;
-  margin-bottom: 1.5rem;
-  color: var(--secondary);
+.aboutEyebrow {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  color: var(--primary);
+  margin-bottom: 0.5rem;
   text-transform: uppercase;
+}
+
+.aboutContent h2 {
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: 1.25rem;
+  color: var(--text-color);
 }
 
 .aboutHighlight {
   font-size: 1.2rem;
   font-weight: 600;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1rem;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .aboutText {
-  font-size: 1rem;
+  font-size: 0.98rem;
   opacity: 0.8;
   line-height: 1.7;
+  max-width: 850px;
+  margin: 0 auto 3rem auto;
+}
+
+.trustPillarsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+  text-align: left;
+}
+
+.pillarCard {
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: transform 0.25s ease, border-color 0.25s ease;
+}
+
+.pillarCard:hover {
+  transform: translateY(-4px);
+  border-color: var(--primary);
+}
+
+.pillarIcon {
+  color: var(--primary);
+  margin-bottom: 1rem;
+}
+
+.pillarCard h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.pillarCard p {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.75;
+  line-height: 1.5;
+}
+
+/* Contact Section */
+.contactSection {
+  padding: 5rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.contactContainer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  align-items: start;
+}
+
+.contactEyebrow {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  color: var(--primary);
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+}
+
+.contactInfoCol h2 {
+  font-size: 2rem;
+  font-weight: 800;
+  margin: 0 0 1rem 0;
+}
+
+.contactDesc {
+  font-size: 1rem;
+  opacity: 0.8;
+  line-height: 1.6;
+  margin-bottom: 2rem;
+}
+
+.contactDetailsList {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.contactDetailItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.contactDetailIcon {
+  color: var(--primary);
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.contactDetailItem strong {
+  display: block;
+  font-size: 0.95rem;
+  margin-bottom: 0.2rem;
+}
+
+.contactDetailItem p {
+  margin: 0;
+  font-size: 0.88rem;
+  opacity: 0.75;
+}
+
+.contactWhatsappBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  background-color: #25d366;
+  color: white;
+  padding: 0.85rem 1.5rem;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
+  box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3);
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.contactWhatsappBtn:hover {
+  background-color: #1ebc57;
+  transform: translateY(-2px);
+}
+
+.contactFormCol {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.contactForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.contactForm h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem 0;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.formGroup label {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.formGroup input {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.submitFormBtn {
+  background-color: var(--primary);
+  color: white;
+  border: none;
+  padding: 0.85rem 1.25rem;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: opacity 0.2s ease;
+}
+
+.submitFormBtn:hover {
+  opacity: 0.9;
+}
+
+.formSuccessMsg {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--primary);
+  font-size: 0.82rem;
+  font-weight: 600;
 }
 
 /* ==========================================================================
-   TEMPLATE 1: STANDARD FUNCIONAL (Básico sin glamour)
+   TEMPLATE 1: STANDARD FUNCIONAL (Básico y Limpio)
    ========================================================================== */
 .template_standard .heroSection {
   background: linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.85));
@@ -344,192 +814,363 @@
 /* ==========================================================================
    TEMPLATE 2: GLASSMORPHISM SHOWCASE (PREMIUM ⭐)
    ========================================================================== */
+.template_glassmorphism {
+  background-color: #0b0f19 !important;
+  color: #f1f5f9 !important;
+}
 .template_glassmorphism .heroSection {
   background: radial-gradient(circle at 50% 30%, rgba(16, 185, 129, 0.25) 0%, transparent 65%), linear-gradient(rgba(0,0,0,0.65), rgba(0,0,0,0.85));
 }
 .template_glassmorphism .heroEyebrow {
   background: rgba(16, 185, 129, 0.2);
-  border: 1px solid rgba(16, 185, 129, 0.5);
+  border: 1px solid rgba(16, 185, 129, 0.6);
   color: #34d399;
   backdrop-filter: blur(12px);
-  box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.35);
 }
 .template_glassmorphism .searchBox {
-  background: rgba(255, 255, 255, 0.12) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.25) !important;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5) !important;
+  border-radius: 16px !important;
+}
+.template_glassmorphism .tabButton {
+  background: rgba(15, 23, 42, 0.7) !important;
+  backdrop-filter: blur(12px) !important;
+}
+.template_glassmorphism .activeTab {
+  background: rgba(16, 185, 129, 0.9) !important;
+  color: white !important;
 }
 .template_glassmorphism .searchInput,
 .template_glassmorphism .searchSelect {
-  background: rgba(0, 0, 0, 0.25) !important;
+  background: rgba(0, 0, 0, 0.3) !important;
   border-color: rgba(255, 255, 255, 0.2) !important;
   color: white !important;
 }
-.template_glassmorphism .propertyCard {
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+.template_glassmorphism .vehicleCard {
+  background: rgba(255, 255, 255, 0.04) !important;
+  backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25) !important;
 }
-.template_glassmorphism .propertyCard:hover {
-  border-color: rgba(16, 185, 129, 0.5);
-  box-shadow: 0 12px 40px rgba(16, 185, 129, 0.2);
+.template_glassmorphism .vehicleCard:hover {
+  border-color: rgba(52, 211, 153, 0.6) !important;
+  box-shadow: 0 12px 40px rgba(16, 185, 129, 0.3) !important;
+  transform: translateY(-8px) scale(1.01) !important;
+}
+.template_glassmorphism .vehiclePrice {
+  color: #34d399 !important;
+  text-shadow: 0 0 12px rgba(52, 211, 153, 0.5);
 }
 
 /* ==========================================================================
    TEMPLATE 3: LUXURY EXECUTIVE DARK (PREMIUM ⭐)
    ========================================================================== */
 .template_luxury {
-  background-color: #09090b !important;
+  background-color: #07070a !important;
   color: #f4f4f5 !important;
+  font-family: 'Inter', sans-serif;
 }
 .template_luxury .heroSection {
-  background: radial-gradient(circle at 50% 20%, rgba(245, 158, 11, 0.2) 0%, transparent 60%), linear-gradient(rgba(9, 9, 11, 0.8), rgba(9, 9, 11, 0.95));
+  background: radial-gradient(circle at 50% 20%, rgba(245, 158, 11, 0.22) 0%, transparent 60%), linear-gradient(rgba(7, 7, 10, 0.8), rgba(7, 7, 10, 0.95));
+}
+.template_luxury .goldFiligree {
+  width: 80px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #eab308, transparent);
+  margin: 0 auto 1.25rem auto;
 }
 .template_luxury .heroTitle {
-  font-family: Georgia, 'Times New Roman', serif;
-  background: linear-gradient(135deg, #ffffff 0%, #fef08a 50%, #eab308 100%);
+  font-family: 'Cinzel', Georgia, serif !important;
+  font-weight: 700;
+  background: linear-gradient(135deg, #ffffff 0%, #fef08a 40%, #d97706 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  letter-spacing: 0.02em;
 }
 .template_luxury .heroEyebrow {
   background: rgba(245, 158, 11, 0.15);
-  border: 1px solid rgba(245, 158, 11, 0.5);
+  border: 1px solid rgba(245, 158, 11, 0.6);
   color: #fef08a;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.18em;
+  font-family: 'Cinzel', serif;
 }
 .template_luxury .searchBox {
-  background: #121215 !important;
-  border: 1px solid rgba(245, 158, 11, 0.3) !important;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.8) !important;
+  background: #121216 !important;
+  border: 1px solid rgba(234, 179, 8, 0.35) !important;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.85) !important;
+}
+.template_luxury .tabButton {
+  background: #18181f !important;
+  color: #a1a1aa !important;
+}
+.template_luxury .activeTab {
+  background: #eab308 !important;
+  color: #000 !important;
+  font-weight: 800 !important;
 }
 .template_luxury .searchInput,
 .template_luxury .searchSelect {
-  background: #18181c !important;
-  border-color: rgba(245, 158, 11, 0.2) !important;
+  background: #18181f !important;
+  border-color: rgba(234, 179, 8, 0.25) !important;
   color: #fef08a !important;
 }
-.template_luxury .propertyCard {
-  background: #121215;
-  border: 1px solid rgba(245, 158, 11, 0.2);
+.template_luxury .featuredHeader h2 {
+  font-family: 'Cinzel', serif;
+  color: #fef08a;
 }
-.template_luxury .propertyCard:hover {
-  border-color: #f59e0b;
-  box-shadow: 0 10px 30px rgba(245, 158, 11, 0.15);
+.template_luxury .sectionCategoryTag {
+  display: block;
+  font-size: 0.75rem;
+  font-family: 'Cinzel', serif;
+  letter-spacing: 0.2em;
+  color: #eab308;
+  margin-bottom: 0.25rem;
 }
-.template_luxury .propertyPrice {
+.template_luxury .vehicleCard {
+  background: #101014 !important;
+  border: 1px solid rgba(234, 179, 8, 0.25) !important;
+  border-radius: 12px;
+}
+.template_luxury .vehicleCard:hover {
+  border-color: #eab308 !important;
+  box-shadow: 0 15px 35px rgba(245, 158, 11, 0.2) !important;
+}
+.template_luxury .vehicleTitle {
+  font-family: 'Cinzel', serif;
+  font-size: 1.1rem;
+}
+.template_luxury .vehiclePrice {
   color: #fef08a !important;
-  font-family: Georgia, serif;
+  font-family: 'Cinzel', serif !important;
+  font-weight: 700;
+}
+.template_luxury .luxuryTag {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: linear-gradient(135deg, #fef08a, #eab308);
+  color: #000;
+  font-size: 0.65rem;
+  font-weight: 900;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
 }
 
 /* ==========================================================================
    TEMPLATE 4: SPORT RACING & DYNAMIC (PREMIUM ⭐)
    ========================================================================== */
 .template_sport {
-  background-color: #0b0f17 !important;
+  background-color: #0a0e17 !important;
+  color: #e2e8f0 !important;
+  font-family: 'Space Grotesk', sans-serif !important;
 }
 .template_sport .heroSection {
-  background: repeating-linear-gradient(45deg, rgba(239, 68, 68, 0.05), rgba(239, 68, 68, 0.05) 10px, transparent 10px, transparent 20px), linear-gradient(rgba(11, 15, 23, 0.75), rgba(11, 15, 23, 0.95));
+  background: repeating-linear-gradient(45deg, rgba(239, 68, 68, 0.06), rgba(239, 68, 68, 0.06) 12px, transparent 12px, transparent 24px), linear-gradient(rgba(10, 14, 23, 0.75), rgba(10, 14, 23, 0.95));
 }
 .template_sport .heroTitle {
+  font-family: 'Space Grotesk', sans-serif !important;
   font-style: italic;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: -0.03em;
+  color: white;
+  text-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
 }
 .template_sport .heroEyebrow {
   background: #ef4444;
   color: white;
   transform: skewX(-12deg);
-  box-shadow: 0 0 15px rgba(239, 68, 68, 0.5);
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+  font-style: italic;
 }
 .template_sport .searchBox {
-  background: #161b26 !important;
+  background: #141a26 !important;
   border: 2px solid #ef4444 !important;
   border-radius: 4px !important;
+  border-left: 6px solid #ef4444 !important;
 }
 .template_sport .tabButton {
   border-radius: 4px 4px 0 0 !important;
   transform: skewX(-8deg);
+  background: #141a26 !important;
 }
-.template_sport .propertyCard {
-  background: #161b26;
-  border: 1px solid #2d3748;
-  border-radius: 8px;
+.template_sport .activeTab {
+  background: #ef4444 !important;
+  color: white !important;
 }
-.template_sport .propertyCard:hover {
-  border-color: #ef4444;
-  transform: translateY(-8px) skewX(-1deg);
-  box-shadow: 0 12px 30px rgba(239, 68, 68, 0.25);
+.template_sport .searchInput,
+.template_sport .searchSelect {
+  background: #0d121c !important;
+  border-color: #2d3748 !important;
+  color: white !important;
+  border-radius: 4px !important;
 }
-.template_sport .propertyTypeBadge {
+.template_sport .featuredHeader h2 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-style: italic;
+  text-transform: uppercase;
+}
+.template_sport .sectionCategoryTag {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: #ef4444;
+  font-style: italic;
+  margin-bottom: 0.2rem;
+}
+.template_sport .vehicleCard {
+  background: #141a26 !important;
+  border: 1px solid #2d3748 !important;
+  border-radius: 8px !important;
+}
+.template_sport .vehicleCard:hover {
+  border-color: #ef4444 !important;
+  transform: translateY(-8px) skewX(-1.5deg) !important;
+  box-shadow: 0 15px 35px rgba(239, 68, 68, 0.3) !important;
+}
+.template_sport .vehicleTypeBadge {
   background-color: #ef4444;
   color: white;
   border-radius: 2px;
+  font-style: italic;
+}
+.template_sport .sportTag {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background-color: #06b6d4;
+  color: #000;
+  font-size: 0.65rem;
+  font-weight: 900;
+  padding: 0.2rem 0.5rem;
+  border-radius: 2px;
+  font-style: italic;
+}
+.template_sport .vehiclePrice {
+  color: #ef4444 !important;
+  font-family: 'Space Grotesk', sans-serif !important;
+  font-style: italic;
 }
 
 /* ==========================================================================
    TEMPLATE 5: MINIMAL TECH / TESLA VIBE (PREMIUM ⭐)
    ========================================================================== */
+.template_tech {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+  font-family: 'Outfit', sans-serif !important;
+}
+:global(.theme-dark-dim) .template_tech,
+:global(.theme-dark-black) .template_tech {
+  background-color: #0b0f19 !important;
+  color: #f8fafc !important;
+}
 .template_tech .heroSection {
-  background: linear-gradient(rgba(15, 23, 42, 0.6), rgba(15, 23, 42, 0.85));
+  background: linear-gradient(rgba(15, 23, 42, 0.65), rgba(15, 23, 42, 0.85));
 }
 .template_tech .heroEyebrow {
   background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.35);
   color: white;
-  font-weight: 600;
+  font-weight: 700;
   backdrop-filter: blur(10px);
 }
 .template_tech .heroTitle {
+  font-family: 'Outfit', sans-serif !important;
   font-weight: 900;
   letter-spacing: -0.04em;
 }
 .template_tech .searchBox {
+  border-radius: 9999px !important;
+  padding: 0.6rem 1.25rem !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15) !important;
+}
+.template_tech .tabButton {
+  border-radius: 9999px !important;
+  margin-right: 0.25rem;
+}
+.template_tech .vehicleCard {
   border-radius: 24px !important;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12) !important;
+  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.04) !important;
 }
-.template_tech .propertyCard {
-  border-radius: 24px;
-  border: 1px solid rgba(226, 232, 240, 0.8);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+:global(.theme-dark-dim) .template_tech .vehicleCard,
+:global(.theme-dark-black) .template_tech .vehicleCard {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  background: #131926 !important;
 }
-.template_tech .propertyCard:hover {
-  box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-  transform: translateY(-4px);
+.template_tech .vehicleCard:hover {
+  box-shadow: 0 25px 45px rgba(0,0,0,0.12) !important;
+  transform: translateY(-5px) !important;
 }
 
 /* ==========================================================================
    TEMPLATE 6: EDITORIAL MOTORS MAGAZINE (PREMIUM ⭐)
    ========================================================================== */
+.template_editorial {
+  background-color: #0d0f14 !important;
+  color: #f1f5f9 !important;
+  font-family: 'Syne', sans-serif !important;
+}
 .template_editorial .heroSection {
   text-align: left !important;
-  background: linear-gradient(to right, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 100%);
+  background: linear-gradient(to right, rgba(13, 15, 20, 0.95) 0%, rgba(13, 15, 20, 0.4) 100%);
+  padding: 4rem 2.5rem !important;
+  max-width: 1280px;
+  margin: 1.5rem auto !important;
+  border-radius: 16px;
 }
 .template_editorial .heroContent {
-  margin: 0;
+  margin: 0 !important;
+  max-width: 780px !important;
 }
 .template_editorial .heroTitle {
-  font-size: 4rem;
-  line-height: 1.05;
-  font-weight: 900;
+  font-family: 'Syne', sans-serif !important;
+  font-size: 3.2rem;
+  line-height: 1.1;
+  font-weight: 800;
   text-transform: uppercase;
+  letter-spacing: -0.02em;
+}
+.template_editorial .heroEyebrow {
+  background-color: transparent;
+  border: 1px solid white;
+  color: white;
+  border-radius: 0;
+  letter-spacing: 0.2em;
 }
 .template_editorial .sectionCategoryTag {
   display: block;
   font-size: 0.75rem;
   font-weight: 800;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.2em;
   color: var(--primary);
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.3rem;
+  font-family: 'Syne', sans-serif;
 }
-.template_editorial .propertyCard {
-  border-radius: 0;
-  border: 1px solid var(--border-color);
+.template_editorial .featuredHeader h2 {
+  font-family: 'Syne', sans-serif;
+  font-size: 2.2rem;
+  text-transform: uppercase;
+}
+.template_editorial .vehicleCard {
+  border-radius: 0 !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  background: #141720 !important;
 }
 .template_editorial .imageWrapper {
-  height: 260px;
+  height: 250px;
+}
+.template_editorial .vehicleTitle {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.2rem;
+  text-transform: uppercase;
 }
 
 /* ==========================================================================
@@ -588,7 +1229,7 @@
     font-size: 1.6rem;
   }
 
-  .propertyGrid {
+  .vehicleGrid {
     grid-template-columns: 1fr;
     gap: 1.5rem;
   }
@@ -599,5 +1240,9 @@
 
   .template_editorial .heroTitle {
     font-size: 2.4rem;
+  }
+
+  .template_editorial .heroSection {
+    padding: 3rem 1.25rem !important;
   }
 }

@@ -22,7 +22,12 @@ import {
   ArrowDown,
   Edit3,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Search,
+  Sparkles,
+  Filter,
+  Layers,
+  Info
 } from "lucide-react";
 import { 
   AutomationRule, 
@@ -35,6 +40,12 @@ import {
   saveWorkflowAction,
   deleteWorkflowAction 
 } from "@/actions/automationActions";
+import { createGlobalTagAction } from "@/actions/autoActions";
+import { 
+  PRESET_AUTOMATIONS, 
+  PRESET_CATEGORIES, 
+  PresetAutomation 
+} from "@/data/presetAutomations";
 
 export interface StackedAction {
   id: string;
@@ -70,9 +81,25 @@ export default function AutomationsClient({
   initialAgents,
   currentUser 
 }: AutomationsClientProps) {
-  const [activeSubTab, setActiveSubTab] = useState<"rules" | "workflows">("rules");
+  const [activeSubTab, setActiveSubTab] = useState<"presets" | "rules" | "workflows">("presets");
   const [rules, setRules] = useState<AutomationRule[]>(initialRules);
   const [workflows, setWorkflows] = useState<AutomationWorkflow[]>(initialWorkflows);
+
+  // Estados para el Catálogo de Automatizaciones Predeterminadas
+  const [presetSearch, setPresetSearch] = useState("");
+  const [presetCategory, setPresetCategory] = useState<string>("Todas");
+  const [tagsList, setTagsList] = useState<string[]>(availableTags);
+  const [presetSelectedTags, setPresetSelectedTags] = useState<Record<string, string>>(() => {
+    const initialMap: Record<string, string> = {};
+    PRESET_AUTOMATIONS.forEach(p => {
+      initialMap[p.id] = p.defaultTag || (availableTags[0] || "General");
+    });
+    return initialMap;
+  });
+  const [creatingNewTagForPreset, setCreatingNewTagForPreset] = useState<Record<string, boolean>>({});
+  const [newTagNameInput, setNewTagNameInput] = useState<Record<string, string>>({});
+  const [isCreatingTag, setIsCreatingTag] = useState(false);
+  const [hoveredInfoId, setHoveredInfoId] = useState<string | null>(null);
 
   // Estados para Modal de Nueva Regla (Friendly + Stacked + Side Drawer)
   const [showRuleModal, setShowRuleModal] = useState(false);
@@ -108,6 +135,75 @@ export default function AutomationsClient({
 
   const [isPending, startTransition] = useTransition();
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
+
+  // Handlers para Automatizaciones Predeterminadas
+  const handleCreateTagForPreset = async (presetId: string) => {
+    const tagName = (newTagNameInput[presetId] || "").trim();
+    if (!tagName) {
+      alert("Por favor ingresa un nombre para la etiqueta.");
+      return;
+    }
+
+    setIsCreatingTag(true);
+    const res = await createGlobalTagAction(tagName, currentUser?.agency_id);
+    setIsCreatingTag(false);
+
+    if (res.success) {
+      setTagsList(prev => Array.from(new Set([...prev, tagName])).sort());
+      setPresetSelectedTags(prev => ({ ...prev, [presetId]: tagName }));
+      setCreatingNewTagForPreset(prev => ({ ...prev, [presetId]: false }));
+      setNewTagNameInput(prev => ({ ...prev, [presetId]: "" }));
+      showToast(`Etiqueta '${tagName}' creada y seleccionada.`);
+    } else {
+      alert(res.error || "Error al crear la etiqueta");
+    }
+  };
+
+  const handleTogglePresetAutomation = async (preset: PresetAutomation) => {
+    const existingRule = rules.find(r => r.name === preset.title);
+
+    if (existingRule) {
+      await handleToggleRule(existingRule.id, existingRule.is_active);
+      showToast(existingRule.is_active ? `Automatización '${preset.title}' pausada.` : `Automatización '${preset.title}' activada.`);
+    } else {
+      const selectedTag = presetSelectedTags[preset.id] || preset.defaultTag;
+      
+      const configuredActions: StackedAction[] = preset.actions.map(a => {
+        if (a.type === "add_tag") {
+          return {
+            ...a,
+            details: { ...a.details, tag: selectedTag },
+            value: `Etiqueta '${selectedTag}'`
+          };
+        }
+        return a;
+      });
+
+      startTransition(async () => {
+        const res = await createAutomationRuleAction({
+          agency_id: currentUser?.agency_id,
+          name: preset.title,
+          trigger_event: preset.trigger_event,
+          trigger_value: selectedTag,
+          action_type: preset.default_action_type,
+          action_value: preset.default_action_label,
+          actions: configuredActions,
+          is_active: true
+        });
+
+        if (res.success && res.data) {
+          const createdRule: AutomationRule = {
+            ...(res.data as AutomationRule),
+            actions: configuredActions
+          };
+          setRules(prev => [createdRule, ...prev]);
+          showToast(`¡Automatización '${preset.title}' activada con éxito!`);
+        } else {
+          alert(res.error || "Error al activar la automatización.");
+        }
+      });
+    }
+  };
 
   // Handlers para Acciones Apilables
   const handleAddAction = () => {
@@ -537,19 +633,24 @@ export default function AutomationsClient({
   };
 
   return (
-    <div style={{ padding: "2rem", maxWidth: "1250px", margin: "0 auto" }}>
-      {/* Banner Superior Unificado sin esquinas redondeadas */}
+    <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
+      {/* UNIFIED SINGLE BLOCK CONTAINER OVER BACKGROUND */}
       <div style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "1.25rem",
-        padding: "1.5rem",
         backgroundColor: "var(--surface-color)",
         border: "1px solid var(--border-color)",
-        borderRadius: 0,
-        boxShadow: "var(--shadow-sm)",
-        marginBottom: "1.5rem"
+        borderRadius: "16px",
+        overflow: "hidden",
+        boxShadow: "var(--shadow-sm)"
       }}>
+        {/* Banner Superior Unificado */}
+        <div style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "1.25rem",
+          padding: "1.5rem",
+          backgroundColor: "var(--surface-color)",
+          borderBottom: "1px solid var(--border-color)"
+        }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
           <div>
             <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 800, display: "flex", alignItems: "center", gap: "0.6rem" }}>
@@ -560,22 +661,7 @@ export default function AutomationsClient({
             </p>
           </div>
 
-          {activeSubTab === "rules" ? (
-            <button
-              onClick={() => setShowRuleModal(true)}
-              className="btn-primary"
-              style={{
-                padding: "0.6rem 1.1rem",
-                fontWeight: 700,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem"
-              }}
-            >
-              <Plus size={18} /> Nueva Regla
-            </button>
-          ) : (
+          {activeSubTab === "workflows" ? (
             <button
               onClick={() => setShowWorkflowModal(true)}
               className="btn-primary"
@@ -590,54 +676,98 @@ export default function AutomationsClient({
             >
               <Plus size={18} /> Nuevo Flujo
             </button>
+          ) : (
+            <button
+              onClick={() => setShowRuleModal(true)}
+              className="btn-primary"
+              style={{
+                padding: "0.6rem 1.1rem",
+                fontWeight: 700,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem"
+              }}
+            >
+              <Plus size={18} /> Nueva Regla
+            </button>
           )}
         </div>
 
-        {/* Subpestañas de Automatización */}
-        <div style={{ display: "flex", gap: "0.5rem" }}>
+        {/* Subpestañas de Automatización Unificadas en el Banner - Texto Limpio */}
+        <div style={{ display: "flex", gap: "1.5rem", borderTop: "1px solid var(--border-color)", paddingTop: "1rem", marginTop: "1rem" }}>
           <button
+            type="button"
+            onClick={() => setActiveSubTab("presets")}
+            style={{
+              background: "none",
+              border: "none",
+              borderBottom: activeSubTab === "presets" ? "2px solid var(--primary)" : "2px solid transparent",
+              color: activeSubTab === "presets" ? "var(--primary)" : "var(--text-color)",
+              fontWeight: activeSubTab === "presets" ? 700 : 500,
+              fontSize: "0.9rem",
+              padding: "0.4rem 0.2rem",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.45rem",
+              transition: "all 0.15s ease",
+              opacity: activeSubTab === "presets" ? 1 : 0.7
+            }}
+          >
+            <Sparkles size={15} /> Catálogo ({PRESET_AUTOMATIONS.length})
+          </button>
+
+          <button
+            type="button"
             onClick={() => {
               setActiveSubTab("rules");
               setSelectedWorkflow(null);
             }}
             style={{
-              padding: "0.45rem 1rem",
-              borderRadius: "6px",
-              border: "1px solid",
-              borderColor: activeSubTab === "rules" ? "var(--primary)" : "var(--border-color)",
-              backgroundColor: activeSubTab === "rules" ? "var(--bg-color)" : "transparent",
+              background: "none",
+              border: "none",
+              borderBottom: activeSubTab === "rules" ? "2px solid var(--primary)" : "2px solid transparent",
               color: activeSubTab === "rules" ? "var(--primary)" : "var(--text-color)",
-              fontWeight: 700,
-              fontSize: "0.85rem",
+              fontWeight: activeSubTab === "rules" ? 700 : 500,
+              fontSize: "0.9rem",
+              padding: "0.4rem 0.2rem",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
-              gap: "0.4rem"
+              gap: "0.45rem",
+              transition: "all 0.15s ease",
+              opacity: activeSubTab === "rules" ? 1 : 0.7
             }}
           >
-            <Zap size={14} /> Reglas ({rules.length})
+            <Zap size={15} /> Reglas ({rules.length})
           </button>
+
           <button
+            type="button"
             onClick={() => setActiveSubTab("workflows")}
             style={{
-              padding: "0.45rem 1rem",
-              borderRadius: "6px",
-              border: "1px solid",
-              borderColor: activeSubTab === "workflows" ? "var(--primary)" : "var(--border-color)",
-              backgroundColor: activeSubTab === "workflows" ? "var(--bg-color)" : "transparent",
+              background: "none",
+              border: "none",
+              borderBottom: activeSubTab === "workflows" ? "2px solid var(--primary)" : "2px solid transparent",
               color: activeSubTab === "workflows" ? "var(--primary)" : "var(--text-color)",
-              fontWeight: 700,
-              fontSize: "0.85rem",
+              fontWeight: activeSubTab === "workflows" ? 700 : 500,
+              fontSize: "0.9rem",
+              padding: "0.4rem 0.2rem",
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
-              gap: "0.4rem"
+              gap: "0.45rem",
+              transition: "all 0.15s ease",
+              opacity: activeSubTab === "workflows" ? 1 : 0.7
             }}
           >
-            <GitFork size={14} /> Flujos ({workflows.length})
+            <GitFork size={15} /> Flujos ({workflows.length})
           </button>
         </div>
       </div>
+
+      <div style={{ padding: "1.5rem" }}>
 
       {statusNotice && (
         <div style={{
@@ -657,60 +787,396 @@ export default function AutomationsClient({
         </div>
       )}
 
-      {/* Sub Sub-pestañas: Reglas | Flujos */}
-      <div style={{ display: "flex", gap: "0.75rem", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.75rem", marginBottom: "1.5rem" }}>
-        <button
-          type="button"
-          onClick={() => setActiveSubTab("rules")}
-          style={{
-            backgroundColor: activeSubTab === "rules" ? "var(--surface-color)" : "transparent",
-            color: activeSubTab === "rules" ? "var(--primary)" : "var(--text-color)",
-            border: "1px solid",
-            borderColor: activeSubTab === "rules" ? "var(--primary)" : "var(--border-color)",
-            padding: "0.6rem 1.3rem",
-            borderRadius: "8px",
-            fontWeight: 700,
-            fontSize: "0.9rem",
-            cursor: "pointer",
+      {/* ========================================================================= */}
+      {/* VISTA 0: CATÁLOGO DE AUTOMATIZACIONES PREDETERMINADAS (21 PRESETS EN LISTA) */}
+      {/* ========================================================================= */}
+      {activeSubTab === "presets" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+          {/* Barra de Búsqueda y Filtros de Categoría */}
+          <div style={{
+            backgroundColor: "var(--surface-color)",
+            border: "1px solid var(--border-color)",
+            borderRadius: "10px",
+            padding: "1.1rem 1.25rem",
             display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            boxShadow: activeSubTab === "rules" ? "var(--shadow-sm)" : "none",
-            transition: "all 0.2s"
-          }}
-        >
-          <Sliders size={17} /> Reglas ({rules.length})
-        </button>
+            flexDirection: "column",
+            gap: "0.85rem",
+            boxShadow: "var(--shadow-sm)"
+          }}>
+            {/* Input de Búsqueda */}
+            <div style={{ position: "relative", width: "100%" }}>
+              <Search
+                size={18}
+                style={{
+                  position: "absolute",
+                  left: "1rem",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "var(--text-muted)"
+                }}
+              />
+              <input
+                type="text"
+                placeholder="Buscar automatizaciones por nombre, palabra clave, tag o disparador..."
+                value={presetSearch}
+                onChange={(e) => setPresetSearch(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "0.7rem 1rem 0.7rem 2.75rem",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border-color)",
+                  backgroundColor: "var(--bg-color)",
+                  color: "var(--text-color)",
+                  fontSize: "0.92rem",
+                  outline: "none"
+                }}
+              />
+              {presetSearch && (
+                <button
+                  type="button"
+                  onClick={() => setPresetSearch("")}
+                  style={{
+                    position: "absolute",
+                    right: "0.75rem",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    color: "var(--text-muted)",
+                    cursor: "pointer",
+                    padding: "0.2rem"
+                  }}
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            setActiveSubTab("workflows");
-            if (!selectedWorkflow && workflows.length > 0) {
-              setSelectedWorkflow(workflows[0]);
-              setEditingWorkflow(JSON.parse(JSON.stringify(workflows[0])));
-            }
-          }}
-          style={{
-            backgroundColor: activeSubTab === "workflows" ? "var(--surface-color)" : "transparent",
-            color: activeSubTab === "workflows" ? "var(--primary)" : "var(--text-color)",
-            border: "1px solid",
-            borderColor: activeSubTab === "workflows" ? "var(--primary)" : "var(--border-color)",
-            padding: "0.6rem 1.3rem",
-            borderRadius: "8px",
-            fontWeight: 700,
-            fontSize: "0.9rem",
-            cursor: "pointer",
+            {/* Filtros por Categoría */}
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--text-muted)", marginRight: "0.25rem", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                <Filter size={14} /> Categoría:
+              </span>
+              {PRESET_CATEGORIES.map(cat => {
+                const isSelected = presetCategory === cat;
+                const count = cat === "Todas" 
+                  ? PRESET_AUTOMATIONS.length 
+                  : PRESET_AUTOMATIONS.filter(p => p.category === cat).length;
+
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setPresetCategory(cat)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      borderBottom: isSelected ? "2px solid var(--primary)" : "2px solid transparent",
+                      color: isSelected ? "var(--primary)" : "var(--text-color)",
+                      fontSize: "0.825rem",
+                      fontWeight: isSelected ? 700 : 500,
+                      cursor: "pointer",
+                      padding: "0.2rem 0.4rem",
+                      transition: "all 0.15s ease",
+                      opacity: isSelected ? 1 : 0.7
+                    }}
+                  >
+                    {cat} ({count})
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Indicador de Resultados */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 0.25rem" }}>
+            <span style={{ fontSize: "0.85rem", fontWeight: 600, opacity: 0.85, display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              <Sparkles size={15} style={{ color: "var(--primary)" }} />
+              Mostrando {PRESET_AUTOMATIONS.filter(preset => {
+                const matchesCategory = presetCategory === "Todas" || preset.category === presetCategory;
+                const searchLower = presetSearch.toLowerCase().trim();
+                const matchesSearch = !searchLower || 
+                  preset.title.toLowerCase().includes(searchLower) ||
+                  preset.description.toLowerCase().includes(searchLower) ||
+                  preset.category.toLowerCase().includes(searchLower) ||
+                  preset.trigger_event_label.toLowerCase().includes(searchLower) ||
+                  (presetSelectedTags[preset.id] || preset.defaultTag).toLowerCase().includes(searchLower);
+                return matchesCategory && matchesSearch;
+              }).length} de {PRESET_AUTOMATIONS.length} automatizaciones listas
+            </span>
+          </div>
+
+          {/* Lista de Automatizaciones Predeterminadas */}
+          <div style={{
             display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            boxShadow: activeSubTab === "workflows" ? "var(--shadow-sm)" : "none",
-            transition: "all 0.2s"
-          }}
-        >
-          <GitFork size={17} /> Flujos ({workflows.length})
-        </button>
-      </div>
+            flexDirection: "column",
+            gap: "0.75rem"
+          }}>
+            {PRESET_AUTOMATIONS.filter(preset => {
+              const matchesCategory = presetCategory === "Todas" || preset.category === presetCategory;
+              const searchLower = presetSearch.toLowerCase().trim();
+              const matchesSearch = !searchLower || 
+                preset.title.toLowerCase().includes(searchLower) ||
+                preset.description.toLowerCase().includes(searchLower) ||
+                preset.category.toLowerCase().includes(searchLower) ||
+                preset.trigger_event_label.toLowerCase().includes(searchLower) ||
+                (presetSelectedTags[preset.id] || preset.defaultTag).toLowerCase().includes(searchLower);
+              return matchesCategory && matchesSearch;
+            }).map((preset) => {
+              const existingRule = rules.find(r => r.name === preset.title);
+              const isActive = existingRule ? existingRule.is_active : false;
+              const selectedTag = presetSelectedTags[preset.id] || preset.defaultTag;
+              const isCreatingThisTag = creatingNewTagForPreset[preset.id] || false;
+              const newTagText = newTagNameInput[preset.id] || "";
+
+              // Colores de categoría
+              let categoryBg = "rgba(59, 130, 246, 0.1)";
+              let categoryColor = "#3b82f6";
+              if (preset.category === "Recordatorio de Leads") {
+                categoryBg = "rgba(245, 158, 11, 0.12)";
+                categoryColor = "#d97706";
+              } else if (preset.category === "Etiquetas y Tags") {
+                categoryBg = "rgba(139, 92, 246, 0.12)";
+                categoryColor = "#8b5cf6";
+              } else if (preset.category === "WhatsApp / Mensajería") {
+                categoryBg = "rgba(16, 185, 129, 0.12)";
+                categoryColor = "#10b981";
+              } else if (preset.category === "Post-Venta y Fidelización") {
+                categoryBg = "rgba(6, 182, 212, 0.12)";
+                categoryColor = "#06b6d4";
+              }
+
+              // Ícono de Preset
+              let PresetIcon = Zap;
+              if (preset.iconType === "clock") PresetIcon = Clock;
+              else if (preset.iconType === "tag") PresetIcon = TagIcon;
+              else if (preset.iconType === "message") PresetIcon = MessageSquare;
+              else if (preset.iconType === "user") PresetIcon = UserCheck;
+              else if (preset.iconType === "mail") PresetIcon = Mail;
+
+              return (
+                <div
+                  key={preset.id}
+                  style={{
+                    backgroundColor: "var(--surface-color)",
+                    border: "1px solid var(--border-color)",
+                    borderLeft: isActive ? "3px solid var(--primary)" : "1px solid var(--border-color)",
+                    borderRadius: "8px",
+                    padding: "0.85rem 1.1rem",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "1rem",
+                    flexWrap: "wrap",
+                    transition: "all 0.15s ease"
+                  }}
+                >
+                  {/* Columna Izquierda: Categoría, Título ultra-limpio con (i) icono de Hover */}
+                  <div style={{ flex: "1 1 320px", display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                      <span style={{
+                        fontSize: "0.72rem",
+                        fontWeight: 700,
+                        color: categoryColor,
+                        backgroundColor: categoryBg,
+                        padding: "0.2rem 0.6rem",
+                        borderRadius: "12px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.3rem"
+                      }}>
+                        <PresetIcon size={12} /> {preset.category}
+                      </span>
+
+                      <h3 style={{ margin: 0, fontSize: "0.92rem", fontWeight: 700, lineHeight: 1.3 }}>
+                        {preset.title}
+                      </h3>
+
+                      {/* ÍCONO DE AYUDA (i) CON HOVER POP-UP EMERGENTE */}
+                      <div 
+                        style={{ position: "relative", display: "inline-flex", alignItems: "center" }}
+                        onMouseEnter={() => setHoveredInfoId(preset.id)}
+                        onMouseLeave={() => setHoveredInfoId(null)}
+                      >
+                        <button
+                          type="button"
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "var(--primary)",
+                            opacity: 0.85,
+                            cursor: "pointer",
+                            padding: "2px",
+                            display: "flex",
+                            alignItems: "center",
+                            borderRadius: "50%"
+                          }}
+                          title="Ver ejemplo y detalles"
+                        >
+                          <Info size={15} />
+                        </button>
+
+                        {/* Pop-up emergente de Hover al pasar el cursor */}
+                        {hoveredInfoId === preset.id && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              bottom: "calc(100% + 8px)",
+                              left: "0",
+                              width: "300px",
+                              backgroundColor: "var(--surface-color)",
+                              border: "1px solid var(--border-color)",
+                              borderRadius: "10px",
+                              padding: "0.85rem 1rem",
+                              boxShadow: "0 10px 25px rgba(0, 0, 0, 0.25)",
+                              zIndex: 1000,
+                              pointerEvents: "none"
+                            }}
+                          >
+                            <div style={{ fontSize: "0.78rem", fontWeight: 700, marginBottom: "0.35rem", display: "flex", alignItems: "center", gap: "0.35rem", color: "var(--primary)" }}>
+                              <Info size={13} /> Ejemplo & Funcionamiento:
+                            </div>
+                            <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.8rem", lineHeight: 1.4, opacity: 0.9 }}>
+                              {preset.description}
+                            </p>
+                            <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: "0.35rem", fontSize: "0.74rem", opacity: 0.8, display: "flex", flexDirection: "column", gap: "0.15rem" }}>
+                              <span><strong>⚡ Disparador:</strong> {preset.trigger_event_label}</span>
+                              <span><strong>🎯 Acción:</strong> {preset.default_action_label}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <span style={{
+                        fontSize: "0.72rem",
+                        fontWeight: 600,
+                        color: isActive ? "#16a34a" : "var(--text-muted)",
+                        opacity: 0.85,
+                        marginLeft: "auto"
+                      }}>
+                        {isActive ? "✓ Activa" : existingRule ? "Pausada" : "Disponible"}
+                      </span>
+                    </div>
+
+                    {/* Resumen ultra-sintético */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.76rem", opacity: 0.8 }}>
+                      <span>⚡ {preset.trigger_event_label} ➔ {preset.default_action_label}</span>
+                    </div>
+                  </div>
+
+                  {/* Columna Central: Selector de Etiquetas de Texto Limpio */}
+                  {preset.usesTag ? (
+                    <div style={{ flex: "0 0 210px", minWidth: "180px", display: "flex", flexDirection: "column", gap: "0.2rem" }}>
+                      <label style={{ fontSize: "0.72rem", fontWeight: 600, color: "var(--text-muted)" }}>
+                        {preset.tagFieldLabel}:
+                      </label>
+
+                      {isCreatingThisTag ? (
+                        <div style={{ display: "flex", gap: "0.3rem", alignItems: "center" }}>
+                          <input
+                            type="text"
+                            placeholder="Nuevo tag..."
+                            value={newTagText}
+                            onChange={(e) => setNewTagNameInput(prev => ({ ...prev, [preset.id]: e.target.value }))}
+                            style={{
+                              flex: 1,
+                              padding: "0.3rem 0.5rem",
+                              borderRadius: "4px",
+                              border: "1px solid var(--primary)",
+                              fontSize: "0.8rem",
+                              backgroundColor: "var(--bg-color)",
+                              color: "var(--text-color)"
+                            }}
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleCreateTagForPreset(preset.id)}
+                            disabled={isCreatingTag}
+                            className="btn-text"
+                            style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--primary)", padding: "0.2rem 0.4rem" }}
+                          >
+                            Guardar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCreatingNewTagForPreset(prev => ({ ...prev, [preset.id]: false }))}
+                            style={{ background: "none", border: "none", color: "var(--text-color)", cursor: "pointer", padding: "0.2rem" }}
+                          >
+                            <X size={13} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
+                          <select
+                            value={selectedTag}
+                            onChange={(e) => {
+                              if (e.target.value === "__NEW__") {
+                                setCreatingNewTagForPreset(prev => ({ ...prev, [preset.id]: true }));
+                              } else {
+                                setPresetSelectedTags(prev => ({ ...prev, [preset.id]: e.target.value }));
+                              }
+                            }}
+                            style={{
+                              flex: 1,
+                              padding: "0.3rem 0.45rem",
+                              borderRadius: "4px",
+                              border: "1px solid var(--border-color)",
+                              fontSize: "0.78rem",
+                              fontWeight: 600,
+                              backgroundColor: "var(--bg-color)",
+                              color: "var(--text-color)"
+                            }}
+                          >
+                            {tagsList.map(tag => (
+                              <option key={tag} value={tag}>{tag}</option>
+                            ))}
+                            <option value="__NEW__">+ Crear etiqueta...</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ flex: "0 0 210px" }} />
+                  )}
+
+                  {/* Columna Derecha: Botón de Acción de Texto con Subrayado al Hover */}
+                  <div style={{ flex: "0 0 160px", display: "flex", justifyContent: "flex-end" }}>
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePresetAutomation(preset)}
+                      className="btn-text"
+                      style={{
+                        background: "none",
+                        border: "none",
+                        fontWeight: 700,
+                        fontSize: "0.85rem",
+                        cursor: "pointer",
+                        color: isActive ? "var(--danger, #ef4444)" : "var(--primary)",
+                        textDecoration: "underline",
+                        textUnderlineOffset: "3px",
+                        padding: "0.4rem 0.5rem",
+                        transition: "all 0.15s ease",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.35rem"
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.opacity = "0.75";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.opacity = "1";
+                      }}
+                    >
+                      {isActive ? "Pausar automatización" : "Activar automatización"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* VISTA 1: REGLAS (Rules) */}
@@ -758,93 +1224,33 @@ export default function AutomationsClient({
                   transition: "all 0.2s"
                 }}
               >
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", flex: 1 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                    <span style={{ fontWeight: 700, fontSize: "1.05rem" }}>{rule.name}</span>
-                    <button
-                      onClick={() => handleToggleRule(rule.id, rule.is_active)}
-                      style={{
-                        backgroundColor: rule.is_active ? "rgba(34, 197, 94, 0.15)" : "rgba(128,128,128,0.15)",
-                        color: rule.is_active ? "#15803d" : "var(--text-color)",
-                        border: `1px solid ${rule.is_active ? "#22c55e" : "var(--border-color)"}`,
-                        padding: "0.15rem 0.55rem",
-                        borderRadius: "12px",
-                        fontSize: "0.75rem",
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "0.3rem"
-                      }}
-                    >
-                      {rule.is_active ? <Play size={10} /> : <Pause size={10} />}
-                      {rule.is_active ? "Activa" : "Pausada"}
-                    </button>
+                    <span style={{ fontWeight: 700, fontSize: "0.98rem" }}>{rule.name}</span>
+                    <span style={{
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      color: rule.is_active ? "#16a34a" : "var(--text-muted)",
+                      opacity: 0.85
+                    }}>
+                      • {rule.is_active ? "Activa" : "Pausada"}
+                    </span>
                   </div>
 
-                  {/* Diagrama Bloque DISPARADOR -> ACCIONES */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap", fontSize: "0.85rem", marginTop: "0.25rem" }}>
-                    <div style={{
-                      backgroundColor: "var(--bg-color)",
-                      border: "1px solid var(--border-color)",
-                      padding: "0.4rem 0.75rem",
-                      borderRadius: 0,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.4rem",
-                      fontWeight: 600
-                    }}>
-                      <span style={{ color: "var(--primary)", fontWeight: 800 }}>SI:</span>
-                      <TagIcon size={14} /> {rule.trigger_event === 'tag_added' ? `Tag '${rule.trigger_value}'` : rule.trigger_value || rule.trigger_event}
-                    </div>
-
-                    <ArrowRight size={16} style={{ opacity: 0.5 }} />
-
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap" }}>
-                      <span style={{ color: "#16a34a", fontWeight: 800, fontSize: "0.85rem" }}>ENTONCES:</span>
-                      {rule.actions && rule.actions.length > 0 ? (
-                        rule.actions.map((act, i) => (
-                          <div key={i} style={{
-                            backgroundColor: "var(--bg-color)",
-                            border: "1px solid var(--border-color)",
-                            padding: "0.35rem 0.65rem",
-                            borderRadius: 0,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "0.35rem",
-                            fontSize: "0.82rem",
-                            fontWeight: 600
-                          }}>
-                            {act.type === 'send_email' && <Mail size={13} style={{ color: "var(--primary)" }} />}
-                            {act.type === 'send_message' && <MessageSquare size={13} style={{ color: "#25D366" }} />}
-                            {act.type === 'add_tag' && <TagIcon size={13} style={{ color: "#eab308" }} />}
-                            {act.type === 'notify_agent' && <UserCheck size={13} style={{ color: "#3b82f6" }} />}
-                            <span>
-                              {act.type === 'send_email' ? (act.details?.subject || act.value || "Email") :
-                               act.type === 'send_message' ? (`Mensaje (${act.details?.channel || 'WhatsApp'})`) :
-                               act.type === 'add_tag' ? (`Tag '${act.details?.tag || act.value}'`) :
-                               (act.value || "Acción")}
-                            </span>
-                          </div>
-                        ))
-                      ) : (
-                        <div style={{
-                          backgroundColor: "var(--bg-color)",
-                          border: "1px solid var(--border-color)",
-                          padding: "0.35rem 0.65rem",
-                          borderRadius: 0,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.4rem",
-                          fontWeight: 600
-                        }}>
-                          {rule.action_type === 'send_email' ? <Mail size={14} /> :
-                           rule.action_type === 'send_message' ? <MessageSquare size={14} /> :
-                           rule.action_type === 'add_tag' ? <TagIcon size={14} /> : <UserCheck size={14} />}
-                          {rule.action_value || rule.action_type}
-                        </div>
-                      )}
-                    </div>
+                  {/* Diagrama Texto Limpio DISPARADOR -> ACCIONES */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap", fontSize: "0.82rem", opacity: 0.85 }}>
+                    <span style={{ color: "var(--text-color)" }}>
+                      <strong>Si:</strong> {rule.trigger_event === 'tag_added' ? `Tag '${rule.trigger_value}'` : rule.trigger_value || rule.trigger_event}
+                    </span>
+                    <span>➔</span>
+                    <span style={{ color: "var(--text-color)" }}>
+                      <strong>Entonces:</strong> {rule.actions && rule.actions.length > 0 ? rule.actions.map(act => (
+                        act.type === 'send_email' ? (act.details?.subject || act.value || "Email") :
+                        act.type === 'send_message' ? (`Mensaje (${act.details?.channel || 'WhatsApp'})`) :
+                        act.type === 'add_tag' ? (`Tag '${act.details?.tag || act.value}'`) :
+                        (act.value || "Acción")
+                      )).join(", ") : (rule.action_value || rule.action_type)}
+                    </span>
                   </div>
                 </div>
 
@@ -854,19 +1260,42 @@ export default function AutomationsClient({
                   </div>
 
                   <button
+                    type="button"
+                    onClick={() => handleToggleRule(rule.id, rule.is_active)}
+                    className="btn-text"
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: rule.is_active ? "var(--text-color)" : "var(--primary)",
+                      fontWeight: 600,
+                      fontSize: "0.825rem",
+                      textDecoration: "underline",
+                      textUnderlineOffset: "3px",
+                      cursor: "pointer",
+                      padding: "0.3rem 0.4rem"
+                    }}
+                  >
+                    {rule.is_active ? "Pausar" : "Activar"}
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => handleDeleteRule(rule.id)}
+                    className="btn-text"
                     style={{
                       background: "none",
                       border: "none",
                       color: "var(--danger, #ef4444)",
+                      fontWeight: 600,
+                      fontSize: "0.825rem",
+                      textDecoration: "underline",
+                      textUnderlineOffset: "3px",
                       cursor: "pointer",
-                      padding: "0.4rem",
-                      borderRadius: "6px",
-                      opacity: 0.7
+                      padding: "0.3rem 0.4rem"
                     }}
                     title="Eliminar regla"
                   >
-                    <Trash2 size={17} />
+                    Eliminar
                   </button>
                 </div>
               </div>
@@ -1841,6 +2270,9 @@ export default function AutomationsClient({
           })()}
         </div>
       )}
+
+      </div>
+      </div>
 
       {/* ========================================================================= */}
       {/* MODAL 2: NUEVO FLUJO (WORKFLOW) */}

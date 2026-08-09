@@ -117,33 +117,68 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${targetRedirect}?error=no_pages_found`);
     }
     
+    const { getCurrentUser } = await import("@/actions/authActions");
+    const currentUser = await getCurrentUser();
+    const targetAgencyId = currentUser?.agency_id || "00000000-0000-0000-0000-000000000000";
+
     if (state === "facebook") {
-      // 6. Guardar en Supabase para Facebook
-      const { error: supaFbError } = await (supabaseAdmin as any).from("auto_integrations").upsert({
+      // 6. Guardar en Supabase para Facebook asociada a targetAgencyId
+      const { data: existing } = await (supabaseAdmin.from("auto_integrations") as any)
+        .select("id")
+        .eq("channel", "facebook")
+        .eq("agency_id", targetAgencyId)
+        .maybeSingle();
+
+      const payload = {
         channel: "facebook",
-        agency_id: "00000000-0000-0000-0000-000000000000",
+        agency_id: targetAgencyId,
         connected: true,
         username: pageName,
         token: pageAccessToken,
         refresh_token: pageId, 
         updated_at: new Date().toISOString()
-      }, { onConflict: "channel" });
+      };
+
+      let supaFbError;
+      if (existing && existing.id) {
+        const { error } = await (supabaseAdmin.from("auto_integrations") as any).update(payload).eq("id", existing.id);
+        supaFbError = error;
+      } else {
+        const { error } = await (supabaseAdmin.from("auto_integrations") as any).insert([payload]);
+        supaFbError = error;
+      }
+
       if (supaFbError) {
         console.error("Error al guardar Facebook en la base de datos (Supabase):", supaFbError);
         return NextResponse.redirect(`${targetRedirect}?error=db_error_fb`);
       }
     } else if (state === "instagram") {
-      // 7. Guardar en Supabase para Instagram
+      // 7. Guardar en Supabase para Instagram asociada a targetAgencyId
       if (igId) {
-        const { error: supaIgError } = await (supabaseAdmin as any).from("auto_integrations").upsert({
+        const { data: existing } = await (supabaseAdmin.from("auto_integrations") as any)
+          .select("id")
+          .eq("channel", "instagram")
+          .eq("agency_id", targetAgencyId)
+          .maybeSingle();
+
+        const payload = {
           channel: "instagram",
-          agency_id: "00000000-0000-0000-0000-000000000000",
+          agency_id: targetAgencyId,
           connected: true,
           username: igUsername,
           token: pageAccessToken || longLivedToken,
           refresh_token: igId,
           updated_at: new Date().toISOString()
-        }, { onConflict: "channel" });
+        };
+
+        let supaIgError;
+        if (existing && existing.id) {
+          const { error } = await (supabaseAdmin.from("auto_integrations") as any).update(payload).eq("id", existing.id);
+          supaIgError = error;
+        } else {
+          const { error } = await (supabaseAdmin.from("auto_integrations") as any).insert([payload]);
+          supaIgError = error;
+        }
         
         if (supaIgError) {
           console.error("Error al guardar Instagram en la base de datos (Supabase):", supaIgError);

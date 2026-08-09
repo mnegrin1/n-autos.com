@@ -8,15 +8,24 @@
 
 /* Navbar */
 .navbar {
-  background-color: var(--surface-color);
-  border-bottom: 1px solid var(--border-color);
-  padding: 1.25rem 2rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  background-color: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1rem 2rem;
   position: sticky;
   top: 0;
   z-index: 100;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.navContainer {
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .logo {
@@ -24,26 +33,55 @@
   font-weight: 800;
   letter-spacing: -0.02em;
   text-decoration: none;
-  color: var(--text-color);
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.logo img {
+  height: 42px;
+  object-fit: contain;
 }
 
 .navLinks {
   display: flex;
-  gap: 1.5rem;
+  gap: 1.75rem;
   align-items: center;
+  margin-left: auto;
 }
 
 .navLinks a {
   text-decoration: none;
   font-weight: 600;
-  font-size: 0.95rem;
-  color: var(--text-color);
-  opacity: 0.8;
-  transition: opacity 0.2s;
+  font-size: 0.92rem;
+  color: rgba(255, 255, 255, 0.85);
+  transition: all 0.2s ease;
 }
 
 .navLinks a:hover {
+  color: white;
   opacity: 1;
+}
+
+.whatsappLink {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  background-color: #25d366 !important;
+  color: white !important;
+  padding: 0.5rem 1.1rem !important;
+  border-radius: 9999px !important;
+  font-weight: 700 !important;
+  font-size: 0.85rem !important;
+  opacity: 1 !important;
+  box-shadow: 0 4px 14px rgba(37, 211, 102, 0.35) !important;
+  transition: transform 0.2s ease, background-color 0.2s ease !important;
+}
+
+.whatsappLink:hover {
+  background-color: #1ebc57 !important;
+  transform: translateY(-2px) !important;
 }
 
 /* Hero Section */

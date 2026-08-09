@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
@@ -59,19 +60,22 @@ export async function GET(request: Request) {
       console.error("Error al obtener nickname de MercadoLibre:", err);
     }
 
-    // 2. Guardar las credenciales en Supabase auto_integrations
-    const { supabase } = await import("@/lib/supabase");
+    // 2. Guardar las credenciales en Supabase auto_integrations asociadas al usuario actual
+    const { supabaseAdmin } = await import("@/lib/supabaseAdmin");
+    const { getCurrentUser } = await import("@/actions/authActions");
+    const currentUser = await getCurrentUser();
+    const targetAgencyId = currentUser?.agency_id || "00000000-0000-0000-0000-000000000000";
     
-    // Primero intentamos buscar si ya existe la integración
-    const { data: existing } = await (supabase.from("auto_integrations") as any)
+    // Primero intentamos buscar si ya existe la integración para esta agencia
+    const { data: existing } = await (supabaseAdmin.from("auto_integrations") as any)
       .select("id")
       .eq("channel", "mercadolibre")
-      .eq("agency_id", "00000000-0000-0000-0000-000000000000")
-      .single();
+      .eq("agency_id", targetAgencyId)
+      .maybeSingle();
 
     const payload = {
       channel: "mercadolibre",
-      agency_id: "00000000-0000-0000-0000-000000000000",
+      agency_id: targetAgencyId,
       connected: true,
       username: username,
       token: token,
@@ -82,13 +86,13 @@ export async function GET(request: Request) {
     };
 
     let supaError;
-    if (existing) {
-      const { error } = await (supabase.from("auto_integrations") as any)
+    if (existing && existing.id) {
+      const { error } = await (supabaseAdmin.from("auto_integrations") as any)
         .update(payload)
         .eq("id", existing.id);
       supaError = error;
     } else {
-      const { error } = await (supabase.from("auto_integrations") as any)
+      const { error } = await (supabaseAdmin.from("auto_integrations") as any)
         .insert([payload]);
       supaError = error;
     }
@@ -131,18 +135,18 @@ export async function GET(request: Request) {
 
               if (q.item_id) {
                  const pubId = `pub-${q.item_id}`;
-                 const { data: pubData } = await (supabase.from("auto_vehicle_publications") as any)
+                 const { data: pubData } = await (supabaseAdmin.from("auto_vehicle_publications") as any)
                     .select("id, questions_count")
                     .eq("id", pubId)
                     .single();
                  if (pubData) {
-                    await (supabase.from("auto_vehicle_publications") as any)
+                    await (supabaseAdmin.from("auto_vehicle_publications") as any)
                        .update({ questions_count: (pubData.questions_count || 0) + 1 })
                        .eq("id", pubId);
                  }
               }
               
-              const { data: existingConvs } = await (supabase.from("inbox_conversations") as any)
+              const { data: existingConvs } = await (supabaseAdmin.from("inbox_conversations") as any)
                 .select("id")
                 .eq("channel", channel)
                 .eq("channel_sender_id", senderId)
@@ -151,7 +155,7 @@ export async function GET(request: Request) {
               if (!existingConvs || existingConvs.length === 0) {
                  const newConv = {
                     id: `conv-ml-${Date.now()}-${senderId}`,
-                    agency_id: "00000000-0000-0000-0000-000000000000",
+                    agency_id: targetAgencyId,
                     lead_name: senderName,
                     lead_avatar: "ML",
                     channel: channel,
@@ -167,7 +171,7 @@ export async function GET(request: Request) {
                     }],
                     channel_sender_id: senderId
                  };
-                 await (supabase.from("inbox_conversations") as any).insert([newConv]);
+                 await (supabaseAdmin.from("inbox_conversations") as any).insert([newConv]);
               }
            }
            console.log(`Se importaron ${questions.length} preguntas sin responder de MercadoLibre.`);

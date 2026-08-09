@@ -21,7 +21,9 @@ import {
   Loader2,
   Trash2,
   Edit2,
-  RefreshCw
+  RefreshCw,
+  MoreVertical,
+  X
 } from "lucide-react";
 import styles from "./inbox.module.css";
 import { 
@@ -125,6 +127,7 @@ export default function InboxClient({
 
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [emailRecipient, setEmailRecipient] = useState("");
+  const [showLeadModal, setShowLeadModal] = useState(false);
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -572,6 +575,14 @@ export default function InboxClient({
                   <button onClick={handleDeleteConversation} className={styles.headerActionBtn} title="Eliminar Chat" style={{ color: '#ef4444', borderColor: '#fee2e2' }}>
                     <Trash2 size={16} />
                   </button>
+                  <button 
+                    onClick={() => setShowLeadModal(true)} 
+                    className={styles.headerActionBtn} 
+                    title="Detalles y Opciones del Lead"
+                    style={{ backgroundColor: 'var(--primary-light)', color: 'var(--primary)', borderColor: 'var(--primary)' }}
+                  >
+                    <MoreVertical size={16} />
+                  </button>
                 </div>
               </div>
 
@@ -683,181 +694,200 @@ export default function InboxClient({
             </div>
           )}
         </div>
+      </div>
 
-        {/* Columna 3: Información de Lead & CRM */}
-        <div className={styles.leadDetailsPanel}>
-          {currentConv ? (
-            <div className={styles.panelContent}>
-              <h3 className={styles.panelTitle}>Información del Lead</h3>
-              
-              {/* Perfil card */}
-              <div className={styles.leadProfileCard}>
-                <div className={styles.avatarLarge}>
+      {/* POP-UP MODAL EMERGENTE: INFORMACIÓN Y EDICIÓN DEL LEAD */}
+      {showLeadModal && currentConv && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '1rem'
+          }}
+          onClick={() => setShowLeadModal(false)}
+        >
+          <div 
+            style={{
+              backgroundColor: 'var(--surface-color)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '16px',
+              width: '100%',
+              maxWidth: '460px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              maxHeight: '90vh'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--border-color)' }}>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <User size={18} style={{ color: 'var(--primary)' }} /> Información del Lead
+              </h3>
+              <button 
+                onClick={() => setShowLeadModal(false)} 
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-color)', opacity: 0.7 }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {/* Profile Card Header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', backgroundColor: 'var(--bg-color)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '1.1rem', flexShrink: 0 }}>
                   {currentConv.lead_avatar || currentConv.lead_name.substr(0, 2).toUpperCase()}
                 </div>
-                
-                {isEditingLead ? (
-                  <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '1rem' }}>
-                    <input 
-                      type="text" 
-                      value={editLeadName} 
-                      onChange={e => setEditLeadName(e.target.value)} 
-                      placeholder="Nombre del Lead"
-                      className={styles.composerInput}
-                      style={{ padding: '0.5rem' }}
-                    />
-                    <input 
-                      type="email" 
-                      value={editLeadEmail} 
-                      onChange={e => setEditLeadEmail(e.target.value)} 
-                      placeholder="Email (opcional)"
-                      className={styles.composerInput}
-                      style={{ padding: '0.5rem' }}
-                    />
-                    <input 
-                      type="text" 
-                      value={editLeadPhone} 
-                      onChange={e => setEditLeadPhone(e.target.value)} 
-                      placeholder="Teléfono (opcional)"
-                      className={styles.composerInput}
-                      style={{ padding: '0.5rem' }}
-                    />
-                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                      <button onClick={handleSaveLeadContact} className={styles.filterBtn} style={{ flex: 1, backgroundColor: 'var(--primary)', color: 'white', borderColor: 'var(--primary)' }} disabled={isPending}>
-                        {isPending ? 'Guardando...' : 'Guardar'}
-                      </button>
-                      <button onClick={() => setIsEditingLead(false)} className={styles.filterBtn} style={{ flex: 1 }} disabled={isPending}>
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
-                      <h4 style={{ margin: '0', fontSize: '1rem', fontWeight: 700 }}>
-                        {currentConv.lead_name}
-                      </h4>
-                      <button onClick={handleStartEditLead} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', opacity: 0.7 }}>
-                        <Edit2 size={14} />
-                      </button>
-                    </div>
-                    <span className={styles.crmStatusBadge} style={{ marginTop: '0.25rem' }}>
-                      {associatedLead ? `CRM Lead: ${associatedLead.status.toUpperCase()}` : 'No en CRM'}
-                    </span>
-                    
-                    <div style={{ width: '100%', marginTop: '1.25rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', textAlign: 'left' }}>
-                      {associatedLead?.phone && (
-                        <div className={styles.detailRow}>
-                          <Phone size={12} style={{ opacity: 0.5 }} />
-                          <span>{associatedLead.phone}</span>
-                        </div>
-                      )}
-                      {associatedLead?.email && (
-                        <div className={styles.detailRow}>
-                          <Mail size={12} style={{ opacity: 0.5 }} />
-                          <span style={{ fontSize: '0.8rem', wordBreak: 'break-all' }}>{associatedLead.email}</span>
-                        </div>
-                      )}
-                      <div className={styles.detailRow}>
-                        <Clock size={12} style={{ opacity: 0.5 }} />
-                        <span>Último contacto: {currentConv.last_message_time}</span>
-                      </div>
-                    </div>
-                  </>
-                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h4 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentConv.lead_name}</h4>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--primary)', textTransform: 'uppercase' }}>
+                    {associatedLead ? `CRM Lead: ${associatedLead.status.toUpperCase()}` : 'No en CRM'}
+                  </span>
+                </div>
+                <button 
+                  onClick={handleStartEditLead}
+                  style={{ background: 'none', border: '1px solid var(--border-color)', padding: '0.4rem 0.6rem', borderRadius: '8px', cursor: 'pointer', color: 'var(--primary)', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                >
+                  <Edit2 size={14} /> Editar
+                </button>
               </div>
 
-              {/* Ficha del Vehículo de Interés */}
-              {associatedVehicle ? (
-                <div className={styles.detailSection}>
-                  <h4 className={styles.sectionHeader}>Vehículo de Interés</h4>
-                  <div className={styles.vehicleCard}>
-                    <img 
-                      src={associatedVehicle.images[0]} 
-                      alt="" 
-                      className={styles.vehicleThumb} 
-                    />
-                    <div className={styles.vehicleMeta}>
-                      <h5>{associatedVehicle.brand} {associatedVehicle.model}</h5>
-                      <p>{associatedVehicle.year} • {associatedVehicle.currency} {associatedVehicle.price.toLocaleString()}</p>
-                      <Link 
-                        href={`/admin/vehicles?id=${associatedVehicle.id}`} 
-                        className={styles.vehicleLink}
-                      >
-                        Ver Ficha <span style={{ fontSize: "0.75rem", marginLeft: "2px" }}>↗</span>
-                      </Link>
-                    </div>
+              {/* Formulario de Edición */}
+              {isEditingLead ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', backgroundColor: 'var(--surface-hover)', padding: '1rem', borderRadius: '12px', border: '1px dashed var(--border-color)' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Nombre del Contacto</label>
+                  <input 
+                    type="text" 
+                    value={editLeadName} 
+                    onChange={e => setEditLeadName(e.target.value)} 
+                    placeholder="Nombre del Lead"
+                    style={{ padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-color)', color: 'var(--text-color)', fontSize: '0.88rem' }}
+                  />
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Email</label>
+                  <input 
+                    type="email" 
+                    value={editLeadEmail} 
+                    onChange={e => setEditLeadEmail(e.target.value)} 
+                    placeholder="Email (opcional)"
+                    style={{ padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-color)', color: 'var(--text-color)', fontSize: '0.88rem' }}
+                  />
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Teléfono</label>
+                  <input 
+                    type="text" 
+                    value={editLeadPhone} 
+                    onChange={e => setEditLeadPhone(e.target.value)} 
+                    placeholder="Teléfono (opcional)"
+                    style={{ padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-color)', color: 'var(--text-color)', fontSize: '0.88rem' }}
+                  />
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                    <button 
+                      onClick={handleSaveLeadContact} 
+                      style={{ flex: 1, padding: '0.5rem', backgroundColor: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}
+                      disabled={isPending}
+                    >
+                      {isPending ? 'Guardando...' : 'Guardar'}
+                    </button>
+                    <button 
+                      onClick={() => setIsEditingLead(false)} 
+                      style={{ flex: 1, padding: '0.5rem', backgroundColor: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-color)', borderRadius: '8px', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}
+                      disabled={isPending}
+                    >
+                      Cancelar
+                    </button>
                   </div>
                 </div>
               ) : (
-                <div className={styles.detailSection}>
-                  <h4 className={styles.sectionHeader}>Vehículo de Interés</h4>
-                  <div style={{ fontSize: '0.8rem', opacity: 0.5, padding: '0.5rem' }}>
-                    Ningún vehículo asociado a esta conversación
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.88rem' }}>
+                  {associatedLead?.phone && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Phone size={14} style={{ opacity: 0.6 }} />
+                      <span>{associatedLead.phone}</span>
+                    </div>
+                  )}
+                  {associatedLead?.email && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <Mail size={14} style={{ opacity: 0.6 }} />
+                      <span>{associatedLead.email}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: 0.7, fontSize: '0.8rem' }}>
+                    <Clock size={14} />
+                    <span>Último contacto: {currentConv.last_message_time}</span>
                   </div>
                 </div>
               )}
 
-              {/* Estado de CRM */}
+              {/* Selector de Estado CRM */}
               {associatedLead && (
-                <div className={styles.detailSection}>
-                  <h4 className={styles.sectionHeader}>Sincronizar CRM</h4>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                    <label style={{ fontSize: '0.75rem', fontWeight: 600, opacity: 0.7 }}>Estado del Lead en CRM</label>
-                    <select
-                      value={associatedLead.status}
-                      onChange={(e) => handleStatusChange(e.target.value)}
-                      className={styles.crmSelect}
-                    >
-                      <option value="nuevo">Nuevo</option>
-                      <option value="contactado">Contactado</option>
-                      <option value="test_drive">Test Drive</option>
-                      <option value="negociacion">Negociación</option>
-                      <option value="cerrado">Cerrado / Venta</option>
-                    </select>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, opacity: 0.8 }}>Estado del Lead en CRM</label>
+                  <select
+                    value={associatedLead.status}
+                    onChange={(e) => handleStatusChange(e.target.value)}
+                    style={{ padding: '0.6rem 0.8rem', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-color)', color: 'var(--text-color)', fontSize: '0.88rem', cursor: 'pointer' }}
+                  >
+                    <option value="nuevo">Nuevo</option>
+                    <option value="contactado">Contactado</option>
+                    <option value="test_drive">Test Drive</option>
+                    <option value="negociacion">Negociación</option>
+                    <option value="cerrado">Cerrado</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Ficha del Vehículo de Interés */}
+              {associatedVehicle && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, opacity: 0.8 }}>Vehículo de Interés</label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', borderRadius: '10px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-color)' }}>
+                    <img src={associatedVehicle.images[0]} alt="" style={{ width: '48px', height: '36px', objectFit: 'cover', borderRadius: '6px' }} />
+                    <div>
+                      <h5 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 700 }}>{associatedVehicle.brand} {associatedVehicle.model}</h5>
+                      <p style={{ margin: 0, fontSize: '0.78rem', opacity: 0.7 }}>{associatedVehicle.year} • {associatedVehicle.currency} {associatedVehicle.price.toLocaleString()}</p>
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Notas Internas Persistentes */}
-              <div className={styles.detailSection} style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <h4 className={styles.sectionHeader}>Notas Internas (Historial)</h4>
+              {/* Notas Internas */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 600, opacity: 0.8 }}>Notas Internas (Historial)</label>
                 <textarea
+                  rows={3}
                   placeholder="Añade detalles sobre esta negociación, permutas, créditos o coordinaciones..."
                   value={localNotes}
                   onChange={(e) => setLocalNotes(e.target.value)}
                   onBlur={handleSaveNotes}
-                  className={styles.notesTextarea}
+                  style={{ padding: '0.65rem 0.8rem', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-color)', color: 'var(--text-color)', fontSize: '0.85rem', resize: 'vertical', fontFamily: 'inherit' }}
                 />
-                <span style={{ fontSize: '0.7rem', opacity: 0.4, marginTop: '2px', textAlign: 'right' }}>
-                  Se guarda automáticamente al hacer click fuera
-                </span>
+                <span style={{ fontSize: '0.7rem', opacity: 0.4, textAlign: 'right' }}>Se guarda automáticamente al hacer click fuera</span>
               </div>
 
-              {/* Acciones Rápidas */}
-              <div className={styles.quickActions}>
+              {/* Acción: Agendar Test Drive */}
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                 <Link 
                   href={`/admin/calendar?action=new&lead=${encodeURIComponent(currentConv.lead_name)}&phone=${associatedLead?.phone || ""}`}
-                  className={styles.actionBtnCalendar}
+                  style={{ flex: 1, padding: '0.65rem', backgroundColor: 'var(--primary-light)', color: 'var(--primary)', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
                 >
-                  <Calendar size={14} /> Agendar Test Drive
-                </Link>
-                <Link 
-                  href={`/admin/crm?action=sale&leadId=${associatedLead?.id || ""}`}
-                  className={styles.actionBtnSale}
-                >
-                  <DollarSign size={14} /> Registrar Venta
+                  <Calendar size={15} /> Agendar Test Drive
                 </Link>
               </div>
-
             </div>
-          ) : (
-            <div style={{ padding: '2rem', textAlign: 'center', opacity: 0.5, fontSize: '0.85rem' }}>
-              Selecciona un lead para ver sus detalles en el CRM.
-            </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
       <ComposeEmailModal 
         isOpen={emailModalOpen}

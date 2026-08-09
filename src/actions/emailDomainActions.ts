@@ -2,6 +2,7 @@
 
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getCurrentUser } from "@/actions/authActions";
 import { revalidatePath } from "next/cache";
 
 export interface DNSRecord {
@@ -32,13 +33,13 @@ export async function addCustomDomain(agencyId: string, rawDomain: string) {
       if (resendRes.error) {
         console.error("Resend create domain error:", resendRes.error);
         // Si ya existe en Resend, intentar obtener sus datos
-        const list = await resend.domains.list();
-        const existing = list.data?.domains?.find(d => d.name === domain);
+        const list: any = await resend.domains.list();
+        const existing = list.data?.domains?.find((d: any) => d.name === domain);
         if (existing) {
           resendDomainId = existing.id;
           isVerified = existing.status === "verified";
           if (existing.records) {
-            records = existing.records.map(r => ({
+            records = existing.records.map((r: any) => ({
               type: r.type as any,
               name: r.name,
               value: r.value,
@@ -93,8 +94,14 @@ export async function addCustomDomain(agencyId: string, rawDomain: string) {
       }
     ];
   }
+  
+  let targetAgencyId = agencyId;
+  if (!targetAgencyId) {
+    const currentUser = await getCurrentUser();
+    targetAgencyId = currentUser?.agency_id || "00000000-0000-0000-0000-000000000000";
+  }
 
-  // Guardar en Supabase `auto_integrations` bajo `channel = 'email_domain'`
+  // Guardar en Supabase `auto_integrations` bajo `channel = 'email_domain'` asociada a targetAgencyId
   const integrationData = {
     domain,
     resendDomainId,
@@ -103,15 +110,27 @@ export async function addCustomDomain(agencyId: string, rawDomain: string) {
   };
 
   try {
-    await (supabaseAdmin.from("auto_integrations") as any).upsert({
+    const { data: existing } = await (supabaseAdmin.from("auto_integrations") as any)
+      .select("id")
+      .eq("agency_id", targetAgencyId)
+      .eq("channel", "email_domain")
+      .maybeSingle();
+
+    const payload = {
       channel: "email_domain",
-      agency_id: agencyId || "00000000-0000-0000-0000-000000000000",
+      agency_id: targetAgencyId,
       connected: isVerified,
       username: domain,
       token: resendDomainId,
       mode: JSON.stringify(integrationData),
       updated_at: new Date().toISOString()
-    }, { onConflict: "channel" });
+    };
+
+    if (existing && existing.id) {
+      await (supabaseAdmin.from("auto_integrations") as any).update(payload).eq("id", existing.id);
+    } else {
+      await (supabaseAdmin.from("auto_integrations") as any).insert([payload]);
+    }
   } catch (e) {
     console.error("Error saving email domain in Supabase:", e);
   }
@@ -120,11 +139,18 @@ export async function addCustomDomain(agencyId: string, rawDomain: string) {
   return { success: true, domain, records, status: isVerified ? "verified" : "pending" };
 }
 
-export async function verifyCustomDomain(agencyId: string) {
+export async function verifyCustomDomain(agencyId?: string) {
+  let targetAgencyId = agencyId;
+  if (!targetAgencyId) {
+    const currentUser = await getCurrentUser();
+    targetAgencyId = currentUser?.agency_id || "00000000-0000-0000-0000-000000000000";
+  }
+
   const { data: row } = await (supabaseAdmin.from("auto_integrations") as any)
     .select("*")
+    .eq("agency_id", targetAgencyId)
     .eq("channel", "email_domain")
-    .single();
+    .maybeSingle();
 
   if (!row) {
     return { success: false, error: "No hay ningún dominio vinculado actualmente." };
@@ -179,18 +205,25 @@ export async function verifyCustomDomain(agencyId: string) {
     connected: isVerified,
     mode: JSON.stringify(updatedIntegration),
     updated_at: new Date().toISOString()
-  }).eq("channel", "email_domain");
+  }).eq("id", row.id);
 
   revalidatePath("/admin/settings");
   return { success: true, verified: isVerified, records: updatedRecords };
 }
 
-export async function getCustomDomainStatus() {
+export async function getCustomDomainStatus(agencyId?: string) {
+  let targetAgencyId = agencyId;
+  if (!targetAgencyId) {
+    const currentUser = await getCurrentUser();
+    targetAgencyId = currentUser?.agency_id || "00000000-0000-0000-0000-000000000000";
+  }
+
   try {
     const { data: row } = await (supabaseAdmin.from("auto_integrations") as any)
       .select("*")
+      .eq("agency_id", targetAgencyId)
       .eq("channel", "email_domain")
-      .single();
+      .maybeSingle();
 
     if (!row) return null;
 
@@ -201,11 +234,12 @@ export async function getCustomDomainStatus() {
 
     return {
       domain: row.username,
-      connected: row.connected,
+      resendDomainId: row.token,
       records: integrationData.records || [],
-      status: row.connected ? "verified" : (integrationData.status || "pending")
+      status: row.connected ? "verified" : "pending"
     };
   } catch (e) {
+    console.error("Error reading custom domain status:", e);
     return null;
   }
 }

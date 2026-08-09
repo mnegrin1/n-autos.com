@@ -1,32 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getRegisteredAgencies, subscribeSuperAdminStore, SuperAdminAgency } from "@/lib/superadminStore";
 import { Plus, Search, Building2, MoreVertical, Edit, Trash2 } from "lucide-react";
 import Link from "next/link";
 
 export default function SuperAdminAgencies() {
-  const [agencies, setAgencies] = useState([
-    {
-      id: "1",
-      name: "Automotores del Sur",
-      subdomain: "delsur",
-      plan: "Pro",
-      users: 5,
-      properties: 124,
-      status: "active",
-      createdAt: "19 Jul 2026"
-    },
-    {
-      id: "2",
-      name: "Test-Automotora",
-      subdomain: "testauto",
-      plan: "Free",
-      users: 1,
-      properties: 2,
-      status: "active",
-      createdAt: "18 Jul 2026"
-    }
-  ]);
+  const [agencies, setAgencies] = useState<SuperAdminAgency[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    setAgencies(getRegisteredAgencies());
+    const unsub = subscribeSuperAdminStore(() => {
+      setAgencies(getRegisteredAgencies());
+    });
+    return () => unsub();
+  }, []);
+
+  const filteredAgencies = agencies.filter(a => 
+    a.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    a.subdomain.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
@@ -73,6 +67,8 @@ export default function SuperAdminAgencies() {
             <input 
               type="text" 
               placeholder="Buscar por nombre o subdominio..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               style={{
                 width: "100%",
                 padding: "0.75rem 1rem 0.75rem 2.75rem",
@@ -101,7 +97,8 @@ export default function SuperAdminAgencies() {
               </tr>
             </thead>
             <tbody>
-              {agencies.map((agency) => (
+              {filteredAgencies.map((agency) => (
+
                 <tr key={agency.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
                   <td style={{ padding: "1rem 0", paddingLeft: "1rem" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -127,7 +124,7 @@ export default function SuperAdminAgencies() {
                   <td style={{ padding: "1rem 0" }}>
                     <div style={{ display: "flex", flexDirection: "column", gap: "2px", fontSize: "0.75rem", opacity: 0.8 }}>
                       <span>{agency.users} usuarios</span>
-                      <span>{agency.properties} vehic/prop</span>
+                      <span>{agency.properties} vehículos</span>
                     </div>
                   </td>
                   <td style={{ padding: "1rem 0", opacity: 0.8, fontSize: "0.85rem" }}>{agency.createdAt}</td>

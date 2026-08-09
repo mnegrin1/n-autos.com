@@ -108,68 +108,73 @@ export default function BroadcastsClient({ initialBroadcasts, allLeads, currentU
   };
 
   return (
-    <div style={{ padding: "2rem", maxWidth: "1200px", margin: "0 auto" }}>
-      {/* Banner Superior Unificado sin esquinas redondeadas */}
+    <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
+      {/* UNIFIED SINGLE BLOCK CONTAINER OVER BACKGROUND */}
       <div style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        flexWrap: "wrap",
-        gap: "1rem",
-        padding: "1.5rem",
         backgroundColor: "var(--surface-color)",
         border: "1px solid var(--border-color)",
-        borderRadius: 0,
-        boxShadow: "var(--shadow-sm)",
-        marginBottom: "1.5rem"
+        borderRadius: "16px",
+        overflow: "hidden",
+        boxShadow: "var(--shadow-sm)"
       }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: "800", display: "flex", alignItems: "center", gap: "0.6rem" }}>
-            <Mail size={22} style={{ color: "var(--primary)" }} /> Broadcasts & Envíos Masivos
-          </h1>
-          <p style={{ marginTop: "0.25rem", opacity: 0.75, fontSize: "0.88rem" }}>
-            Envía comunicaciones dirigidas a tus contactos segmentados por etiquetas en tiempo real.
-          </p>
+        {/* Banner Superior Unificado */}
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "1rem",
+          padding: "1.5rem",
+          backgroundColor: "var(--surface-color)",
+          borderBottom: "1px solid var(--border-color)"
+        }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: "800", display: "flex", alignItems: "center", gap: "0.6rem" }}>
+              <Mail size={22} style={{ color: "var(--primary)" }} /> Broadcasts & Envíos Masivos
+            </h1>
+            <p style={{ marginTop: "0.25rem", opacity: 0.75, fontSize: "0.88rem" }}>
+              Envía comunicaciones dirigidas a tus contactos segmentados por etiquetas en tiempo real.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="btn-primary"
+            style={{
+              padding: "0.6rem 1.1rem",
+              fontWeight: "700",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem"
+            }}
+          >
+            <Plus size={18} /> Nuevo Broadcast
+          </button>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="btn-primary"
-          style={{
-            padding: "0.6rem 1.1rem",
-            fontWeight: "700",
-            cursor: "pointer",
+
+        {statusMessage && (
+          <div style={{
+            margin: "1.5rem 1.5rem 0 1.5rem",
+            padding: "1rem 1.25rem",
+            borderRadius: "8px",
+            backgroundColor: statusMessage.type === "success" ? "rgba(34, 197, 94, 0.15)" : "rgba(239, 68, 68, 0.15)",
+            border: `1px solid ${statusMessage.type === "success" ? "#22c55e" : "#ef4444"}`,
+            color: statusMessage.type === "success" ? "#166534" : "#991b1b",
+            fontWeight: 600,
             display: "flex",
             alignItems: "center",
             gap: "0.5rem"
-          }}
-        >
-          <Plus size={18} /> Nuevo Broadcast
-        </button>
-      </div>
+          }}>
+            <CheckCircle2 size={18} />
+            {statusMessage.text}
+          </div>
+        )}
 
-      {statusMessage && (
-        <div style={{
-          padding: "1rem 1.25rem",
-          borderRadius: "8px",
-          marginBottom: "1.5rem",
-          backgroundColor: statusMessage.type === "success" ? "rgba(34, 197, 94, 0.15)" : "rgba(239, 68, 68, 0.15)",
-          border: `1px solid ${statusMessage.type === "success" ? "#22c55e" : "#ef4444"}`,
-          color: statusMessage.type === "success" ? "#166534" : "#991b1b",
-          fontWeight: 600,
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem"
-        }}>
-          {statusMessage.type === "success" ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
-          {statusMessage.text}
-        </div>
-      )}
-
-      {/* Historial de Broadcasts */}
-      <div style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", borderRadius: "12px", padding: "1.5rem" }}>
-        <h2 style={{ fontSize: "1.1rem", fontWeight: "700", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <Clock size={18} /> Historial de Envíos Masivos ({broadcasts.length})
-        </h2>
+        {/* Historial de Broadcasts */}
+        <div style={{ padding: "1.5rem" }}>
+          <h2 style={{ fontSize: "1.1rem", fontWeight: "700", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <Clock size={18} /> Historial de Envíos Masivos ({broadcasts.length})
+          </h2>
 
         {broadcasts.length === 0 ? (
           <div style={{ padding: "3rem", textAlign: "center", opacity: 0.6, fontSize: "0.9rem" }}>
@@ -236,6 +241,7 @@ export default function BroadcastsClient({ initialBroadcasts, allLeads, currentU
             })}
           </div>
         )}
+      </div>
       </div>
 
       {/* Modal / Composer para Nuevo Broadcast */}

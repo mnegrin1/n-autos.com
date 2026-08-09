@@ -177,17 +177,20 @@ const DEFAULT_WORKFLOWS: AutomationWorkflow[] = [
 export async function getAutomationRulesAction(agencyId?: string) {
   try {
     const targetAgency = agencyId || "00000000-0000-0000-0000-000000000000";
+    const isDemoAgency = targetAgency === "00000000-0000-0000-0000-000000000000" || targetAgency === "tenant-carmax-001";
+    
     const { data, error } = await (supabaseAdmin.from('automation_rules') as any)
       .select('*')
       .eq('agency_id', targetAgency)
       .order('created_at', { ascending: false });
 
     if (error || !data || data.length === 0) {
-      return DEFAULT_RULES;
+      return isDemoAgency ? DEFAULT_RULES : [];
     }
     return data;
   } catch (e) {
-    return DEFAULT_RULES;
+    const isDemoAgency = !agencyId || agencyId === "00000000-0000-0000-0000-000000000000" || agencyId === "tenant-carmax-001";
+    return isDemoAgency ? DEFAULT_RULES : [];
   }
 }
 
@@ -253,17 +256,20 @@ export async function deleteAutomationRuleAction(ruleId: string) {
 export async function getWorkflowsAction(agencyId?: string) {
   try {
     const targetAgency = agencyId || "00000000-0000-0000-0000-000000000000";
+    const isDemoAgency = targetAgency === "00000000-0000-0000-0000-000000000000" || targetAgency === "tenant-carmax-001";
+    
     const { data, error } = await (supabaseAdmin.from('automation_workflows') as any)
       .select('*')
       .eq('agency_id', targetAgency)
       .order('created_at', { ascending: false });
 
     if (error || !data || data.length === 0) {
-      return DEFAULT_WORKFLOWS;
+      return isDemoAgency ? DEFAULT_WORKFLOWS : [];
     }
     return data;
   } catch (e) {
-    return DEFAULT_WORKFLOWS;
+    const isDemoAgency = !agencyId || agencyId === "00000000-0000-0000-0000-000000000000" || agencyId === "tenant-carmax-001";
+    return isDemoAgency ? DEFAULT_WORKFLOWS : [];
   }
 }
 

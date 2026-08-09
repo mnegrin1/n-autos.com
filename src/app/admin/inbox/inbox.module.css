@@ -37,7 +37,7 @@
 /* Dashboard Principal en 3 columnas */
 .dashboard {
   display: grid;
-  grid-template-columns: 280px 1fr 300px;
+  grid-template-columns: 320px 1fr;
   background-color: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: 16px;

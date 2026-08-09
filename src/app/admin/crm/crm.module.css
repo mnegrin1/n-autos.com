@@ -5,16 +5,24 @@
   min-height: calc(100vh - 120px);
 }
 
-/* Unified Top Banner */
+.singleSolidBlock {
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Unified Top Header inside single block */
 .topBanner {
   display: flex;
   flex-direction: column;
   gap: 1rem;
   padding: 1.5rem;
   background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: 0;
-  box-shadow: var(--shadow-sm);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .topBannerHeader {
@@ -175,10 +183,7 @@
 /* Table Layout for Contacts */
 .tableContainer {
   background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
   flex: 1;
