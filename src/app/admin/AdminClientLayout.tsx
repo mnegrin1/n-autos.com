@@ -29,8 +29,7 @@ import {
   Pin,
   ChevronLeft,
   ChevronRight,
-  Globe,
-  BookOpen
+  Globe
 } from "lucide-react";
 import ComposeEmailModal from "@/components/ComposeEmailModal";
 import QuickSearchModal from "@/components/QuickSearchModal";
@@ -628,10 +627,6 @@ export default function AdminClientLayout({
               {isExpanded && <span>Automatizaciones</span>}
             </Link>
           )}
-          <Link href="/doc" title="Documentación CRM" className={`${styles.navLink} ${pathname.startsWith("/doc") ? styles.activeNavLink : ""}`}>
-            <BookOpen size={18} style={{ flexShrink: 0 }} />
-            {isExpanded && <span>Documentación (/doc)</span>}
-          </Link>
         </nav>
 
         {/* Footer del Sidebar: Tema, Configuración, Usuario y Pin Toggle */}
