@@ -374,14 +374,20 @@ export default function SettingsForm({
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <label style={{ fontSize: "0.85rem", fontWeight: "600" }}>Nombre de la Automotora *</label>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <label style={{ fontSize: "0.85rem", fontWeight: "600" }}>Nombre de la Automotora *</label>
+                  <span style={{ fontSize: "0.75rem", color: "#3b82f6", fontWeight: 600 }}>🔒 Exclusivo Superadmin</span>
+                </div>
                 <input
                   type="text"
                   required
+                  disabled
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  style={{ padding: "0.75rem 1rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", fontSize: "0.9rem" }}
+                  style={{ padding: "0.75rem 1rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", fontSize: "0.9rem", opacity: 0.7, cursor: "not-allowed" }}
                 />
+                <span style={{ fontSize: "0.76rem", opacity: 0.75 }}>
+                  El nombre de la automotora solo se puede modificar con autorización previa o directamente desde la página de Superadmin.
+                </span>
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>

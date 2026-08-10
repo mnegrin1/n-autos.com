@@ -80,6 +80,10 @@
   position: relative;
 }
 
+.activeNavLink svg {
+  color: var(--primary) !important;
+}
+
 .activeNavLink::before {
   content: '';
   position: absolute;

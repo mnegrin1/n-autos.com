@@ -654,23 +654,13 @@ export default function VisualWebBuilder({
                 </button>
               </div>
 
-              {/* Editable Name */}
+              {/* Agency Name (Non-editable, changed only via Superadmin) */}
               {(name.trim() || !logoUrl) && (
                 <span 
-                  contentEditable
-                  suppressContentEditableWarning
-                  onBlur={(e) => {
-                    const val = e.currentTarget.innerText.trim();
-                    setName(val);
-                    onSave({ name: val });
-                  }}
-                  title="Escribe directamente aquí para cambiar el nombre."
+                  title="El nombre de la automotora solo puede cambiarse desde la consola de Superadmin."
                   style={{
                     fontWeight: 800,
                     fontSize: deviceMode === "mobile" ? "0.95rem" : "1.1rem",
-                    cursor: "text",
-                    outline: "none",
-                    borderBottom: previewModeTheme === "light" ? "1px dashed rgba(0,0,0,0.3)" : "1px dashed rgba(255,255,255,0.4)",
                     padding: "2px 4px",
                     opacity: name.trim() ? 1 : 0.6
                   }}

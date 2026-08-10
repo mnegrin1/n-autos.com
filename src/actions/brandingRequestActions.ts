@@ -12,7 +12,7 @@ export async function processApprovedBrandingRequest(params: {
     const result = await updateAgencySettings(params.agencyId, {
       name: params.newName,
       subdomain: params.newSubdomain
-    });
+    }, true);
 
     revalidatePath("/");
     revalidatePath("/admin/settings");

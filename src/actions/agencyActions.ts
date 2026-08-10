@@ -95,10 +95,12 @@ export async function getAgencyBySlug(slug: string): Promise<any> {
       };
     }
 
+    const cleanData = data ? Object.fromEntries(Object.entries(data).filter(([_, v]) => v !== null && v !== undefined && v !== "")) : {};
+
     const merged = {
       ...DEFAULT_BASE_DEFAULTS,
+      ...cleanData,
       ...persistent,
-      ...(data || {}),
       ...cached,
     };
 
@@ -146,10 +148,12 @@ export async function getPrimaryAgency(agencyId?: string): Promise<any> {
 
     const cached = serverAgencyStore[data?.id] || serverAgencyStore[data?.subdomain] || (agencyId ? serverAgencyStore[agencyId] : null) || serverAgencyStore["demo"] || {};
 
+    const cleanData = data ? Object.fromEntries(Object.entries(data).filter(([_, v]) => v !== null && v !== undefined && v !== "")) : {};
+
     const merged = {
       ...DEFAULT_BASE_DEFAULTS,
+      ...cleanData,
       ...persistent,
-      ...(data || {}),
       ...cached,
     };
 
@@ -200,9 +204,15 @@ export async function updateAgencySettings(
     trust_pillar3_desc?: string;
     trust_pillar4_title?: string;
     trust_pillar4_desc?: string;
-  }
+  },
+  isSuperAdminAction: boolean = false
 ) {
   try {
+    // Si no es una acción de Superadmin, no permitir cambiar directamente el nombre de la automotora
+    if (!isSuperAdminAction && updates.name !== undefined) {
+      delete updates.name;
+    }
+
     // 1. Guardar de inmediato en almacenamiento permanente en disco (.agency_settings.json y /tmp)
     const persistentRecord = savePersistentAgencySettings(updates as any);
 

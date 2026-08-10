@@ -606,7 +606,7 @@ export default function AdminClientLayout({
             </Link>
           )}
           <Link href="/admin/website" title="Página Web" className={`${styles.navLink} ${pathname.startsWith("/admin/website") ? styles.activeNavLink : ""}`}>
-            <Globe size={18} style={{ flexShrink: 0, color: "var(--primary)" }} />
+            <Globe size={18} style={{ flexShrink: 0 }} />
             {isExpanded && <span>Página Web</span>}
           </Link>
           {isFeatureEnabledForUser("crm", userEmail) && (
