@@ -38,7 +38,7 @@ import SupportModal from "@/components/SupportModal";
 import SessionGuard from "@/components/SessionGuard";
 import { notifySessionEvent, getCurrentClientSession } from "@/lib/sessionHelper";
 import { isFeatureEnabledForUser, subscribeFeatureFlags } from "@/lib/featureFlagsStore";
-import { getTenantSession, subscribeTenantSession, TenantSession } from "@/lib/tenantStore";
+import { getTenantSession, subscribeTenantSession, syncTenantSessionForUser, TenantSession } from "@/lib/tenantStore";
 import { getPrimaryAgency } from "@/actions/agencyActions";
 import { Sparkles, ShieldCheck } from "lucide-react";
 
@@ -58,12 +58,21 @@ export default function AdminClientLayout({
   const [tenantSession, setTenantSession] = useState<TenantSession>(getTenantSession());
 
   useEffect(() => {
+    // Si existe un usuario autenticado verificado desde la cookie de servidor,
+    // sincronizar inmediatamente el almacenamiento local del cliente (tenant)
+    if (initialUser && initialUser.email) {
+      const currentTenant = getTenantSession();
+      if (!currentTenant.adminEmail || currentTenant.adminEmail.toLowerCase() !== initialUser.email.toLowerCase()) {
+        syncTenantSessionForUser(initialUser);
+      }
+    }
     setTenantSession(getTenantSession());
     const unsubscribe = subscribeTenantSession((updated) => {
       setTenantSession(updated);
     });
     return () => unsubscribe();
-  }, []);
+  }, [initialUser]);
+
 
   // Agency branding & dynamic favicon state
   const [agencyBranding, setAgencyBranding] = useState<{
@@ -249,6 +258,11 @@ export default function AdminClientLayout({
   const handleLogout = async () => {
     if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
       try {
+        if (typeof window !== "undefined") {
+          sessionStorage.clear();
+          localStorage.removeItem("n_sistemas_tenant_session_v1");
+          localStorage.removeItem("n_sistemas_session_event");
+        }
         notifySessionEvent("LOGOUT");
         document.cookie = "admin-session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;";
         await logout();

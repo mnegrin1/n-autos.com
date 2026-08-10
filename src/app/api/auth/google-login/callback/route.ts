@@ -71,7 +71,8 @@ export async function GET(request: NextRequest) {
     }
 
     const cleanEmail = googleUser.email.toLowerCase().trim();
-    const userSlug = cleanEmail.replace(/[^a-z0-9]/g, "-");
+    const emailPrefix = cleanEmail.split("@")[0].replace(/[^a-z0-9]/g, "-");
+    const userSlug = emailPrefix || "user-" + Date.now();
     const userAgencyId = "agency-google-" + userSlug;
 
     // Buscar el usuario en Supabase por email o crearlo
@@ -79,19 +80,39 @@ export async function GET(request: NextRequest) {
     try {
       const { data: existingUser } = await (supabaseAdmin.from("users") as any)
         .select("*")
-        .ilike("email", googleUser.email)
+        .ilike("email", cleanEmail)
         .maybeSingle();
 
       dbUser = existingUser;
 
       if (!dbUser) {
+        // Registrar la nueva organización / automotora para la cuenta de Google
+        let createdAgencyId = userAgencyId;
+        const agencyName = `Automotora ${googleUser.name || emailPrefix}`;
+
+        try {
+          const { data: newAgency } = await (supabaseAdmin.from("agencies") as any)
+            .insert({
+              name: agencyName,
+              subdomain: userSlug,
+              primary_color: "#10b981",
+            })
+            .select()
+            .single();
+
+          if (newAgency && newAgency.id) {
+            createdAgencyId = newAgency.id;
+          }
+        } catch (agencyErr) {
+          console.warn("No se pudo insertar la agencia en DB (usando fallback id):", agencyErr);
+        }
+
         const { data: newUser } = await (supabaseAdmin.from("users") as any)
           .insert({
-            email: googleUser.email,
-            name: googleUser.name || googleUser.email.split("@")[0],
+            email: cleanEmail,
+            name: googleUser.name || cleanEmail.split("@")[0],
             role: "admin",
-            agency_id: userAgencyId,
-            status: "active",
+            agency_id: createdAgencyId,
           })
           .select()
           .single();
@@ -99,15 +120,15 @@ export async function GET(request: NextRequest) {
         dbUser = newUser;
       }
     } catch (e) {
-      console.error("Error looking up user in DB:", e);
+      console.error("Error looking up/creating user in DB:", e);
     }
 
-    // Fallback si no está en DB o falla conexión DB
+    // Fallback si no está en DB o falla la conexión DB
     if (!dbUser) {
       dbUser = {
         id: googleUser.id || "google-" + userSlug,
-        email: googleUser.email,
-        name: googleUser.name || googleUser.email,
+        email: cleanEmail,
+        name: googleUser.name || cleanEmail,
         role: "admin",
         agency_id: userAgencyId,
       };
