@@ -38,11 +38,29 @@ export function getCurrentClientSession() {
   const match = document.cookie.match(/(?:^|; )admin-session=([^;]*)/);
   if (!match || !match[1]) return null;
   try {
-    const token = decodeURIComponent(match[1]);
-    const binString = atob(token);
-    const bytes = Uint8Array.from(binString, (m) => m.charCodeAt(0));
-    return JSON.parse(new TextDecoder().decode(bytes));
-  } catch {
+    const rawToken = decodeURIComponent(match[1]).trim();
+    if (!rawToken) return null;
+
+    // Si el token tiene formato payload.signature, extraer la parte del payload
+    let payloadPart = rawToken;
+    if (rawToken.includes(".")) {
+      payloadPart = rawToken.split(".")[0];
+    }
+
+    // Convertir sustitución Base64Url a Base64 estándar con padding
+    let base64 = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+    while (base64.length % 4 !== 0) {
+      base64 += "=";
+    }
+
+    const decodedStr = atob(base64);
+    const parsed = JSON.parse(decodedStr);
+    if (parsed && typeof parsed === "object" && (parsed.id || parsed.email)) {
+      return parsed;
+    }
+    return null;
+  } catch (e) {
     return null;
   }
 }
+

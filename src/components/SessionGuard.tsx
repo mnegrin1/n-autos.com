@@ -38,25 +38,39 @@ export default function SessionGuard({
     // Función para validar si la sesión global sigue coincidiendo con esta pestaña
     function checkSessionIntegrity(incomingUserEmail?: string, incomingUserId?: string) {
       const currentCookieSession = getCurrentClientSession();
-      const targetUserId = sessionStorage.getItem(TAB_KEY_USER_ID) || activeUserId;
+      const storedTabUserId = sessionStorage.getItem(TAB_KEY_USER_ID);
+      const targetUserId = storedTabUserId || activeUserId;
 
       if (!currentCookieSession) {
         if (targetUserId) {
           setConflictType("logged_out");
+        } else {
+          setConflictType(null);
         }
         return;
+      }
+
+      // Si la cookie existe y la pestaña aún no tenía ID guardado, vincularla a la sesión activa
+      if (!storedTabUserId && currentCookieSession.id) {
+        sessionStorage.setItem(TAB_KEY_USER_ID, currentCookieSession.id);
+        if (currentCookieSession.email) {
+          sessionStorage.setItem(TAB_KEY_USER_EMAIL, currentCookieSession.email);
+        }
       }
 
       const activeGlobalId = incomingUserId || currentCookieSession.id;
       const activeGlobalEmail = incomingUserEmail || currentCookieSession.email;
 
-      if (activeGlobalId && targetUserId && activeGlobalId !== targetUserId) {
+      const effectiveTargetId = sessionStorage.getItem(TAB_KEY_USER_ID) || targetUserId;
+
+      if (activeGlobalId && effectiveTargetId && activeGlobalId !== effectiveTargetId) {
         setConflictType("switched");
         setNewUserEmail(activeGlobalEmail || "otra cuenta");
       } else {
         setConflictType(null);
       }
     }
+
 
     // 1. Canal de comunicación inter-pestañas mediante BroadcastChannel
     let broadcastChannel: BroadcastChannel | null = null;
