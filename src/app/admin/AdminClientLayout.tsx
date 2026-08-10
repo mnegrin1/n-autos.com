@@ -632,41 +632,7 @@ export default function AdminClientLayout({
         {/* Footer del Sidebar: Tema, Configuración, Usuario y Pin Toggle */}
         <div style={{ marginTop: "auto", padding: "0.6rem", borderTop: "1px solid var(--border-color)", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
           
-          {/* Active Plan Indicator Card */}
-          {isExpanded && (
-            <div style={{
-              backgroundColor: "rgba(37, 99, 235, 0.08)",
-              border: "1px solid rgba(37, 99, 235, 0.2)",
-              borderRadius: "10px",
-              padding: "0.6rem 0.75rem",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between"
-            }}>
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#2563eb", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                  PLAN ACTIVO
-                </span>
-                <span style={{ fontSize: "0.85rem", fontWeight: 800, color: "var(--text-color)" }}>
-                  Plan {tenantSession.planName || "Starter"}
-                </span>
-              </div>
-              <Link 
-                href="/admin/settings" 
-                style={{
-                  fontSize: "0.75rem",
-                  fontWeight: 700,
-                  backgroundColor: "#2563eb",
-                  color: "#ffffff",
-                  padding: "0.25rem 0.5rem",
-                  borderRadius: "6px",
-                  textDecoration: "none"
-                }}
-              >
-                Ver límites
-              </Link>
-            </div>
-          )}
+          {/* Botones rápidos de pie de sidebar */}
 
           <div 
             ref={dropdownRef}
@@ -756,7 +722,7 @@ export default function AdminClientLayout({
                     {tenantSession.adminEmail || "admin@automotora.com"}
                   </p>
                   <p style={{ margin: 0, fontSize: "0.75rem", fontWeight: 700, color: "var(--primary)", marginTop: "2px" }}>
-                    Plan {tenantSession.planName || "Starter"} • Admin
+                    Administrador de Automotora
                   </p>
                 </div>
                 

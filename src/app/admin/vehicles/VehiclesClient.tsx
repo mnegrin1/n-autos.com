@@ -9,7 +9,6 @@ import MediaUpload, { type MediaItem } from "./MediaUpload";
 import { useSearchParams, useRouter } from "next/navigation";
 import { updateAgencySettings } from "@/actions/agencyActions";
 import { getTenantSession, subscribeTenantSession, TenantSession } from "@/lib/tenantStore";
-import { getPlans } from "@/lib/plansStore";
 import FinancingCalculatorModal from "@/components/FinancingCalculatorModal";
 import VehicleExcelImporterModal from "@/components/VehicleExcelImporterModal";
 
@@ -83,10 +82,6 @@ export default function VehiclesClient({ initialVehicles, initialPublishSold }: 
     return () => unsubscribe();
   }, []);
 
-  const activePlans = getPlans();
-  const currentPlan = activePlans.find(p => p.id === tenantSession.planId) || activePlans[1];
-  const maxVehiclesAllowed = currentPlan.maxVehiclesCount || 20;
-
   useEffect(() => {
     const action = searchParams.get("action");
     if (action === "new") {
@@ -108,10 +103,6 @@ export default function VehiclesClient({ initialVehicles, initialPublishSold }: 
   });
 
   const openNewModal = () => {
-    if (vehicles.length >= maxVehiclesAllowed) {
-      setShowQuotaModal(true);
-      return;
-    }
     setFormState(emptyFormState);
     setEditingVehicle(null);
     setMediaItems([]);
@@ -257,46 +248,7 @@ export default function VehiclesClient({ initialVehicles, initialPublishSold }: 
           backgroundColor: "var(--surface-color)",
           borderBottom: "1px solid var(--border-color)"
         }}>
-        {/* Banner de Cuotas y Límites del Plan */}
-        <div
-          style={{
-            backgroundColor: "rgba(37, 99, 235, 0.06)",
-            border: "1px solid rgba(37, 99, 235, 0.2)",
-            borderRadius: "12px",
-            padding: "0.85rem 1.25rem",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: "0.75rem"
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-            <Sparkles size={18} style={{ color: "#2563eb" }} />
-            <span style={{ fontSize: "0.88rem", color: "var(--text-color)" }}>
-              Límite de Inventario <strong>Plan {tenantSession.planName}</strong>: <strong style={{ color: "#2563eb" }}>{vehicles.length} de {maxVehiclesAllowed === 999999 ? "∞" : maxVehiclesAllowed} vehículos</strong> publicados
-            </span>
-          </div>
 
-          <Link
-            href="/admin/upgrade"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.35rem",
-              fontSize: "0.82rem",
-              fontWeight: 800,
-              color: "#2563eb",
-              textDecoration: "none",
-              backgroundColor: "#fff",
-              border: "1px solid #2563eb",
-              padding: "0.35rem 0.85rem",
-              borderRadius: "8px"
-            }}
-          >
-            Mejorar Plan a Premium →
-          </Link>
-        </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
           <div>
@@ -641,38 +593,7 @@ export default function VehiclesClient({ initialVehicles, initialPublishSold }: 
         </div>
       )}
 
-      {/* Modal de Límite de Cuota Alcanzado */}
-      {showQuotaModal && (
-        <div className={styles.modalOverlay}>
-          <div className={styles.modalContent} style={{ maxWidth: "500px", padding: "2rem", textAlign: "center" }}>
-            <div style={{ width: "56px", height: "56px", borderRadius: "50%", backgroundColor: "rgba(239, 68, 68, 0.1)", color: "#ef4444", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1rem auto" }}>
-              <Sparkles size={28} />
-            </div>
-            <h2 style={{ fontSize: "1.35rem", fontWeight: 800, margin: "0 0 0.5rem 0" }}>
-              Límite del Plan {tenantSession.planName} Alcanzado
-            </h2>
-            <p style={{ color: "var(--text-color)", opacity: 0.8, fontSize: "0.9rem", marginBottom: "1.5rem" }}>
-              Tu automotora ha alcanzado el límite máximo de <strong>{maxVehiclesAllowed} vehículos</strong> incluidos en el Plan {tenantSession.planName}. Para publicar más unidades, pásate al Plan Premium o Ultra.
-            </p>
-            <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
-              <button
-                type="button"
-                className={styles.btnCancel}
-                onClick={() => setShowQuotaModal(false)}
-              >
-                Cerrar
-              </button>
-              <Link
-                href="/admin/upgrade"
-                className="btn-primary"
-                style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", padding: "0.75rem 1.25rem", textDecoration: "none", borderRadius: "8px", fontWeight: 700 }}
-              >
-                Ver Planes y Mejorar →
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Modal de Calculadora de Financiación Bancaria */}
       {financingVehicle && (

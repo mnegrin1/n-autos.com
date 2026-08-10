@@ -89,7 +89,7 @@ export default function SuperAdminAgencies() {
               <tr style={{ borderBottom: "1px solid var(--border-color)", textAlign: "left" }}>
                 <th style={{ padding: "1rem 0", fontSize: "0.85rem", opacity: 0.7, paddingLeft: "1rem" }}>Organización</th>
                 <th style={{ padding: "1rem 0", fontSize: "0.85rem", opacity: 0.7 }}>Subdominio</th>
-                <th style={{ padding: "1rem 0", fontSize: "0.85rem", opacity: 0.7 }}>Plan</th>
+                <th style={{ padding: "1rem 0", fontSize: "0.85rem", opacity: 0.7 }}>Servicio</th>
                 <th style={{ padding: "1rem 0", fontSize: "0.85rem", opacity: 0.7 }}>Uso</th>
                 <th style={{ padding: "1rem 0", fontSize: "0.85rem", opacity: 0.7 }}>Registro</th>
                 <th style={{ padding: "1rem 0", fontSize: "0.85rem", opacity: 0.7 }}>Estado</th>
@@ -111,14 +111,14 @@ export default function SuperAdminAgencies() {
                   <td style={{ padding: "1rem 0", opacity: 0.8 }}>{agency.subdomain}</td>
                   <td style={{ padding: "1rem 0" }}>
                     <span style={{ 
-                      backgroundColor: agency.plan === 'Pro' ? "rgba(168, 85, 247, 0.1)" : "rgba(156, 163, 175, 0.1)", 
-                      color: agency.plan === 'Pro' ? "#a855f7" : "inherit", 
+                      backgroundColor: "rgba(37, 99, 235, 0.1)", 
+                      color: "#2563eb", 
                       padding: "0.25rem 0.5rem", 
                       borderRadius: "6px", 
                       fontSize: "0.75rem", 
                       fontWeight: 600 
                     }}>
-                      {agency.plan}
+                      Agencia 360°
                     </span>
                   </td>
                   <td style={{ padding: "1rem 0" }}>

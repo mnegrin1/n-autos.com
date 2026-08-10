@@ -206,10 +206,6 @@ export default function SuperAdminLayout({
             <Users size={18} style={{ flexShrink: 0 }} />
             {isExpanded && <span>Usuarios Globales</span>}
           </Link>
-          <Link href="/superadmin/plans" title="Planes de Pago" className={`${styles.navLink} ${pathname.startsWith("/superadmin/plans") ? styles.activeNavLink : ""}`}>
-            <CreditCard size={18} style={{ flexShrink: 0 }} />
-            {isExpanded && <span>Planes de Pago</span>}
-          </Link>
           <Link href="/superadmin/features" title="Funcionalidades CRM" className={`${styles.navLink} ${pathname.startsWith("/superadmin/features") ? styles.activeNavLink : ""}`}>
             <Sliders size={18} style={{ flexShrink: 0 }} />
             {isExpanded && <span>Funcionalidades</span>}

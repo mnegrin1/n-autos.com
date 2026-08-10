@@ -28,8 +28,8 @@ export const DEFAULT_STARTER_TENANT: TenantSession = {
   agencyId: "tenant-carmax-001",
   agencyName: "Automotora CarMax Uruguay",
   subdomain: "carmax",
-  planId: "plan-starter",
-  planName: "Starter",
+  planId: "agencia-360",
+  planName: "Agencia 360°",
   billingCycle: "monthly",
   adminName: "Mauricio Negrin",
   adminEmail: "admin@carmax.uy",
@@ -145,12 +145,9 @@ export function simulateTenantRegistration(params: {
   subdomain: string;
   adminName: string;
   adminEmail: string;
-  planId: string;
-  billingCycle: "monthly" | "yearly";
+  planId?: string;
+  billingCycle?: "monthly" | "yearly";
 }): { session: TenantSession; dbLogs: string[] } {
-  const plans = getPlans();
-  const selectedPlan = plans.find((p) => p.id === params.planId) || DEFAULT_PLANS[1];
-
   const agencyUuid = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `agency-${Date.now()}`;
   const userUuid = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `user-${Date.now()}`;
 
@@ -158,9 +155,9 @@ export function simulateTenantRegistration(params: {
     agencyId: agencyUuid,
     agencyName: params.agencyName,
     subdomain: params.subdomain.toLowerCase().replace(/[^a-z0-9-]/g, ""),
-    planId: selectedPlan.id,
-    planName: selectedPlan.name,
-    billingCycle: params.billingCycle,
+    planId: "agencia-360",
+    planName: "Agencia 360°",
+    billingCycle: params.billingCycle || "monthly",
     adminName: params.adminName,
     adminEmail: params.adminEmail,
     usedVehicles: 0,
@@ -179,7 +176,7 @@ export function simulateTenantRegistration(params: {
     `[DB SUPABASE] Initializing multi-tenant workspace for '${params.agencyName}'...`,
     `[DB EXEC] INSERT INTO agencies (id, name, subdomain) -> OK (ID: ${agencyUuid})`,
     `[DB EXEC] INSERT INTO users (id, agency_id, name, email, role) -> OK (Role: admin)`,
-    `[PLAN ASSIGN] Assigned Plan '${selectedPlan.name}' (${params.billingCycle.toUpperCase()}) to tenant '${params.subdomain}'`,
+    `[SERVICE ASSIGN] Activated Agencia 360° Service for tenant '${params.subdomain}'`,
     `[RLS POLICY] Applied 'get_auth_user_agency() = ${agencyUuid}' security barrier.`,
     `[SUPERADMIN SYNC] Registered tenant in SuperAdmin Panel global store.`,
     `[STATUS] Ready to redirect to /admin dashboard.`
@@ -194,7 +191,7 @@ export function simulateTenantRegistration(params: {
     subdomain: params.subdomain,
     adminName: params.adminName,
     adminEmail: params.adminEmail,
-    planName: selectedPlan.name
+    planName: "Agencia 360°"
   });
 
   return { session: newSession, dbLogs };

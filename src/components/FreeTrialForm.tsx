@@ -36,12 +36,12 @@ export default function FreeTrialForm() {
 
   return (
     <form className={styles.trialForm} onSubmit={handleSubmit}>
-      <h3 className={styles.formTitle}>Comenzá tu Prueba Gratis</h3>
+      <h3 className={styles.formTitle}>Solicitá una Demo y Asesoría</h3>
       
       {error && <div className={styles.errorAlert}>{error}</div>}
 
       <div className={styles.inputGroup}>
-        <label>Nombre de la Organización</label>
+        <label>Nombre de la Automotora / Empresa</label>
         <input 
           type="text" 
           required 
@@ -53,7 +53,7 @@ export default function FreeTrialForm() {
       </div>
 
       <div className={styles.inputGroup}>
-        <label>Nombre del Administrador</label>
+        <label>Nombre del Responsable</label>
         <input 
           type="text" 
           required 
@@ -77,9 +77,9 @@ export default function FreeTrialForm() {
       </div>
 
       <button type="submit" className={styles.submitBtn} disabled={isPending}>
-        {isPending ? "Creando cuenta..." : "Crear Cuenta y Acceder"}
+        {isPending ? "Procesando..." : "Solicitar Demo y Acceso Directo"}
       </button>
-      <p className={styles.formDisclaimer}>Sin tarjeta de crédito. Cancelá cuando quieras.</p>
+      <p className={styles.formDisclaimer}>Montamos y configuramos la tecnología a la medida de tu automotora.</p>
     </form>
   );
 }

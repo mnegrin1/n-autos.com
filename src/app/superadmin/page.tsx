@@ -149,7 +149,7 @@ export default function SuperAdminDashboard() {
               <tr style={{ borderBottom: "1px solid var(--border-color)", textAlign: "left" }}>
                 <th style={{ padding: "1rem 0", fontSize: "0.85rem", opacity: 0.7 }}>Nombre</th>
                 <th style={{ padding: "1rem 0", fontSize: "0.85rem", opacity: 0.7 }}>Subdominio</th>
-                <th style={{ padding: "1rem 0", fontSize: "0.85rem", opacity: 0.7 }}>Plan</th>
+                <th style={{ padding: "1rem 0", fontSize: "0.85rem", opacity: 0.7 }}>Servicio</th>
                 <th style={{ padding: "1rem 0", fontSize: "0.85rem", opacity: 0.7 }}>Fecha Registro</th>
                 <th style={{ padding: "1rem 0", fontSize: "0.85rem", opacity: 0.7 }}>Estado</th>
               </tr>
@@ -168,7 +168,7 @@ export default function SuperAdminDashboard() {
                       fontSize: "0.75rem",
                       fontWeight: 700
                     }}>
-                      {agency.plan}
+                      Agencia 360°
                     </span>
                   </td>
                   <td style={{ padding: "1rem 0", opacity: 0.8 }}>{agency.createdAt}</td>
