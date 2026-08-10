@@ -34,22 +34,30 @@ export default function WebsiteClient({ initialAgency, initialVehicles }: Websit
   })));
 
   const [activeTab, setActiveTab] = useState<"builder" | "publications" | "settings">("builder");
-  const [autoSavingStatus, setAutoSavingStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [autoSavingStatus, setAutoSavingStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterMode, setFilterMode] = useState<"all" | "published" | "hidden" | "featured">("all");
   const [, startTransition] = useTransition();
 
   const handleSaveAgency = async (updatedFields: Partial<any>) => {
+    // BUG4 FIX: Capturar el ID directamente del estado actual antes de cualquier setter
+    const currentAgencyId = agency?.id || "00000000-0000-0000-0000-000000000000";
     setAutoSavingStatus("saving");
+    // Actualización optimista del estado local
     setAgency((prev: any) => ({ ...prev, ...updatedFields }));
     startTransition(async () => {
       try {
-        await updateAgencySettings(agency.id || "00000000-0000-0000-0000-000000000000", updatedFields);
+        const res = await updateAgencySettings(currentAgencyId, updatedFields);
+        if (res && res.data) {
+          setAgency((prev: any) => ({ ...prev, ...res.data }));
+        }
         setAutoSavingStatus("saved");
         setTimeout(() => setAutoSavingStatus("idle"), 2500);
       } catch (e) {
         console.error("Fallo al guardar configuración web:", e);
-        setAutoSavingStatus("idle");
+        // MEJORA1: Mostrar estado de error en lugar de volver a idle silenciosamente
+        setAutoSavingStatus("error");
+        setTimeout(() => setAutoSavingStatus("idle"), 3500);
       }
     });
   };
@@ -84,6 +92,13 @@ export default function WebsiteClient({ initialAgency, initialVehicles }: Websit
   const publishedCount = vehicles.filter(v => v.is_published_web).length;
   const featuredCount = vehicles.filter(v => v.is_featured_web).length;
 
+  // MEJORA2: En producción apunta al dominio externo; en dev/staging usa la ruta relativa
+  const isDevMode = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname.includes("127.0.0.1"));
+  const publicWebsiteUrl = isDevMode
+    ? `/portal/${agency?.subdomain || "hola"}`
+    : `https://${agency?.subdomain || "demo"}.n-sistemas.com`;
+  const relativePortalUrl = `/portal/${agency?.subdomain || "hola"}`;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", width: "100%" }}>
       
@@ -115,14 +130,14 @@ export default function WebsiteClient({ initialAgency, initialVehicles }: Websit
           <div>
             <h1 style={{ margin: 0, fontSize: "1.35rem", fontWeight: 800 }}>Página Web & Portal de la Automotora</h1>
             <p style={{ margin: "0.2rem 0 0 0", fontSize: "0.84rem", opacity: 0.75 }}>
-              Edita el diseño visual 1:1 de tu portal web y gestiona las publicaciones activas visibles para tus clientes.
+              Sitio web activo en: <strong style={{ color: "var(--primary)" }}>{agency?.subdomain || "demo"}.n-sistemas.com</strong>
             </p>
           </div>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
           <a
-            href={`https://${agency.subdomain || "demo"}.n-sistemas.com`}
+            href={publicWebsiteUrl}
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -139,7 +154,28 @@ export default function WebsiteClient({ initialAgency, initialVehicles }: Websit
               boxShadow: "0 4px 12px rgba(16, 185, 129, 0.3)"
             }}
           >
-            🌐 Ver Sitio Web Público ↗
+            🌐 {agency?.subdomain || "demo"}.n-sistemas.com ↗
+          </a>
+          <a
+            href={relativePortalUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              backgroundColor: "var(--surface-color)",
+              color: "var(--text-color)",
+              border: "1px solid var(--border-color)",
+              padding: "0.65rem 0.95rem",
+              borderRadius: "999px",
+              fontSize: "0.82rem",
+              fontWeight: 600,
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.3rem"
+            }}
+            title="Abrir vista local del portal"
+          >
+            👁️ Vista Previa
           </a>
         </div>
       </div>

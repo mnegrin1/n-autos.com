@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
-import { Monitor, Smartphone, Check, Upload, Image as ImageIcon, Sparkles, CheckCircle2, Search, Fuel, Shield, Zap, Award, Car, Phone, Clock, MapPin, Info, Eye, EyeOff, Palette, Sun, Moon, Lightbulb } from "lucide-react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { Monitor, Smartphone, Check, Upload, Image as ImageIcon, Sparkles, CheckCircle2, XCircle, Search, Fuel, Shield, Zap, Award, Car, Phone, Clock, MapPin, Info, Eye, EyeOff, Palette, Sun, Moon, Lightbulb } from "lucide-react";
 
 interface AgencyData {
   id: string;
@@ -34,25 +34,25 @@ interface AgencyData {
 interface VisualWebBuilderProps {
   agency: AgencyData;
   onSave: (updated: Partial<AgencyData>) => Promise<void>;
-  autoSavingStatus: "idle" | "saving" | "saved";
+  autoSavingStatus: "idle" | "saving" | "saved" | "error";
 }
 
 const TEMPLATES = [
-  { id: "standard", name: "Modern Standard", defaultAccent: "#10b981", fontClass: "tmpl-standard", bg: "#0a0e17" },
-  { id: "glassmorphism", name: "Glassmorphism Dark", defaultAccent: "#34d399", fontClass: "tmpl-glassmorphism", bg: "#0f172a" },
-  { id: "luxury", name: "Luxury Executive", defaultAccent: "#eab308", fontClass: "tmpl-luxury", bg: "#0b0c10" },
-  { id: "sport", name: "Sport Racing", defaultAccent: "#ef4444", fontClass: "tmpl-sport", bg: "#0a0e17" },
-  { id: "tech", name: "Minimal Tech", defaultAccent: "#06b6d4", fontClass: "tmpl-tech", bg: "#0d1117" },
-  { id: "editorial", name: "Editorial Magazine", defaultAccent: "#8b5cf6", fontClass: "tmpl-editorial", bg: "#0d0f14" },
+  { id: "executive", name: "Executive Motors", defaultAccent: "#17212F", fontClass: "tmpl-executive", bg: "#ffffff", desc: "Corporativo sobrio (Manrope + Inter)" },
+  { id: "performance", name: "Black Performance", defaultAccent: "#FF3B30", fontClass: "tmpl-performance", bg: "#0B0C0E", desc: "Deportivo & potente (Sora + Inter)" },
+  { id: "scandinavian", name: "Scandinavian Auto", defaultAccent: "#33443C", fontClass: "tmpl-scandinavian", bg: "#FAFAF8", desc: "Minimalista luminoso (DM Sans)" },
+  { id: "heritage", name: "Heritage Automotive", defaultAccent: "#8A3024", fontClass: "tmpl-heritage", bg: "#F4F0E8", desc: "Tradición & editorial (Libre Baskerville)" },
+  { id: "urban", name: "Urban Drive", defaultAccent: "#5B4FFF", fontClass: "tmpl-urban", bg: "#F7F8FA", desc: "Digital & joven (Plus Jakarta Sans)" },
+  { id: "local-trust", name: "Local Trust", defaultAccent: "#164E63", fontClass: "tmpl-local-trust", bg: "#ffffff", desc: "Cercanía & WhatsApp (Nunito Sans)" },
 ];
 
 const COLOR_SWATCHES = [
-  { name: "Esmeralda", color: "#10b981" },
-  { name: "Dorado Ejecutivo", color: "#eab308" },
-  { name: "Rojo Racing", color: "#ef4444" },
-  { name: "Azul Eléctrico", color: "#3b82f6" },
-  { name: "Púrpura Imperial", color: "#8b5cf6" },
-  { name: "Cian Tech", color: "#06b6d4" },
+  { name: "Azul Ejecutivo", color: "#17212F" },
+  { name: "Rojo Performance", color: "#FF3B30" },
+  { name: "Verde Escandinavo", color: "#33443C" },
+  { name: "Vino Heritage", color: "#8A3024" },
+  { name: "Violeta Urban", color: "#5B4FFF" },
+  { name: "Azul Petróleo Trust", color: "#164E63" },
 ];
 
 const COPY_SUGGESTIONS: Record<string, string[]> = {
@@ -145,6 +145,67 @@ export default function VisualWebBuilder({
   const [p4Title, setP4Title] = useState(agency.trust_pillar4_title || "Posventa Exclusiva");
   const [p4Desc, setP4Desc] = useState(agency.trust_pillar4_desc || "Atención y respaldo posterior a la entrega.");
 
+  // BUG2 FIX: Ref para debounce del color picker
+  const colorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // BUG1 FIX: Refs para sincronizar innerText de contentEditable cuando el valor cambia externamente
+  const heroEyebrowRef = useRef<HTMLDivElement>(null);
+  const heroTitleRef = useRef<HTMLHeadingElement>(null);
+  const heroSubtitleRef = useRef<HTMLParagraphElement>(null);
+  const aboutTextRef = useRef<HTMLParagraphElement>(null);
+
+  // BUG1 FIX: Sincronizar innerText de contentEditable cuando el valor cambia desde afuera (Copy AI, prop updates)
+  useEffect(() => {
+    if (heroEyebrowRef.current && document.activeElement !== heroEyebrowRef.current) {
+      heroEyebrowRef.current.innerText = heroEyebrow;
+    }
+  }, [heroEyebrow]);
+
+  useEffect(() => {
+    if (heroTitleRef.current && document.activeElement !== heroTitleRef.current) {
+      heroTitleRef.current.innerText = heroTitle;
+    }
+  }, [heroTitle]);
+
+  useEffect(() => {
+    if (heroSubtitleRef.current && document.activeElement !== heroSubtitleRef.current) {
+      heroSubtitleRef.current.innerText = heroSubtitle;
+    }
+  }, [heroSubtitle]);
+
+  useEffect(() => {
+    if (aboutTextRef.current && document.activeElement !== aboutTextRef.current) {
+      aboutTextRef.current.innerText = aboutText;
+    }
+  }, [aboutText]);
+
+  // BUG3 FIX: Sincronizar estados locales cuando la prop agency cambia post-render
+  useEffect(() => {
+    setWebTemplate(agency.web_template || "standard");
+    setPrimaryColor(agency.primary_color || activeTmpl.defaultAccent);
+    setName(agency.name || "");
+    setHeroEyebrow(agency.hero_eyebrow || "AUTOMOTORA OFICIAL");
+    setHeroTitle(agency.hero_title || "Encuentra tu próximo vehículo");
+    setHeroSubtitle(agency.hero_subtitle || "Unidades seleccionadas que te brindan seguridad, potencia y tranquilidad en cada kilómetro.");
+    setLogoUrl(agency.logo_url || "");
+    setCoverUrl(agency.cover_url || "");
+    setAboutText(agency.about_text || "Somos una automotora comprometida con la excelencia, la transparencia y la calidad. Ofrecemos vehículos seleccionados con certificación total, garantía y atención personalizada.");
+    setFooterText(agency.footer_text || "Tu concesionario de confianza. Vehículos seleccionados con certificación de origen, garantía y la mejor atención personalizada.");
+    setLocationAddress(agency.location_address || "Av. Principal 1234, Montevideo, Uruguay");
+    setBusinessHours(agency.business_hours || "Lunes a Viernes: 09:00 - 19:00 hs | Sábados: 09:00 - 13:00 hs");
+    setContactDescription(agency.contact_description || "¿Tienes alguna duda sobre una unidad o deseas agendar una prueba de manejo? Escríbenos directamente o visita nuestro showroom.");
+    if (agency.show_trust_section !== undefined) setShowTrustSection(agency.show_trust_section);
+    if (agency.trust_pillar1_title) setP1Title(agency.trust_pillar1_title);
+    if (agency.trust_pillar1_desc) setP1Desc(agency.trust_pillar1_desc);
+    if (agency.trust_pillar2_title) setP2Title(agency.trust_pillar2_title);
+    if (agency.trust_pillar2_desc) setP2Desc(agency.trust_pillar2_desc);
+    if (agency.trust_pillar3_title) setP3Title(agency.trust_pillar3_title);
+    if (agency.trust_pillar3_desc) setP3Desc(agency.trust_pillar3_desc);
+    if (agency.trust_pillar4_title) setP4Title(agency.trust_pillar4_title);
+    if (agency.trust_pillar4_desc) setP4Desc(agency.trust_pillar4_desc);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agency.id, agency.subdomain]);
+
   const coverFileInputRef = useRef<HTMLInputElement>(null);
   const logoFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -188,13 +249,39 @@ export default function VisualWebBuilder({
     setActiveFocusField(null);
   };
 
+  const handleExplicitSaveAll = () => {
+    onSave({
+      web_template: webTemplate,
+      primary_color: primaryColor,
+      hero_eyebrow: heroEyebrow,
+      hero_title: heroTitle,
+      hero_subtitle: heroSubtitle,
+      about_text: aboutText,
+      footer_text: footerText,
+      location_address: locationAddress,
+      business_hours: businessHours,
+      contact_description: contactDescription,
+      show_trust_section: showTrustSection,
+      trust_pillar1_title: p1Title,
+      trust_pillar1_desc: p1Desc,
+      trust_pillar2_title: p2Title,
+      trust_pillar2_desc: p2Desc,
+      trust_pillar3_title: p3Title,
+      trust_pillar3_desc: p3Desc,
+      trust_pillar4_title: p4Title,
+      trust_pillar4_desc: p4Desc,
+      logo_url: logoUrl,
+      cover_url: coverUrl,
+    });
+  };
+
   const currentCover = coverUrl || "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80";
   const activeAccent = primaryColor || activeTmpl.defaultAccent;
 
   // Helper for Hero Title Template Styles
   const getHeroTitleStyles = (): React.CSSProperties => {
     const base: React.CSSProperties = {
-      fontSize: deviceMode === "mobile" ? "1.6rem" : (webTemplate === "editorial" ? "3.1rem" : "2.5rem"),
+      fontSize: deviceMode === "mobile" ? "1.6rem" : (webTemplate === "heritage" ? "3.1rem" : "2.5rem"),
       lineHeight: 1.1,
       margin: 0,
       cursor: "text",
@@ -206,98 +293,105 @@ export default function VisualWebBuilder({
       transition: "all 0.2s ease"
     };
 
-    if (webTemplate === "sport") {
+    if (webTemplate === "performance" || webTemplate === "sport") {
       return {
         ...base,
-        fontFamily: "'Space Grotesk', sans-serif",
-        fontStyle: "italic",
+        fontFamily: "'Sora', sans-serif",
         fontWeight: 700,
         textTransform: "uppercase",
-        letterSpacing: "-0.03em",
+        letterSpacing: "-0.045em",
         color: "#ffffff",
-        textShadow: `0 4px 15px ${activeAccent}88`
+        textShadow: `0 4px 15px rgba(255, 59, 48, 0.4)`
       };
     }
 
-    if (webTemplate === "luxury") {
+    if (webTemplate === "heritage" || webTemplate === "editorial") {
       return {
         ...base,
-        fontFamily: "'Cinzel', serif",
-        fontWeight: 900,
-        letterSpacing: "0.02em",
-        background: `linear-gradient(135deg, #ffffff 0%, ${activeAccent} 50%, #ffffff 100%)`,
-        WebkitBackgroundClip: "text",
-        WebkitTextFillColor: "transparent",
-        textShadow: `0 2px 10px ${activeAccent}66`
+        fontFamily: "'Libre Baskerville', Georgia, serif",
+        fontWeight: 700,
+        color: "#24211D"
       };
     }
 
-    if (webTemplate === "editorial") {
+    if (webTemplate === "scandinavian" || webTemplate === "tech") {
       return {
         ...base,
-        fontFamily: "'Syne', sans-serif",
-        fontWeight: 800,
-        textTransform: "uppercase",
-        letterSpacing: "-0.02em",
-        color: "#ffffff"
+        fontFamily: "'DM Sans', sans-serif",
+        fontWeight: 500,
+        letterSpacing: "-0.045em",
+        color: "#20221F"
       };
     }
 
-    if (webTemplate === "tech") {
-      return {
-        ...base,
-        fontFamily: "'Outfit', sans-serif",
-        fontWeight: 900,
-        letterSpacing: "-0.04em",
-        color: "#ffffff"
-      };
-    }
-
-    if (webTemplate === "glassmorphism") {
+    if (webTemplate === "urban" || webTemplate === "glassmorphism") {
       return {
         ...base,
         fontFamily: "'Plus Jakarta Sans', sans-serif",
-        fontWeight: 800,
-        color: "#ffffff"
+        fontWeight: 700,
+        letterSpacing: "-0.045em",
+        color: "#111827"
+      };
+    }
+
+    if (webTemplate === "local-trust" || webTemplate === "luxury" || webTemplate === "local") {
+      return {
+        ...base,
+        fontFamily: "'Nunito Sans', sans-serif",
+        fontWeight: 700,
+        letterSpacing: "-0.03em",
+        color: "#164E63"
       };
     }
 
     return {
       ...base,
-      fontFamily: "'Inter', sans-serif",
-      fontWeight: 800,
-      color: "#ffffff"
+      fontFamily: "'Manrope', sans-serif",
+      fontWeight: 600,
+      letterSpacing: "-0.035em",
+      color: "#111318"
     };
   };
 
-  const canvasBg = previewModeTheme === "light" ? "#f8fafc" : activeTmpl.bg;
-  const canvasTextColor = previewModeTheme === "light" ? "#0f172a" : "#f8fafc";
-  const cardBg = previewModeTheme === "light" ? "#ffffff" : "rgba(30, 41, 59, 0.6)";
-  const cardBorder = previewModeTheme === "light" ? "#e2e8f0" : "rgba(255,255,255,0.08)";
+  const THEME_CANVAS_STYLES: Record<string, { bg: string; text: string; cardBg: string; border: string }> = {
+    executive: { bg: "#FFFFFF", text: "#111318", cardBg: "#FFFFFF", border: "#E4E7EB" },
+    performance: { bg: "#0B0C0E", text: "#F5F5F5", cardBg: "#151619", border: "#24262B" },
+    scandinavian: { bg: "#FAFAF8", text: "#20221F", cardBg: "transparent", border: "transparent" },
+    heritage: { bg: "#F4F0E8", text: "#24211D", cardBg: "#FCFAF5", border: "#D8D1C5" },
+    urban: { bg: "#F7F8FA", text: "#111827", cardBg: "#FFFFFF", border: "#EAECF0" },
+    "local-trust": { bg: "#FFFFFF", text: "#1E293B", cardBg: "#FFFFFF", border: "#E2E8F0" },
+  };
+
+  const activeCanvas = THEME_CANVAS_STYLES[webTemplate] || THEME_CANVAS_STYLES.executive;
+  const canvasBg = previewModeTheme === "light" ? (webTemplate === "performance" ? "#0B0C0E" : activeCanvas.bg) : activeCanvas.bg;
+  const canvasTextColor = activeCanvas.text;
+  const cardBg = activeCanvas.cardBg;
+  const cardBorder = activeCanvas.border;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem", width: "100%", position: "relative" }}>
       {/* High-Specificity CSS rules for 100% Template Font Enforcement */}
       <style dangerouslySetInnerHTML={{ __html: `
-        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;600;700;900&family=Plus+Jakarta+Sans:wght@700;800&family=Space+Grotesk:ital,wght@0,500;0,700;1,700&family=Syne:wght@700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,700;1,9..40,400&family=Inter:wght@300;400;500;600;700;800;900&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Manrope:wght@400;500;600;700;800&family=Nunito+Sans:ital,opsz,wght@0,6..12,400;0,6..12,600;0,6..12,700;0,6..12,800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Sora:wght@400;600;700;800&display=swap');
         
-        .tmpl-luxury, .tmpl-luxury *, .tmpl-luxury h1, .tmpl-luxury h2, .tmpl-luxury h3, .tmpl-luxury h4, .tmpl-luxury p, .tmpl-luxury span {
-          font-family: 'Cinzel', serif !important;
+        .tmpl-executive, .tmpl-executive h1, .tmpl-executive h2, .tmpl-executive h3, .tmpl-executive h4 {
+          font-family: 'Manrope', sans-serif !important;
         }
-        .tmpl-sport, .tmpl-sport *, .tmpl-sport h1, .tmpl-sport h2, .tmpl-sport h3, .tmpl-sport h4, .tmpl-sport p, .tmpl-sport span {
-          font-family: 'Space Grotesk', sans-serif !important;
+        .tmpl-performance, .tmpl-performance h1, .tmpl-performance h2, .tmpl-performance h3, .tmpl-performance h4 {
+          font-family: 'Sora', sans-serif !important;
+          text-transform: uppercase;
         }
-        .tmpl-editorial, .tmpl-editorial *, .tmpl-editorial h1, .tmpl-editorial h2, .tmpl-editorial h3, .tmpl-editorial h4, .tmpl-editorial p, .tmpl-editorial span {
-          font-family: 'Syne', sans-serif !important;
+        .tmpl-scandinavian, .tmpl-scandinavian h1, .tmpl-scandinavian h2, .tmpl-scandinavian h3, .tmpl-scandinavian h4 {
+          font-family: 'DM Sans', sans-serif !important;
         }
-        .tmpl-tech, .tmpl-tech *, .tmpl-tech h1, .tmpl-tech h2, .tmpl-tech h3, .tmpl-tech h4, .tmpl-tech p, .tmpl-tech span {
-          font-family: 'Outfit', sans-serif !important;
+        .tmpl-heritage, .tmpl-heritage h1, .tmpl-heritage h2, .tmpl-heritage h3, .tmpl-heritage h4 {
+          font-family: 'Libre Baskerville', Georgia, serif !important;
         }
-        .tmpl-glassmorphism, .tmpl-glassmorphism *, .tmpl-glassmorphism h1, .tmpl-glassmorphism h2, .tmpl-glassmorphism h3, .tmpl-glassmorphism h4, .tmpl-glassmorphism p, .tmpl-glassmorphism span {
+        .tmpl-urban, .tmpl-urban h1, .tmpl-urban h2, .tmpl-urban h3, .tmpl-urban h4 {
           font-family: 'Plus Jakarta Sans', sans-serif !important;
         }
-        .tmpl-standard, .tmpl-standard *, .tmpl-standard h1, .tmpl-standard h2, .tmpl-standard h3, .tmpl-standard h4, .tmpl-standard p, .tmpl-standard span {
-          font-family: 'Inter', sans-serif !important;
+        .tmpl-local-trust, .tmpl-local-trust h1, .tmpl-local-trust h2, .tmpl-local-trust h3, .tmpl-local-trust h4 {
+          font-family: 'Nunito Sans', sans-serif !important;
         }
       `}} />
 
@@ -305,23 +399,54 @@ export default function VisualWebBuilder({
       <div style={{
         backgroundColor: "var(--surface-color)",
         border: "1px solid var(--border-color)",
-        borderRadius: "12px",
+        borderRadius: "14px",
         padding: "1rem 1.25rem",
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
         flexWrap: "wrap",
-        gap: "1rem"
+        gap: "1rem",
+        boxShadow: "0 4px 14px rgba(0,0,0,0.06)"
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <Sparkles size={20} style={{ color: activeAccent }} />
+          <div style={{
+            backgroundColor: `${activeAccent}20`,
+            color: activeAccent,
+            padding: "0.55rem",
+            borderRadius: "10px",
+            display: "flex"
+          }}>
+            <Sparkles size={20} />
+          </div>
           <div>
-            <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 800 }}>Editor Visual Directo (Réplica Exacta)</h3>
+            <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 800 }}>Editor Visual Live 1:1</h3>
             <p style={{ margin: 0, fontSize: "0.78rem", opacity: 0.7 }}>Haz clic sobre cualquier texto para editar y ver sugerencias de Copy AI 💡.</p>
           </div>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+          {/* Explicit Save Button */}
+          <button
+            type="button"
+            onClick={handleExplicitSaveAll}
+            style={{
+              padding: "0.45rem 0.95rem",
+              borderRadius: "8px",
+              fontSize: "0.82rem",
+              fontWeight: 800,
+              border: "none",
+              backgroundColor: "var(--primary)",
+              color: "white",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.4rem",
+              boxShadow: "0 3px 10px rgba(16, 185, 129, 0.3)"
+            }}
+          >
+            <CheckCircle2 size={15} /> Guardar Cambios Web
+          </button>
+
           {/* Toggle Section "Nuestro Compromiso" */}
           <button
             type="button"
@@ -479,14 +604,23 @@ export default function VisualWebBuilder({
                 />
               ))}
 
-              {/* Custom Color Input */}
+              {/* Custom Color Input — BUG2 FIX: debounce 400ms para evitar llamadas masivas a onSave */}
               <input
                 type="color"
                 value={primaryColor}
                 onChange={(e) => {
                   const val = e.target.value;
                   setPrimaryColor(val);
-                  onSave({ primary_color: val });
+                  // Cancelar el guardado anterior y agendar uno nuevo con debounce
+                  if (colorDebounceRef.current) clearTimeout(colorDebounceRef.current);
+                  colorDebounceRef.current = setTimeout(() => {
+                    onSave({ primary_color: val });
+                  }, 400);
+                }}
+                onBlur={(e) => {
+                  // Guardar inmediatamente al soltar el picker
+                  if (colorDebounceRef.current) clearTimeout(colorDebounceRef.current);
+                  onSave({ primary_color: e.target.value });
                 }}
                 title="Elegir color personalizado"
                 style={{
@@ -687,14 +821,24 @@ export default function VisualWebBuilder({
           <section style={{
             position: "relative",
             minHeight: deviceMode === "mobile" ? "280px" : "340px",
-            backgroundImage: `linear-gradient(rgba(10, 14, 23, 0.75), rgba(10, 14, 23, 0.95)), url('${currentCover}')`,
+            backgroundImage: webTemplate === "performance" 
+              ? `linear-gradient(90deg, rgba(11, 12, 14, 0.92), rgba(11, 12, 14, 0.45)), url('${currentCover}')`
+              : webTemplate === "scandinavian"
+              ? `linear-gradient(rgba(250, 250, 248, 0.94), rgba(250, 250, 248, 0.9)), url('${currentCover}')`
+              : webTemplate === "heritage"
+              ? `linear-gradient(rgba(244, 240, 232, 0.94), rgba(244, 240, 232, 0.9)), url('${currentCover}')`
+              : webTemplate === "urban"
+              ? `linear-gradient(rgba(247, 248, 250, 0.95), rgba(247, 248, 250, 0.9)), url('${currentCover}')`
+              : webTemplate === "local-trust"
+              ? `linear-gradient(rgba(255, 255, 255, 0.95), rgba(247, 249, 251, 0.92)), url('${currentCover}')`
+              : `linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(245, 246, 247, 0.92)), url('${currentCover}')`,
             backgroundSize: "cover",
             backgroundPosition: "center",
-            padding: deviceMode === "mobile" ? "2.5rem 1rem" : (webTemplate === "editorial" ? "4rem 2rem" : "4rem 1.5rem"),
-            textAlign: webTemplate === "editorial" && deviceMode !== "mobile" ? "left" : "center",
+            padding: deviceMode === "mobile" ? "2.5rem 1rem" : (webTemplate === "heritage" ? "4rem 2rem" : "4rem 1.5rem"),
+            textAlign: webTemplate === "heritage" && deviceMode !== "mobile" ? "left" : "center",
             display: "flex",
             flexDirection: "column",
-            alignItems: webTemplate === "editorial" && deviceMode !== "mobile" ? "flex-start" : "center",
+            alignItems: webTemplate === "heritage" && deviceMode !== "mobile" ? "flex-start" : "center",
             justifyContent: "center",
             gap: "0.85rem",
             border: dragOverTarget === "cover" ? `3px dashed ${activeAccent}` : "none"
@@ -726,6 +870,7 @@ export default function VisualWebBuilder({
             </button>
 
             <div 
+              ref={heroEyebrowRef}
               contentEditable
               suppressContentEditableWarning
               onBlur={(e) => {
@@ -750,8 +895,9 @@ export default function VisualWebBuilder({
             </div>
 
             {/* HERO TITLE WITH ENHANCED EDIT VISUAL EMPHASIS & COPY AI SUGGESTION CLOUD */}
-            <div style={{ position: "relative", width: "100%", display: "flex", flexDirection: "column", alignItems: webTemplate === "editorial" && deviceMode !== "mobile" ? "flex-start" : "center" }}>
+            <div style={{ position: "relative", width: "100%", display: "flex", flexDirection: "column", alignItems: webTemplate === "heritage" && deviceMode !== "mobile" ? "flex-start" : "center" }}>
               <h1 
+                ref={heroTitleRef}
                 contentEditable
                 suppressContentEditableWarning
                 onFocus={() => setActiveFocusField("heroTitle")}
@@ -770,8 +916,8 @@ export default function VisualWebBuilder({
                 <div style={{
                   position: "absolute",
                   top: "105%",
-                  left: webTemplate === "editorial" && deviceMode !== "mobile" ? 0 : "50%",
-                  transform: webTemplate === "editorial" && deviceMode !== "mobile" ? "none" : "translateX(-50%)",
+                  left: webTemplate === "heritage" && deviceMode !== "mobile" ? 0 : "50%",
+                  transform: webTemplate === "heritage" && deviceMode !== "mobile" ? "none" : "translateX(-50%)",
                   backgroundColor: "rgba(15, 23, 42, 0.95)",
                   border: `2px solid ${activeAccent}`,
                   borderRadius: "14px",
@@ -812,9 +958,10 @@ export default function VisualWebBuilder({
               )}
             </div>
 
-            {/* HERO SUBTITLE WITH EDIT VISUAL EMPHASIS & COPY AI SUGGESTIONS */}
-            <div style={{ position: "relative", width: "100%", display: "flex", flexDirection: "column", alignItems: webTemplate === "editorial" && deviceMode !== "mobile" ? "flex-start" : "center" }}>
+            {/* HERO SUBTITLE */}
+            <div style={{ position: "relative", width: "100%", display: "flex", flexDirection: "column", alignItems: webTemplate === "heritage" && deviceMode !== "mobile" ? "flex-start" : "center" }}>
               <p 
+                ref={heroSubtitleRef}
                 contentEditable
                 suppressContentEditableWarning
                 onFocus={() => setActiveFocusField("heroSubtitle")}
@@ -825,7 +972,8 @@ export default function VisualWebBuilder({
                 }}
                 style={{
                   fontSize: deviceMode === "mobile" ? "0.85rem" : "0.95rem",
-                  opacity: 0.85,
+                  color: canvasTextColor,
+                  opacity: 0.9,
                   maxWidth: "620px",
                   margin: 0,
                   cursor: "text",
@@ -972,6 +1120,7 @@ export default function VisualWebBuilder({
               <h2 style={{ margin: 0, fontSize: "1.4rem", color: canvasTextColor }}>Acerca de Nosotros</h2>
               
               <p
+                ref={aboutTextRef}
                 contentEditable
                 suppressContentEditableWarning
                 onFocus={() => setActiveFocusField("aboutText")}
@@ -1297,14 +1446,19 @@ export default function VisualWebBuilder({
           boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
           backdropFilter: "blur(12px)",
           transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          backgroundColor: autoSavingStatus === "saving" ? "#f59e0b" : "#10b981",
+          backgroundColor: autoSavingStatus === "saving" ? "#f59e0b" : autoSavingStatus === "error" ? "#ef4444" : "#10b981",
           color: autoSavingStatus === "saving" ? "#0f172a" : "#ffffff",
-          border: autoSavingStatus === "saving" ? "1px solid #d97706" : "1px solid #059669"
+          border: autoSavingStatus === "saving" ? "1px solid #d97706" : autoSavingStatus === "error" ? "1px solid #dc2626" : "1px solid #059669"
         }}>
           {autoSavingStatus === "saving" ? (
             <>
               <span style={{ fontSize: "1.1rem" }}>⏳</span>
               <span>Guardando cambios en vivo...</span>
+            </>
+          ) : autoSavingStatus === "error" ? (
+            <>
+              <XCircle size={18} />
+              <span>Error al guardar. Reintentando...</span>
             </>
           ) : (
             <>

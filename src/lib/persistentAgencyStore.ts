@@ -72,39 +72,119 @@ export const DEFAULT_AGENCY_SETTINGS: AgencySettingsRecord = {
 /**
  * Obtiene la configuración de la agencia persistida en el servidor
  */
-export function getPersistentAgencySettings(): AgencySettingsRecord {
+export function getPersistentAgencySettings(targetKey?: string): AgencySettingsRecord {
   const pathsToTry = [PRIMARY_STORAGE_PATH, FALLBACK_STORAGE_PATH];
+  let newestData: Record<string, any> | null = null;
+  let newestMtime = 0;
+
   for (const filePath of pathsToTry) {
     try {
       if (fs.existsSync(filePath)) {
-        const content = fs.readFileSync(filePath, "utf8");
-        const parsed = JSON.parse(content);
-        if (parsed && typeof parsed === "object" && parsed.name) {
-          return {
-            ...DEFAULT_AGENCY_SETTINGS,
-            ...parsed,
-          };
+        const stats = fs.statSync(filePath);
+        if (stats.mtimeMs >= newestMtime) {
+          const content = fs.readFileSync(filePath, "utf8");
+          const parsed = JSON.parse(content);
+          if (parsed && typeof parsed === "object" && Object.keys(parsed).length > 0) {
+            newestMtime = stats.mtimeMs;
+            newestData = parsed;
+          }
         }
       }
     } catch (err) {
       console.error(`Error leyendo archivo de configuración persistente (${filePath}):`, err);
     }
   }
+
+  if (newestData) {
+    const cleanKey = targetKey?.trim().toLowerCase();
+
+    // Si existe el diccionario por agencias
+    if (newestData.agencies && typeof newestData.agencies === "object") {
+      if (cleanKey && newestData.agencies[cleanKey]) {
+        return {
+          ...DEFAULT_AGENCY_SETTINGS,
+          ...newestData.agencies[cleanKey],
+        };
+      }
+      if (cleanKey) {
+        for (const [_, agencyRecord] of Object.entries(newestData.agencies)) {
+          const rec = agencyRecord as any;
+          if (rec.subdomain?.toLowerCase() === cleanKey || rec.id === targetKey) {
+            return {
+              ...DEFAULT_AGENCY_SETTINGS,
+              ...rec,
+            };
+          }
+        }
+      }
+    }
+
+    // BUG5 FIX: Fallback a nivel raíz SOLO si el id o subdominio coincide explícitamente.
+    // De lo contrario, retornar solo DEFAULT_AGENCY_SETTINGS para no mezclar datos de distintas agencias.
+    if (cleanKey && (newestData.subdomain?.toLowerCase() === cleanKey || newestData.id === targetKey)) {
+      return {
+        ...DEFAULT_AGENCY_SETTINGS,
+        ...newestData,
+      };
+    }
+
+    // Si se busca por clave específica y no hay match, retornar defaults limpios
+    if (cleanKey) {
+      return DEFAULT_AGENCY_SETTINGS;
+    }
+
+    // Si se llama sin clave (getAll), devolver el primer registro disponible para retrocompatibilidad
+    return {
+      ...DEFAULT_AGENCY_SETTINGS,
+      ...newestData,
+    };
+  }
+
   return DEFAULT_AGENCY_SETTINGS;
 }
 
 /**
  * Guarda los cambios de configuración de la agencia de forma permanente en disco
  */
-export function savePersistentAgencySettings(updates: Partial<AgencySettingsRecord>): AgencySettingsRecord {
-  const current = getPersistentAgencySettings();
+export function savePersistentAgencySettings(updates: Partial<AgencySettingsRecord>, agencyKey?: string): AgencySettingsRecord {
+  const targetKey = agencyKey || updates.id || updates.subdomain;
+  const current = getPersistentAgencySettings(targetKey);
   const updated: AgencySettingsRecord = {
+    ...DEFAULT_AGENCY_SETTINGS,
     ...current,
     ...updates,
     updated_at: new Date().toISOString(),
   };
 
-  const jsonStr = JSON.stringify(updated, null, 2);
+  // Cargar estado raw actual en disco para preservar el diccionario multitenant
+  let rawStore: Record<string, any> = {};
+  const pathsToTry = [PRIMARY_STORAGE_PATH, FALLBACK_STORAGE_PATH];
+  for (const filePath of pathsToTry) {
+    try {
+      if (fs.existsSync(filePath)) {
+        const content = fs.readFileSync(filePath, "utf8");
+        const parsed = JSON.parse(content);
+        if (parsed && typeof parsed === "object") {
+          rawStore = parsed;
+          break;
+        }
+      }
+    } catch {}
+  }
+
+  if (!rawStore.agencies || typeof rawStore.agencies !== "object") {
+    rawStore.agencies = {};
+  }
+
+  if (updated.id) {
+    rawStore.agencies[updated.id] = updated;
+  }
+  if (updated.subdomain) {
+    rawStore.agencies[updated.subdomain.toLowerCase()] = updated;
+  }
+  Object.assign(rawStore, updated);
+
+  const jsonStr = JSON.stringify(rawStore, null, 2);
 
   const pathsToSave = [PRIMARY_STORAGE_PATH, FALLBACK_STORAGE_PATH];
   for (const filePath of pathsToSave) {
