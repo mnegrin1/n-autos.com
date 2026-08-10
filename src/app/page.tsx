@@ -1,18 +1,23 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import styles from "./page.module.css";
 import FreeTrialForm from "@/components/FreeTrialForm";
 import AnimatedSection from "@/components/AnimatedSection";
-import { MessageCircle, Shield, TrendingUp, Sparkles, CheckCircle2, Building2, Wrench, Headset, Rocket } from "lucide-react";
+import { MessageCircle, Shield, TrendingUp, Sparkles, CheckCircle2, Building2, Wrench, Headset, Rocket, Menu, X, ShieldCheck } from "lucide-react";
 
 export default function Home() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <div className={styles.landingContainer}>
       <nav className={styles.nav}>
         <div className={styles.logo}>n-autos</div>
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+
+        {/* Desktop Navigation */}
+        <div className={styles.desktopNav}>
           <a href="#servicio" style={{ color: "var(--text-color)", textDecoration: "none", fontSize: "0.95rem", fontWeight: 600 }}>
             Servicios
           </a>
@@ -23,7 +28,44 @@ export default function Home() {
             Acceso Demo
           </Link>
         </div>
+
+        {/* Mobile Menu Toggle Button */}
+        <button 
+          className={styles.mobileMenuToggle}
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label="Abrir menú"
+        >
+          {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
       </nav>
+
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div className={styles.mobileMenuOverlay}>
+          <a 
+            href="#servicio" 
+            onClick={() => setMobileMenuOpen(false)}
+            style={{ color: "var(--text-color)", textDecoration: "none", fontSize: "1.1rem", fontWeight: 700 }}
+          >
+            Servicios
+          </a>
+          <a 
+            href="#contacto" 
+            onClick={() => setMobileMenuOpen(false)}
+            style={{ color: "var(--text-color)", textDecoration: "none", fontSize: "1.1rem", fontWeight: 700 }}
+          >
+            Contacto
+          </a>
+          <Link 
+            href="/admin" 
+            className="btn-primary"
+            onClick={() => setMobileMenuOpen(false)}
+            style={{ width: "100%", textAlign: "center", padding: "0.85rem" }}
+          >
+            Acceso Demo
+          </Link>
+        </div>
+      )}
 
       <main>
         <AnimatedSection as="section" className={styles.heroSection} direction="down">

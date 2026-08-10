@@ -265,9 +265,42 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem 2rem;
+  padding: 1.25rem 2rem;
   border-bottom: 1px solid var(--border-color);
   background: var(--bg-color);
+  position: relative;
+  z-index: 100;
+}
+
+.desktopNav {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.mobileMenuToggle {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 8px;
+}
+
+.mobileMenuOverlay {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.5rem 2rem;
+  background-color: var(--surface-color);
+  border-bottom: 1px solid var(--border-color);
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .logo {
@@ -275,3 +308,76 @@
   font-weight: 800;
   letter-spacing: -0.5px;
 }
+
+/* Mobile Media Queries */
+@media (max-width: 768px) {
+  .nav {
+    padding: 1rem 1.25rem;
+  }
+
+  .desktopNav {
+    display: none;
+  }
+
+  .mobileMenuToggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .heroSection {
+    padding: 5rem 1.25rem 4rem;
+  }
+
+  .title {
+    font-size: 2.2rem;
+    line-height: 1.2;
+    margin-bottom: 1rem;
+  }
+
+  .subtitle {
+    font-size: 1.05rem;
+    margin-bottom: 2rem;
+  }
+
+  .ctaButtons {
+    flex-direction: column;
+    width: 100%;
+    gap: 0.75rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .ctaButtons > a,
+  .ctaButtons > button {
+    width: 100%;
+    text-align: center;
+  }
+
+  .featuresSection {
+    padding: 3.5rem 1.25rem;
+  }
+
+  .sectionTitle {
+    font-size: 1.75rem;
+    margin-bottom: 2rem;
+  }
+
+  .featuresGrid {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .featureCard {
+    padding: 1.75rem 1.25rem;
+  }
+
+  .trialSection {
+    padding: 3.5rem 1.25rem;
+  }
+
+  .trialContainer {
+    padding: 1.5rem 1.25rem;
+    border-radius: 16px;
+  }
+}
+

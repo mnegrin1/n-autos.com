@@ -8,12 +8,45 @@ import {
   rejectBrandingRequest,
   BrandingChangeRequest
 } from "@/lib/brandingRequestStore";
+import {
+  getLandingInquiries,
+  subscribeInquiries,
+  updateInquiryStatus,
+  deleteLandingInquiry,
+  LandingInquiry
+} from "@/lib/inquiryStore";
 import { processApprovedBrandingRequest } from "@/actions/brandingRequestActions";
 import { updateTenantAgencyName } from "@/lib/tenantStore";
 import { addRegisteredTenant } from "@/lib/superadminStore";
-import { ShieldCheck, ShieldAlert, CheckCircle, XCircle, Search, ArrowRight, Building2, Globe, Clock, MessageSquareQuote } from "lucide-react";
+import { 
+  ShieldCheck, 
+  ShieldAlert, 
+  CheckCircle, 
+  XCircle, 
+  Search, 
+  ArrowRight, 
+  Building2, 
+  Globe, 
+  Clock, 
+  MessageSquareQuote,
+  Inbox,
+  Phone,
+  Mail,
+  User,
+  Trash2,
+  CheckCircle2,
+  Clock3
+} from "lucide-react";
 
 export default function SuperAdminRequestsPage() {
+  const [activeTab, setActiveTab] = useState<"inquiries" | "branding">("inquiries");
+  
+  // State for Landing Page Consultations/Inquiries
+  const [inquiries, setInquiries] = useState<LandingInquiry[]>([]);
+  const [inquiryFilter, setInquiryFilter] = useState<"all" | "pending" | "contacted" | "converted">("all");
+  const [inquirySearch, setInquirySearch] = useState("");
+
+  // State for Branding Requests
   const [requests, setRequests] = useState<BrandingChangeRequest[]>([]);
   const [filterStatus, setFilterStatus] = useState<"all" | "pending" | "approved" | "rejected">("pending");
   const [searchTerm, setSearchTerm] = useState("");
@@ -21,13 +54,34 @@ export default function SuperAdminRequestsPage() {
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
+    setInquiries(getLandingInquiries());
+    const unsubInq = subscribeInquiries(() => setInquiries(getLandingInquiries()));
+
     setRequests(getBrandingRequests());
-    const unsub = subscribeBrandingRequestStore(() => {
-      setRequests(getBrandingRequests());
-    });
-    return () => unsub();
+    const unsubBrand = subscribeBrandingRequestStore(() => setRequests(getBrandingRequests()));
+
+    return () => {
+      unsubInq();
+      unsubBrand();
+    };
   }, []);
 
+  // Filter inquiries
+  const filteredInquiries = inquiries.filter((inq) => {
+    const matchesFilter = inquiryFilter === "all" || inq.status === inquiryFilter;
+    const matchesSearch =
+      inq.agencyName.toLowerCase().includes(inquirySearch.toLowerCase()) ||
+      inq.userName.toLowerCase().includes(inquirySearch.toLowerCase()) ||
+      inq.userEmail.toLowerCase().includes(inquirySearch.toLowerCase()) ||
+      (inq.phone && inq.phone.includes(inquirySearch)) ||
+      (inq.message && inq.message.toLowerCase().includes(inquirySearch.toLowerCase()));
+    return matchesFilter && matchesSearch;
+  });
+
+  const pendingInquiriesCount = inquiries.filter(i => i.status === "pending").length;
+  const pendingBrandingCount = requests.filter(r => r.status === "pending").length;
+
+  // Filter branding requests
   const filteredRequests = requests.filter((r) => {
     const matchesFilter = filterStatus === "all" || r.status === filterStatus;
     const matchesSearch =
@@ -39,15 +93,12 @@ export default function SuperAdminRequestsPage() {
     return matchesFilter && matchesSearch;
   });
 
-  const pendingCount = requests.filter((r) => r.status === "pending").length;
-
   const handleApprove = (req: BrandingChangeRequest) => {
     if (!confirm(`¿Aprobar el cambio de marca para "${req.currentName}" a "${req.requestedName}"? Esto actualizará la base de datos y el portal público.`)) {
       return;
     }
 
     startTransition(async () => {
-      // 1. Procesar cambio en la base de datos y caché del servidor
       const serverRes = await processApprovedBrandingRequest({
         agencyId: req.agencyId,
         newName: req.requestedName,
@@ -55,10 +106,7 @@ export default function SuperAdminRequestsPage() {
       });
 
       if (serverRes.success) {
-        // 2. Marcar solicitud como aprobada en la tienda de solicitudes
         approveBrandingRequest(req.id);
-
-        // 3. Sincronizar TenantStore y SuperadminStore
         updateTenantAgencyName(req.requestedName, req.requestedSubdomain);
         addRegisteredTenant({
           agencyId: req.agencyId,
@@ -66,7 +114,7 @@ export default function SuperAdminRequestsPage() {
           subdomain: req.requestedSubdomain,
           adminName: req.userName || "Admin Automotora",
           adminEmail: req.userEmail || "admin@automotora.com",
-          planName: "Starter"
+          planName: "Agencia 360°"
         });
 
         setActionSuccessMsg(`✅ Solicitud aprobada con éxito. La automotora "${req.requestedName}" (${req.requestedSubdomain}) ya está actualizada.`);
@@ -79,7 +127,7 @@ export default function SuperAdminRequestsPage() {
 
   const handleReject = (req: BrandingChangeRequest) => {
     const reasonPrompt = prompt("Ingrese el motivo del rechazo (opcional):", "Solicitud desestimada por inconsistencia en los datos o riesgo de seguridad.");
-    if (reasonPrompt === null) return; // Cancelado
+    if (reasonPrompt === null) return;
 
     rejectBrandingRequest(req.id, reasonPrompt);
     setActionSuccessMsg(`❌ Solicitud rechazada para "${req.currentName}".`);
@@ -87,29 +135,15 @@ export default function SuperAdminRequestsPage() {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "1rem" }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <h1 style={{ fontSize: "1.75rem", fontWeight: 800, margin: 0 }}>
-              Solicitudes de Cambio de Branding & Subdominio
-            </h1>
-            {pendingCount > 0 && (
-              <span style={{
-                backgroundColor: "#ef4444",
-                color: "#fff",
-                fontWeight: 700,
-                fontSize: "0.8rem",
-                padding: "0.2rem 0.6rem",
-                borderRadius: "12px"
-              }}>
-                {pendingCount} Pendiente{pendingCount > 1 ? "s" : ""}
-              </span>
-            )}
-          </div>
+          <h1 style={{ fontSize: "1.75rem", fontWeight: 800, margin: 0 }}>
+            Solicitudes & Consultas Recibidas
+          </h1>
           <p style={{ color: "var(--text-color)", opacity: 0.7, margin: "0.5rem 0 0 0" }}>
-            Módulo de aprobación antifraude. Audita y autoriza las modificaciones de razón social y subdominios solicitadas por las automotoras.
+            Centro de atención a leads de la landing page y aprobación de cambios de branding.
           </p>
         </div>
       </div>
@@ -131,265 +165,474 @@ export default function SuperAdminRequestsPage() {
         </div>
       )}
 
-      {/* Main Table Container */}
-      <div style={{
-        backgroundColor: "var(--surface-color)",
-        borderRadius: "16px",
-        padding: "1.5rem",
-        border: "1px solid var(--border-color)",
-        boxShadow: "0 4px 6px rgba(0,0,0,0.02)"
-      }}>
-        {/* Filters and Search */}
-        <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", marginBottom: "1.5rem", flexWrap: "wrap" }}>
-          {/* Status Tabs */}
-          <div style={{ display: "flex", gap: "0.5rem", backgroundColor: "rgba(0,0,0,0.05)", padding: "4px", borderRadius: "10px" }}>
-            <button
-              onClick={() => setFilterStatus("pending")}
-              style={{
-                padding: "0.5rem 1rem",
-                borderRadius: "8px",
-                border: "none",
-                backgroundColor: filterStatus === "pending" ? "var(--primary)" : "transparent",
-                color: filterStatus === "pending" ? "#fff" : "var(--text-color)",
-                fontWeight: 600,
-                fontSize: "0.85rem",
-                cursor: "pointer"
-              }}
-            >
-              ⏳ Pendientes ({requests.filter(r => r.status === "pending").length})
-            </button>
-            <button
-              onClick={() => setFilterStatus("approved")}
-              style={{
-                padding: "0.5rem 1rem",
-                borderRadius: "8px",
-                border: "none",
-                backgroundColor: filterStatus === "approved" ? "#10b981" : "transparent",
-                color: filterStatus === "approved" ? "#fff" : "var(--text-color)",
-                fontWeight: 600,
-                fontSize: "0.85rem",
-                cursor: "pointer"
-              }}
-            >
-              ✅ Aprobadas ({requests.filter(r => r.status === "approved").length})
-            </button>
-            <button
-              onClick={() => setFilterStatus("rejected")}
-              style={{
-                padding: "0.5rem 1rem",
-                borderRadius: "8px",
-                border: "none",
-                backgroundColor: filterStatus === "rejected" ? "#ef4444" : "transparent",
-                color: filterStatus === "rejected" ? "#fff" : "var(--text-color)",
-                fontWeight: 600,
-                fontSize: "0.85rem",
-                cursor: "pointer"
-              }}
-            >
-              ❌ Rechazadas ({requests.filter(r => r.status === "rejected").length})
-            </button>
-            <button
-              onClick={() => setFilterStatus("all")}
-              style={{
-                padding: "0.5rem 1rem",
-                borderRadius: "8px",
-                border: "none",
-                backgroundColor: filterStatus === "all" ? "rgba(128,128,128,0.2)" : "transparent",
-                color: "var(--text-color)",
-                fontWeight: 600,
-                fontSize: "0.85rem",
-                cursor: "pointer"
-              }}
-            >
-              Todas ({requests.length})
-            </button>
-          </div>
+      {/* Main Top Tab Switcher */}
+      <div style={{ display: "flex", gap: "1rem", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem" }}>
+        <button
+          type="button"
+          onClick={() => setActiveTab("inquiries")}
+          style={{
+            padding: "0.75rem 1.25rem",
+            borderRadius: "12px",
+            border: "none",
+            backgroundColor: activeTab === "inquiries" ? "var(--primary)" : "transparent",
+            color: activeTab === "inquiries" ? "#ffffff" : "var(--text-color)",
+            fontWeight: 700,
+            fontSize: "0.95rem",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.6rem",
+            transition: "all 0.2s"
+          }}
+        >
+          <Inbox size={18} /> Consultas Landing Page
+          {pendingInquiriesCount > 0 && (
+            <span style={{
+              backgroundColor: activeTab === "inquiries" ? "#ffffff" : "#ef4444",
+              color: activeTab === "inquiries" ? "#2563eb" : "#ffffff",
+              fontSize: "0.75rem",
+              fontWeight: 800,
+              padding: "2px 8px",
+              borderRadius: "12px"
+            }}>
+              {pendingInquiriesCount}
+            </span>
+          )}
+        </button>
 
-          {/* Search Input */}
-          <div style={{ position: "relative", minWidth: "260px" }}>
-            <Search size={16} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", opacity: 0.5 }} />
-            <input
-              type="text"
-              placeholder="Buscar por nombre, subdominio o motivo..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "0.6rem 1rem 0.6rem 2.25rem",
-                borderRadius: "8px",
-                border: "1px solid var(--border-color)",
-                backgroundColor: "var(--bg-color)",
-                color: "inherit",
-                fontSize: "0.85rem"
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Requests Table */}
-        {filteredRequests.length === 0 ? (
-          <div style={{ padding: "3rem 1rem", textAlign: "center", opacity: 0.6 }}>
-            <ShieldCheck size={48} style={{ marginBottom: "0.75rem" }} />
-            <p style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>No hay solicitudes en esta categoría.</p>
-          </div>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.9rem" }}>
-              <thead>
-                <tr style={{ borderBottom: "2px solid var(--border-color)", opacity: 0.8 }}>
-                  <th style={{ padding: "0.75rem 1rem" }}>Fecha & Usuario</th>
-                  <th style={{ padding: "0.75rem 1rem" }}>Nombre (Actual → Solicitado)</th>
-                  <th style={{ padding: "0.75rem 1rem" }}>Subdominio (Actual → Solicitado)</th>
-                  <th style={{ padding: "0.75rem 1rem" }}>Motivo / Justificación</th>
-                  <th style={{ padding: "0.75rem 1rem" }}>Estado</th>
-                  <th style={{ padding: "0.75rem 1rem", textAlign: "right" }}>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRequests.map((req) => (
-                  <tr key={req.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
-                    {/* Fecha y Usuario */}
-                    <td style={{ padding: "1rem" }}>
-                      <div style={{ fontWeight: 600 }}>{req.userName}</div>
-                      <div style={{ fontSize: "0.75rem", opacity: 0.7 }}>{req.userEmail}</div>
-                      <div style={{ fontSize: "0.7rem", opacity: 0.5, marginTop: "2px", display: "flex", alignItems: "center", gap: "3px" }}>
-                        <Clock size={11} /> {req.createdAt}
-                      </div>
-                    </td>
-
-                    {/* Nombre */}
-                    <td style={{ padding: "1rem" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        <span style={{ textDecoration: "line-through", opacity: 0.6 }}>{req.currentName}</span>
-                        <ArrowRight size={14} style={{ opacity: 0.5 }} />
-                        <strong style={{ color: "var(--primary)" }}>{req.requestedName}</strong>
-                      </div>
-                    </td>
-
-                    {/* Subdominio */}
-                    <td style={{ padding: "1rem" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        <code style={{ fontSize: "0.8rem", opacity: 0.7 }}>{req.currentSubdomain}</code>
-                        <ArrowRight size={14} style={{ opacity: 0.5 }} />
-                        <code style={{ fontSize: "0.85rem", fontWeight: 700, color: "#10b981" }}>{req.requestedSubdomain}</code>
-                      </div>
-                    </td>
-
-                    {/* Justificación */}
-                    <td style={{ padding: "1rem", maxWidth: "260px" }}>
-                      <div style={{ fontSize: "0.85rem", fontStyle: "italic", opacity: 0.9, lineHeight: "1.3" }}>
-                        &ldquo;{req.reason}&rdquo;
-                      </div>
-                    </td>
-
-                    {/* Estado */}
-                    <td style={{ padding: "1rem" }}>
-                      {req.status === "pending" && (
-                        <span style={{
-                          backgroundColor: "rgba(245, 158, 11, 0.15)",
-                          color: "#f59e0b",
-                          padding: "0.35rem 0.75rem",
-                          borderRadius: "20px",
-                          fontSize: "0.8rem",
-                          fontWeight: 700,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "0.35rem"
-                        }}>
-                          ⏳ Pendiente
-                        </span>
-                      )}
-                      {req.status === "approved" && (
-                        <span style={{
-                          backgroundColor: "rgba(16, 185, 129, 0.15)",
-                          color: "#10b981",
-                          padding: "0.35rem 0.75rem",
-                          borderRadius: "20px",
-                          fontSize: "0.8rem",
-                          fontWeight: 700,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "0.35rem"
-                        }}>
-                          ✅ Aprobada
-                        </span>
-                      )}
-                      {req.status === "rejected" && (
-                        <div>
-                          <span style={{
-                            backgroundColor: "rgba(239, 68, 68, 0.15)",
-                            color: "#ef4444",
-                            padding: "0.35rem 0.75rem",
-                            borderRadius: "20px",
-                            fontSize: "0.8rem",
-                            fontWeight: 700,
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "0.35rem"
-                          }}>
-                            ❌ Rechazada
-                          </span>
-                          {req.rejectionReason && (
-                            <div style={{ fontSize: "0.7rem", opacity: 0.6, marginTop: "4px" }}>
-                              {req.rejectionReason}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </td>
-
-                    {/* Acciones */}
-                    <td style={{ padding: "1rem", textAlign: "right" }}>
-                      {req.status === "pending" ? (
-                        <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem" }}>
-                          <button
-                            onClick={() => handleReject(req)}
-                            disabled={isPending}
-                            style={{
-                              padding: "0.45rem 0.85rem",
-                              borderRadius: "6px",
-                              border: "1px solid rgba(239, 68, 68, 0.3)",
-                              backgroundColor: "rgba(239, 68, 68, 0.1)",
-                              color: "#ef4444",
-                              fontSize: "0.8rem",
-                              fontWeight: 600,
-                              cursor: "pointer"
-                            }}
-                          >
-                            Rechazar
-                          </button>
-                          <button
-                            onClick={() => handleApprove(req)}
-                            disabled={isPending}
-                            style={{
-                              padding: "0.45rem 1rem",
-                              borderRadius: "6px",
-                              border: "none",
-                              backgroundColor: "#10b981",
-                              color: "#fff",
-                              fontSize: "0.85rem",
-                              fontWeight: 700,
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "0.35rem",
-                              boxShadow: "0 2px 6px rgba(16, 185, 129, 0.3)"
-                            }}
-                          >
-                            <CheckCircle size={14} /> Aprobar
-                          </button>
-                        </div>
-                      ) : (
-                        <span style={{ fontSize: "0.75rem", opacity: 0.5 }}>Resuelto ({req.resolvedAt})</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <button
+          type="button"
+          onClick={() => setActiveTab("branding")}
+          style={{
+            padding: "0.75rem 1.25rem",
+            borderRadius: "12px",
+            border: "none",
+            backgroundColor: activeTab === "branding" ? "var(--primary)" : "transparent",
+            color: activeTab === "branding" ? "#ffffff" : "var(--text-color)",
+            fontWeight: 700,
+            fontSize: "0.95rem",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.6rem",
+            transition: "all 0.2s"
+          }}
+        >
+          <Globe size={18} /> Cambios de Branding
+          {pendingBrandingCount > 0 && (
+            <span style={{
+              backgroundColor: activeTab === "branding" ? "#ffffff" : "#ef4444",
+              color: activeTab === "branding" ? "#2563eb" : "#ffffff",
+              fontSize: "0.75rem",
+              fontWeight: 800,
+              padding: "2px 8px",
+              borderRadius: "12px"
+            }}>
+              {pendingBrandingCount}
+            </span>
+          )}
+        </button>
       </div>
+
+      {/* TAB 1: CONSULTAS LANDING PAGE */}
+      {activeTab === "inquiries" && (
+        <div style={{
+          backgroundColor: "var(--surface-color)",
+          borderRadius: "16px",
+          padding: "1.5rem",
+          border: "1px solid var(--border-color)",
+          boxShadow: "0 4px 6px rgba(0,0,0,0.02)"
+        }}>
+          {/* Filters & Search for Inquiries */}
+          <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", marginBottom: "1.5rem", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "0.5rem", backgroundColor: "rgba(0,0,0,0.05)", padding: "4px", borderRadius: "10px", flexWrap: "wrap" }}>
+              <button
+                onClick={() => setInquiryFilter("all")}
+                style={{
+                  padding: "0.5rem 1rem",
+                  borderRadius: "8px",
+                  border: "none",
+                  backgroundColor: inquiryFilter === "all" ? "var(--primary)" : "transparent",
+                  color: inquiryFilter === "all" ? "#fff" : "var(--text-color)",
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
+                  cursor: "pointer"
+                }}
+              >
+                Todas ({inquiries.length})
+              </button>
+              <button
+                onClick={() => setInquiryFilter("pending")}
+                style={{
+                  padding: "0.5rem 1rem",
+                  borderRadius: "8px",
+                  border: "none",
+                  backgroundColor: inquiryFilter === "pending" ? "#ef4444" : "transparent",
+                  color: inquiryFilter === "pending" ? "#fff" : "var(--text-color)",
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
+                  cursor: "pointer"
+                }}
+              >
+                ⏳ Pendientes ({inquiries.filter(i => i.status === "pending").length})
+              </button>
+              <button
+                onClick={() => setInquiryFilter("contacted")}
+                style={{
+                  padding: "0.5rem 1rem",
+                  borderRadius: "8px",
+                  border: "none",
+                  backgroundColor: inquiryFilter === "contacted" ? "#3b82f6" : "transparent",
+                  color: inquiryFilter === "contacted" ? "#fff" : "var(--text-color)",
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
+                  cursor: "pointer"
+                }}
+              >
+                💬 Contactadas ({inquiries.filter(i => i.status === "contacted").length})
+              </button>
+              <button
+                onClick={() => setInquiryFilter("converted")}
+                style={{
+                  padding: "0.5rem 1rem",
+                  borderRadius: "8px",
+                  border: "none",
+                  backgroundColor: inquiryFilter === "converted" ? "#10b981" : "transparent",
+                  color: inquiryFilter === "converted" ? "#fff" : "var(--text-color)",
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
+                  cursor: "pointer"
+                }}
+              >
+                ✅ Convertidas ({inquiries.filter(i => i.status === "converted").length})
+              </button>
+            </div>
+
+            <div style={{ position: "relative", minWidth: "240px", flex: 1, maxWidth: "320px" }}>
+              <Search size={16} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", opacity: 0.5 }} />
+              <input
+                type="text"
+                placeholder="Buscar por automotora, cliente o email..."
+                value={inquirySearch}
+                onChange={(e) => setInquirySearch(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "0.6rem 1rem 0.6rem 2.25rem",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border-color)",
+                  backgroundColor: "var(--bg-color)",
+                  color: "inherit",
+                  fontSize: "0.85rem"
+                }}
+              />
+            </div>
+          </div>
+
+          {filteredInquiries.length === 0 ? (
+            <div style={{ padding: "3rem 1rem", textAlign: "center", opacity: 0.6 }}>
+              <Inbox size={48} style={{ marginBottom: "0.75rem" }} />
+              <p style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>No hay consultas recibidas en esta sección.</p>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              {filteredInquiries.map((inq) => (
+                <div
+                  key={inq.id}
+                  style={{
+                    backgroundColor: "var(--bg-color)",
+                    borderRadius: "14px",
+                    border: "1px solid var(--border-color)",
+                    padding: "1.25rem",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "1rem"
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "0.75rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                      <div style={{
+                        width: "42px",
+                        height: "42px",
+                        borderRadius: "10px",
+                        backgroundColor: "rgba(37, 99, 235, 0.1)",
+                        color: "#2563eb",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0
+                      }}>
+                        <Building2 size={20} />
+                      </div>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 800 }}>{inq.agencyName}</h3>
+                        <span style={{ fontSize: "0.78rem", opacity: 0.6, display: "flex", alignItems: "center", gap: "0.3rem", marginTop: "2px" }}>
+                          <Clock size={12} /> {inq.createdAt}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <select
+                        value={inq.status}
+                        onChange={(e) => updateInquiryStatus(inq.id, e.target.value as any)}
+                        style={{
+                          padding: "0.4rem 0.75rem",
+                          borderRadius: "8px",
+                          border: "1px solid var(--border-color)",
+                          backgroundColor: inq.status === "pending" 
+                            ? "rgba(239, 68, 68, 0.15)" 
+                            : inq.status === "contacted" 
+                              ? "rgba(59, 130, 246, 0.15)" 
+                              : "rgba(16, 185, 129, 0.15)",
+                          color: inq.status === "pending" 
+                            ? "#ef4444" 
+                            : inq.status === "contacted" 
+                              ? "#2563eb" 
+                              : "#10b981",
+                          fontWeight: 700,
+                          fontSize: "0.82rem",
+                          cursor: "pointer"
+                        }}
+                      >
+                        <option value="pending">⏳ Pendiente</option>
+                        <option value="contacted">💬 Contactado</option>
+                        <option value="converted">✅ Convertido</option>
+                        <option value="archived">📁 Archivado</option>
+                      </select>
+
+                      <button
+                        onClick={() => {
+                          if (confirm(`¿Eliminar la consulta de "${inq.agencyName}"?`)) {
+                            deleteLandingInquiry(inq.id);
+                          }
+                        }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "#ef4444",
+                          cursor: "pointer",
+                          padding: "0.4rem",
+                          opacity: 0.7
+                        }}
+                        title="Eliminar consulta"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Contact Info & Message */}
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                    gap: "1rem",
+                    backgroundColor: "var(--surface-color)",
+                    padding: "1rem",
+                    borderRadius: "10px",
+                    border: "1px solid var(--border-color)"
+                  }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", fontSize: "0.88rem" }}>
+                      <span style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                        <User size={15} style={{ color: "#2563eb" }} /> {inq.userName}
+                      </span>
+                      <a href={`mailto:${inq.userEmail}`} style={{ color: "var(--text-color)", textDecoration: "none", display: "flex", alignItems: "center", gap: "0.4rem", opacity: 0.85 }}>
+                        <Mail size={14} /> {inq.userEmail}
+                      </a>
+                      {inq.phone && (
+                        <a href={`https://wa.me/${inq.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noreferrer" style={{ color: "#10b981", fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                          <Phone size={14} /> WhatsApp: {inq.phone}
+                        </a>
+                      )}
+                    </div>
+
+                    {inq.message && (
+                      <div style={{ fontSize: "0.85rem", opacity: 0.9, lineHeight: "1.4", borderLeft: "2px solid #2563eb", paddingLeft: "0.75rem" }}>
+                        <strong style={{ display: "block", fontSize: "0.75rem", textTransform: "uppercase", opacity: 0.6, marginBottom: "2px" }}>
+                          Mensaje / Consulta:
+                        </strong>
+                        "{inq.message}"
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 2: CAMBIOS DE BRANDING */}
+      {activeTab === "branding" && (
+        <div style={{
+          backgroundColor: "var(--surface-color)",
+          borderRadius: "16px",
+          padding: "1.5rem",
+          border: "1px solid var(--border-color)",
+          boxShadow: "0 4px 6px rgba(0,0,0,0.02)"
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: "1rem", marginBottom: "1.5rem", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "0.5rem", backgroundColor: "rgba(0,0,0,0.05)", padding: "4px", borderRadius: "10px", flexWrap: "wrap" }}>
+              <button
+                onClick={() => setFilterStatus("pending")}
+                style={{
+                  padding: "0.5rem 1rem",
+                  borderRadius: "8px",
+                  border: "none",
+                  backgroundColor: filterStatus === "pending" ? "var(--primary)" : "transparent",
+                  color: filterStatus === "pending" ? "#fff" : "var(--text-color)",
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
+                  cursor: "pointer"
+                }}
+              >
+                ⏳ Pendientes ({requests.filter(r => r.status === "pending").length})
+              </button>
+              <button
+                onClick={() => setFilterStatus("approved")}
+                style={{
+                  padding: "0.5rem 1rem",
+                  borderRadius: "8px",
+                  border: "none",
+                  backgroundColor: filterStatus === "approved" ? "#10b981" : "transparent",
+                  color: filterStatus === "approved" ? "#fff" : "var(--text-color)",
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
+                  cursor: "pointer"
+                }}
+              >
+                ✅ Aprobadas ({requests.filter(r => r.status === "approved").length})
+              </button>
+              <button
+                onClick={() => setFilterStatus("rejected")}
+                style={{
+                  padding: "0.5rem 1rem",
+                  borderRadius: "8px",
+                  border: "none",
+                  backgroundColor: filterStatus === "rejected" ? "#ef4444" : "transparent",
+                  color: filterStatus === "rejected" ? "#fff" : "var(--text-color)",
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
+                  cursor: "pointer"
+                }}
+              >
+                ❌ Rechazadas ({requests.filter(r => r.status === "rejected").length})
+              </button>
+            </div>
+
+            <div style={{ position: "relative", minWidth: "240px", flex: 1, maxWidth: "320px" }}>
+              <Search size={16} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", opacity: 0.5 }} />
+              <input
+                type="text"
+                placeholder="Buscar por nombre o subdominio..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "0.6rem 1rem 0.6rem 2.25rem",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border-color)",
+                  backgroundColor: "var(--bg-color)",
+                  color: "inherit",
+                  fontSize: "0.85rem"
+                }}
+              />
+            </div>
+          </div>
+
+          {filteredRequests.length === 0 ? (
+            <div style={{ padding: "3rem 1rem", textAlign: "center", opacity: 0.6 }}>
+              <ShieldCheck size={48} style={{ marginBottom: "0.75rem" }} />
+              <p style={{ margin: 0, fontSize: "1rem", fontWeight: 600 }}>No hay solicitudes de branding en esta categoría.</p>
+            </div>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.9rem" }}>
+                <thead>
+                  <tr style={{ borderBottom: "2px solid var(--border-color)", opacity: 0.8 }}>
+                    <th style={{ padding: "0.75rem 1rem" }}>Fecha & Usuario</th>
+                    <th style={{ padding: "0.75rem 1rem" }}>Nombre (Actual → Solicitado)</th>
+                    <th style={{ padding: "0.75rem 1rem" }}>Subdominio</th>
+                    <th style={{ padding: "0.75rem 1rem" }}>Motivo</th>
+                    <th style={{ padding: "0.75rem 1rem" }}>Estado</th>
+                    <th style={{ padding: "0.75rem 1rem", textAlign: "right" }}>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredRequests.map((req) => (
+                    <tr key={req.id} style={{ borderBottom: "1px solid var(--border-color)" }}>
+                      <td style={{ padding: "1rem" }}>
+                        <div style={{ fontWeight: 600 }}>{req.userName || "Admin"}</div>
+                        <div style={{ fontSize: "0.75rem", opacity: 0.6 }}>{req.createdAt}</div>
+                      </td>
+                      <td style={{ padding: "1rem" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                          <span>{req.currentName}</span>
+                          <ArrowRight size={14} style={{ color: "#2563eb" }} />
+                          <strong style={{ color: "#2563eb" }}>{req.requestedName}</strong>
+                        </div>
+                      </td>
+                      <td style={{ padding: "1rem", fontFamily: "monospace", fontSize: "0.85rem" }}>
+                        {req.requestedSubdomain}.n-autos.com
+                      </td>
+                      <td style={{ padding: "1rem", opacity: 0.85, maxWidth: "240px" }}>
+                        {req.reason}
+                      </td>
+                      <td style={{ padding: "1rem" }}>
+                        <span style={{
+                          padding: "0.25rem 0.6rem",
+                          borderRadius: "12px",
+                          fontSize: "0.75rem",
+                          fontWeight: 700,
+                          backgroundColor: req.status === "approved" ? "rgba(16, 185, 129, 0.1)" : req.status === "rejected" ? "rgba(239, 68, 68, 0.1)" : "rgba(245, 158, 11, 0.1)",
+                          color: req.status === "approved" ? "#10b981" : req.status === "rejected" ? "#ef4444" : "#f59e0b"
+                        }}>
+                          {req.status === "approved" ? "Aprobado" : req.status === "rejected" ? "Rechazado" : "Pendiente"}
+                        </span>
+                      </td>
+                      <td style={{ padding: "1rem", textAlign: "right" }}>
+                        {req.status === "pending" && (
+                          <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+                            <button
+                              onClick={() => handleApprove(req)}
+                              style={{
+                                backgroundColor: "#10b981",
+                                color: "#fff",
+                                border: "none",
+                                padding: "0.4rem 0.75rem",
+                                borderRadius: "6px",
+                                fontSize: "0.8rem",
+                                fontWeight: 700,
+                                cursor: "pointer"
+                              }}
+                            >
+                              Aprobar
+                            </button>
+                            <button
+                              onClick={() => handleReject(req)}
+                              style={{
+                                backgroundColor: "rgba(239, 68, 68, 0.1)",
+                                color: "#ef4444",
+                                border: "none",
+                                padding: "0.4rem 0.75rem",
+                                borderRadius: "6px",
+                                fontSize: "0.8rem",
+                                fontWeight: 700,
+                                cursor: "pointer"
+                              }}
+                            >
+                              Rechazar
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

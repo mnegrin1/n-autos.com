@@ -173,7 +173,7 @@ export default function SuperAdminLayout({
           )}
         </div>
         
-        <nav className={styles.nav}>
+        <nav className={styles.nav} onClick={() => setIsMobileMenuOpen(false)}>
           <Link href="/superadmin" title="Dashboard Global" className={`${styles.navLink} ${pathname === "/superadmin" ? styles.activeNavLink : ""}`}>
             <LayoutDashboard size={18} style={{ flexShrink: 0 }} />
             {isExpanded && <span>Dashboard Global</span>}
@@ -347,6 +347,20 @@ export default function SuperAdminLayout({
         </div>
       </aside>
 
+      {/* Mobile Menu Backdrop */}
+      {isMobileMenuOpen && (
+        <div 
+          onClick={() => setIsMobileMenuOpen(false)}
+          style={{
+            position: "fixed",
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.5)",
+            backdropFilter: "blur(2px)",
+            zIndex: 99
+          }}
+        />
+      )}
+
       <main className={`${styles.mainContent} ${isPinned ? styles.mainContentPinned : ""}`}>
         <header className={styles.topbar}>
           <div className={styles.mobileMenuContainer}>
@@ -357,6 +371,9 @@ export default function SuperAdminLayout({
             >
               <Menu size={24} />
             </button>
+            <span style={{ fontSize: "1rem", fontWeight: 800, color: "var(--danger, #ef4444)" }}>
+              N-Autos SuperAdmin
+            </span>
           </div>
         </header>
 

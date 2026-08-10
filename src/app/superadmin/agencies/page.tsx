@@ -440,19 +440,22 @@ export default function SuperAdminAgencies() {
           justifyContent: "flex-end",
           zIndex: 1000
         }}>
-          <div style={{
-            backgroundColor: "var(--surface-color)",
-            width: "100%",
-            maxWidth: "650px",
-            height: "100%",
-            padding: "2rem",
-            boxShadow: "-10px 0 25px rgba(0, 0, 0, 0.2)",
-            display: "flex",
-            flexDirection: "column",
-            gap: "1.5rem",
-            overflowY: "auto",
-            position: "relative"
-          }}>
+          <div 
+            className="drawerContent"
+            style={{
+              backgroundColor: "var(--surface-color)",
+              width: "100%",
+              maxWidth: "650px",
+              height: "100%",
+              padding: "2rem",
+              boxShadow: "-10px 0 25px rgba(0, 0, 0, 0.2)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "1.5rem",
+              overflowY: "auto",
+              position: "relative"
+            }}
+          >
             <button 
               onClick={() => setSelectedAgency(null)}
               style={{
