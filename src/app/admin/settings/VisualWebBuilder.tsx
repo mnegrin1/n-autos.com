@@ -148,11 +148,32 @@ export default function VisualWebBuilder({
   // BUG2 FIX: Ref para debounce del color picker
   const colorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Refs de debounce individuales por campo contentEditable (para onInput live save)
+  const eyebrowDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const subtitleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const aboutDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // BUG1 FIX: Refs para sincronizar innerText de contentEditable cuando el valor cambia externamente
   const heroEyebrowRef = useRef<HTMLDivElement>(null);
   const heroTitleRef = useRef<HTMLHeadingElement>(null);
   const heroSubtitleRef = useRef<HTMLParagraphElement>(null);
   const aboutTextRef = useRef<HTMLParagraphElement>(null);
+
+  // Helper: crea un handler onInput con debounce de 800ms que guarda en el servidor
+  // El onBlur (flush inmediato) se agrega por separado en cada elemento
+  const makeDebouncedSave = useCallback(
+    (debounceRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>, setter: (val: string) => void, key: keyof AgencyData, ms = 800) =>
+      (e: React.FormEvent<HTMLElement>) => {
+        const val = e.currentTarget.innerText;
+        setter(val);
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+          onSave({ [key]: val.trim() } as Partial<AgencyData>);
+        }, ms);
+      },
+    [onSave]
+  );
 
   // BUG1 FIX: Sincronizar innerText de contentEditable cuando el valor cambia desde afuera (Copy AI, prop updates)
   useEffect(() => {
@@ -179,7 +200,9 @@ export default function VisualWebBuilder({
     }
   }, [aboutText]);
 
-  // BUG3 FIX: Sincronizar estados locales cuando la prop agency cambia post-render
+  // BUG3 FIX: Sincronizar estados locales cuando la prop agency cambia post-render.
+  // Usamos un hash de campos clave (no solo id/subdomain) para detectar cambios reales de datos.
+  const agencyDataHash = `${agency.web_template}|${agency.primary_color}|${agency.hero_title}|${agency.hero_subtitle}|${agency.hero_eyebrow}|${agency.about_text}|${agency.footer_text}|${agency.logo_url}|${agency.cover_url}|${agency.show_trust_section}`;
   useEffect(() => {
     setWebTemplate(agency.web_template || "standard");
     setPrimaryColor(agency.primary_color || activeTmpl.defaultAccent);
@@ -204,7 +227,7 @@ export default function VisualWebBuilder({
     if (agency.trust_pillar4_title) setP4Title(agency.trust_pillar4_title);
     if (agency.trust_pillar4_desc) setP4Desc(agency.trust_pillar4_desc);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agency.id, agency.subdomain]);
+  }, [agencyDataHash]);
 
   const coverFileInputRef = useRef<HTMLInputElement>(null);
   const logoFileInputRef = useRef<HTMLInputElement>(null);
@@ -873,7 +896,10 @@ export default function VisualWebBuilder({
               ref={heroEyebrowRef}
               contentEditable
               suppressContentEditableWarning
+              onInput={makeDebouncedSave(eyebrowDebounceRef, setHeroEyebrow, "hero_eyebrow", 800)}
               onBlur={(e) => {
+                // Flush inmediato al perder foco
+                if (eyebrowDebounceRef.current) clearTimeout(eyebrowDebounceRef.current);
                 const val = e.currentTarget.innerText.trim();
                 setHeroEyebrow(val);
                 onSave({ hero_eyebrow: val });
@@ -901,7 +927,10 @@ export default function VisualWebBuilder({
                 contentEditable
                 suppressContentEditableWarning
                 onFocus={() => setActiveFocusField("heroTitle")}
+                onInput={makeDebouncedSave(titleDebounceRef, setHeroTitle, "hero_title", 800)}
                 onBlur={(e) => {
+                  // Flush inmediato al perder foco
+                  if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
                   const val = e.currentTarget.innerText.trim();
                   setHeroTitle(val);
                   onSave({ hero_title: val });
@@ -965,7 +994,10 @@ export default function VisualWebBuilder({
                 contentEditable
                 suppressContentEditableWarning
                 onFocus={() => setActiveFocusField("heroSubtitle")}
+                onInput={makeDebouncedSave(subtitleDebounceRef, setHeroSubtitle, "hero_subtitle", 800)}
                 onBlur={(e) => {
+                  // Flush inmediato al perder foco
+                  if (subtitleDebounceRef.current) clearTimeout(subtitleDebounceRef.current);
                   const val = e.currentTarget.innerText.trim();
                   setHeroSubtitle(val);
                   onSave({ hero_subtitle: val });
@@ -1124,7 +1156,10 @@ export default function VisualWebBuilder({
                 contentEditable
                 suppressContentEditableWarning
                 onFocus={() => setActiveFocusField("aboutText")}
+                onInput={makeDebouncedSave(aboutDebounceRef, setAboutText, "about_text", 800)}
                 onBlur={(e) => {
+                  // Flush inmediato al perder foco
+                  if (aboutDebounceRef.current) clearTimeout(aboutDebounceRef.current);
                   const val = e.currentTarget.innerText.trim();
                   setAboutText(val);
                   onSave({ about_text: val });

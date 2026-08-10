@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Globe, Palette, Car, Eye, EyeOff, Star, ExternalLink, Sparkles, Plus, Search, Check, RefreshCw, CheckCircle2 } from "lucide-react";
 import VisualWebBuilder from "../settings/VisualWebBuilder";
 import { updateAgencySettings } from "@/actions/agencyActions";
@@ -26,6 +27,7 @@ interface WebsiteClientProps {
 }
 
 export default function WebsiteClient({ initialAgency, initialVehicles }: WebsiteClientProps) {
+  const router = useRouter();
   const [agency, setAgency] = useState(initialAgency);
   const [vehicles, setVehicles] = useState<Vehicle[]>(initialVehicles.map(v => ({
     ...v,
@@ -52,6 +54,8 @@ export default function WebsiteClient({ initialAgency, initialVehicles }: Websit
           setAgency((prev: any) => ({ ...prev, ...res.data }));
         }
         setAutoSavingStatus("saved");
+        // Notificar a Next.js que invalide el router cache del portal para reflejar cambios sin F5
+        router.refresh();
         setTimeout(() => setAutoSavingStatus("idle"), 2500);
       } catch (e) {
         console.error("Fallo al guardar configuración web:", e);
