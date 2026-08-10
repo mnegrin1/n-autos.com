@@ -200,34 +200,32 @@ export default function VisualWebBuilder({
     }
   }, [aboutText]);
 
-  // BUG3 FIX: Sincronizar estados locales cuando la prop agency cambia post-render.
-  // Usamos un hash de campos clave (no solo id/subdomain) para detectar cambios reales de datos.
-  const agencyDataHash = `${agency.web_template}|${agency.primary_color}|${agency.hero_title}|${agency.hero_subtitle}|${agency.hero_eyebrow}|${agency.about_text}|${agency.footer_text}|${agency.logo_url}|${agency.cover_url}|${agency.show_trust_section}`;
-  useEffect(() => {
-    setWebTemplate(agency.web_template || "standard");
-    setPrimaryColor(agency.primary_color || activeTmpl.defaultAccent);
-    setName(agency.name || "");
-    setHeroEyebrow(agency.hero_eyebrow || "AUTOMOTORA OFICIAL");
-    setHeroTitle(agency.hero_title || "Encuentra tu próximo vehículo");
-    setHeroSubtitle(agency.hero_subtitle || "Unidades seleccionadas que te brindan seguridad, potencia y tranquilidad en cada kilómetro.");
-    setLogoUrl(agency.logo_url || "");
-    setCoverUrl(agency.cover_url || "");
-    setAboutText(agency.about_text || "Somos una automotora comprometida con la excelencia, la transparencia y la calidad. Ofrecemos vehículos seleccionados con certificación total, garantía y atención personalizada.");
-    setFooterText(agency.footer_text || "Tu concesionario de confianza. Vehículos seleccionados con certificación de origen, garantía y la mejor atención personalizada.");
-    setLocationAddress(agency.location_address || "Av. Principal 1234, Montevideo, Uruguay");
-    setBusinessHours(agency.business_hours || "Lunes a Viernes: 09:00 - 19:00 hs | Sábados: 09:00 - 13:00 hs");
-    setContactDescription(agency.contact_description || "¿Tienes alguna duda sobre una unidad o deseas agendar una prueba de manejo? Escríbenos directamente o visita nuestro showroom.");
-    if (agency.show_trust_section !== undefined) setShowTrustSection(agency.show_trust_section);
-    if (agency.trust_pillar1_title) setP1Title(agency.trust_pillar1_title);
-    if (agency.trust_pillar1_desc) setP1Desc(agency.trust_pillar1_desc);
-    if (agency.trust_pillar2_title) setP2Title(agency.trust_pillar2_title);
-    if (agency.trust_pillar2_desc) setP2Desc(agency.trust_pillar2_desc);
-    if (agency.trust_pillar3_title) setP3Title(agency.trust_pillar3_title);
-    if (agency.trust_pillar3_desc) setP3Desc(agency.trust_pillar3_desc);
-    if (agency.trust_pillar4_title) setP4Title(agency.trust_pillar4_title);
-    if (agency.trust_pillar4_desc) setP4Desc(agency.trust_pillar4_desc);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agencyDataHash]);
+  // Sincronizar SOLO campos que no son contentEditable (template, color, logo, cover, trust pillars):
+  // Estos no tienen el problema de sobreescribir el DOM del usuario porque el usuario los cambia
+  // a través de botones/pickers, no escribiendo directamente.
+  useEffect(() => { setWebTemplate(agency.web_template || "standard"); }, [agency.web_template]);
+  useEffect(() => { setPrimaryColor(agency.primary_color || activeTmpl.defaultAccent); }, [agency.primary_color]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setName(agency.name || ""); }, [agency.name]);
+  useEffect(() => { setLogoUrl(agency.logo_url || ""); }, [agency.logo_url]);
+  useEffect(() => { setCoverUrl(agency.cover_url || ""); }, [agency.cover_url]);
+  useEffect(() => { setFooterText(agency.footer_text || "Tu concesionario de confianza. Vehículos seleccionados con certificación de origen, garantía y la mejor atención personalizada."); }, [agency.footer_text]);
+  useEffect(() => { setLocationAddress(agency.location_address || "Av. Principal 1234, Montevideo, Uruguay"); }, [agency.location_address]);
+  useEffect(() => { setBusinessHours(agency.business_hours || "Lunes a Viernes: 09:00 - 19:00 hs | Sábados: 09:00 - 13:00 hs"); }, [agency.business_hours]);
+  useEffect(() => { setContactDescription(agency.contact_description || "¿Tienes alguna duda sobre una unidad o deseas agendar una prueba de manejo? Escríbenos directamente o visita nuestro showroom."); }, [agency.contact_description]);
+  useEffect(() => { if (agency.show_trust_section !== undefined) setShowTrustSection(agency.show_trust_section); }, [agency.show_trust_section]);
+  useEffect(() => { if (agency.trust_pillar1_title) setP1Title(agency.trust_pillar1_title); }, [agency.trust_pillar1_title]);
+  useEffect(() => { if (agency.trust_pillar1_desc) setP1Desc(agency.trust_pillar1_desc); }, [agency.trust_pillar1_desc]);
+  useEffect(() => { if (agency.trust_pillar2_title) setP2Title(agency.trust_pillar2_title); }, [agency.trust_pillar2_title]);
+  useEffect(() => { if (agency.trust_pillar2_desc) setP2Desc(agency.trust_pillar2_desc); }, [agency.trust_pillar2_desc]);
+  useEffect(() => { if (agency.trust_pillar3_title) setP3Title(agency.trust_pillar3_title); }, [agency.trust_pillar3_title]);
+  useEffect(() => { if (agency.trust_pillar3_desc) setP3Desc(agency.trust_pillar3_desc); }, [agency.trust_pillar3_desc]);
+  useEffect(() => { if (agency.trust_pillar4_title) setP4Title(agency.trust_pillar4_title); }, [agency.trust_pillar4_title]);
+  useEffect(() => { if (agency.trust_pillar4_desc) setP4Desc(agency.trust_pillar4_desc); }, [agency.trust_pillar4_desc]);
+
+  // Para los campos contentEditable (heroEyebrow, heroTitle, heroSubtitle, aboutText),
+  // la sincronización con el DOM se hace EXCLUSIVAMENTE a través de los useEffects individuales
+  // de BUG1 (arriba). El estado local se actualiza via onInput. NO usamos un useEffect masivo
+  // que los sobreescriba, para no pisar ediciones del usuario en curso.
 
   const coverFileInputRef = useRef<HTMLInputElement>(null);
   const logoFileInputRef = useRef<HTMLInputElement>(null);
