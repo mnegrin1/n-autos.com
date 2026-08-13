@@ -62,8 +62,8 @@ export const DEFAULT_SUPERADMIN_USERS: SuperAdminUser[] = [
   {
     id: "user-superadmin",
     name: "Admin Principal",
-    email: "admin@n-sistemas.com",
-    agency: "N-Sistemas (Plataforma)",
+    email: "admin@n-autos.com",
+    agency: "N-Autos (Plataforma)",
     agencyId: "platform",
     role: "Superadmin",
     status: "active",
@@ -183,6 +183,73 @@ export function addRegisteredTenant(params: {
   }
 }
 
+export function deleteRegisteredAgency(agencyId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const currentAgencies = getRegisteredAgencies();
+    const updatedAgencies = currentAgencies.filter((a) => a.id !== agencyId);
+    const currentUsers = getRegisteredUsers();
+    const updatedUsers = currentUsers.filter((u) => u.agencyId !== agencyId);
+
+    localStorage.setItem(SUPERADMIN_AGENCIES_KEY, JSON.stringify(updatedAgencies));
+    localStorage.setItem(SUPERADMIN_USERS_KEY, JSON.stringify(updatedUsers));
+    notifyListeners();
+  } catch (e) {
+    console.error("Error deleting agency from SuperAdmin store:", e);
+  }
+}
+
+export function updateRegisteredAgency(agencyId: string, updates: Partial<SuperAdminAgency>): void {
+  if (typeof window === "undefined") return;
+  try {
+    const currentAgencies = getRegisteredAgencies();
+    const updatedAgencies = currentAgencies.map((a) => (a.id === agencyId ? { ...a, ...updates } : a));
+    localStorage.setItem(SUPERADMIN_AGENCIES_KEY, JSON.stringify(updatedAgencies));
+    notifyListeners();
+  } catch (e) {
+    console.error("Error updating agency in SuperAdmin store:", e);
+  }
+}
+
+export function addRegisteredUser(params: {
+  id?: string;
+  name: string;
+  email: string;
+  agencyName: string;
+  agencyId: string;
+  role?: string;
+}): void {
+  if (typeof window === "undefined") return;
+  try {
+    const currentUsers = getRegisteredUsers();
+    const todayStr = new Date().toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric" });
+    const newUser: SuperAdminUser = {
+      id: params.id || `user-${Date.now()}`,
+      name: params.name,
+      email: params.email,
+      agency: params.agencyName,
+      agencyId: params.agencyId,
+      role: params.role || "Admin (Agencia)",
+      status: "active",
+      createdAt: todayStr,
+    };
+
+    const existingIdx = currentUsers.findIndex((u) => u.email.toLowerCase() === params.email.toLowerCase());
+    let updatedUsers: SuperAdminUser[];
+    if (existingIdx !== -1) {
+      updatedUsers = [...currentUsers];
+      updatedUsers[existingIdx] = { ...updatedUsers[existingIdx], ...newUser };
+    } else {
+      updatedUsers = [newUser, ...currentUsers];
+    }
+
+    localStorage.setItem(SUPERADMIN_USERS_KEY, JSON.stringify(updatedUsers));
+    notifyListeners();
+  } catch (e) {
+    console.error("Error adding user to SuperAdmin store:", e);
+  }
+}
+
 export function deleteRegisteredUser(userIdOrEmail: string): void {
   if (typeof window === "undefined") return;
   try {
@@ -194,4 +261,5 @@ export function deleteRegisteredUser(userIdOrEmail: string): void {
     console.error("Error deleting user from SuperAdmin store:", e);
   }
 }
+
 

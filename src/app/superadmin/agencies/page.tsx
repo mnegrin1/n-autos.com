@@ -12,11 +12,13 @@ import {
   Users, 
   UserPlus, 
   Shield, 
-  Key, 
-  ChevronRight,
-  UserCheck,
-  CheckCircle2,
-  AlertCircle
+  CheckCircle2, 
+  Mail, 
+  Globe, 
+  Copy, 
+  ExternalLink, 
+  Check,
+  LogIn
 } from "lucide-react";
 import { 
   createAgencyAndAdmin, 
@@ -24,8 +26,20 @@ import {
   fetchAgencyUsers, 
   addUserToAgency, 
   updateUserInAgency, 
-  deleteUserFromAgency 
+  deleteUserFromAgency,
+  updateAgency,
+  deleteAgency,
+  switchTenantSessionAction
 } from "@/actions/superadminActions";
+import {
+  getRegisteredAgencies,
+  addRegisteredTenant,
+  deleteRegisteredAgency,
+  updateRegisteredAgency,
+  addRegisteredUser,
+  subscribeSuperAdminStore,
+  SuperAdminAgency
+} from "@/lib/superadminStore";
 
 interface Agency {
   id: string;
@@ -48,29 +62,7 @@ interface User {
 }
 
 export default function SuperAdminAgencies() {
-  const [agencies, setAgencies] = useState<Agency[]>([
-    {
-      id: "1",
-      name: "Automotores del Sur",
-      subdomain: "delsur",
-      plan: "Pro",
-      usersCount: 5,
-      properties: 124,
-      status: "active",
-      created_at: "19 Jul 2026"
-    },
-    {
-      id: "2",
-      name: "Test-Automotora",
-      subdomain: "testauto",
-      plan: "Free",
-      usersCount: 1,
-      properties: 2,
-      status: "active",
-      created_at: "18 Jul 2026"
-    }
-  ]);
-
+  const [agencies, setAgencies] = useState<Agency[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   
   // Modal state for creating new organization
@@ -78,6 +70,16 @@ export default function SuperAdminAgencies() {
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState("");
   const [createSuccess, setCreateSuccess] = useState("");
+
+  const [createdInviteInfo, setCreatedInviteInfo] = useState<{ url: string; code: string; email: string; emailSent: boolean } | null>(null);
+  const [copiedInvite, setCopiedInvite] = useState(false);
+
+  // Modal state for editing organization name & subdomain
+  const [isEditAgencyModalOpen, setIsEditAgencyModalOpen] = useState(false);
+  const [editingAgency, setEditingAgency] = useState<Agency | null>(null);
+  const [isUpdatingAgency, setIsUpdatingAgency] = useState(false);
+  const [editAgencyError, setEditAgencyError] = useState("");
+  const [editAgencySuccess, setEditAgencySuccess] = useState("");
 
   // Modal / Drawer state for managing users of selected organization
   const [selectedAgency, setSelectedAgency] = useState<Agency | null>(null);
@@ -92,48 +94,73 @@ export default function SuperAdminAgencies() {
   const [userModalError, setUserModalError] = useState("");
   const [userModalSuccess, setUserModalSuccess] = useState("");
 
-  // Initial load of agencies from database if available
-  useEffect(() => {
-    async function loadData() {
+  // Switching tenant loading state
+  const [switchingAgencyId, setSwitchingAgencyId] = useState<string | null>(null);
+
+  // Function to refresh agency list from store + server
+  const loadAgenciesData = async () => {
+    const storeAgencies = getRegisteredAgencies();
+    const formattedFromStore: Agency[] = storeAgencies.map((sa: SuperAdminAgency) => ({
+      id: sa.id,
+      name: sa.name,
+      subdomain: sa.subdomain,
+      plan: sa.plan || "Agencia 360°",
+      usersCount: sa.users || 1,
+      properties: sa.properties || 0,
+      status: sa.status || "active",
+      created_at: sa.createdAt || "Activo",
+    }));
+
+    try {
       const res = await fetchAgencies();
       if (res.success && res.data && res.data.length > 0) {
-        const formatted: Agency[] = res.data.map((a: any) => ({
+        const dbAgencies: Agency[] = res.data.map((a: any) => ({
           id: a.id,
           name: a.name,
           subdomain: a.subdomain,
-          plan: "Pro",
-          usersCount: a.users ? a.users.length : 0,
+          plan: "Agencia 360°",
+          usersCount: a.users ? a.users.length : 1,
           properties: 0,
           status: "active",
-          created_at: new Date(a.created_at).toLocaleDateString()
+          created_at: new Date(a.created_at || Date.now()).toLocaleDateString(),
         }));
-        setAgencies(formatted);
+
+        // Merge DB agencies with store agencies to avoid duplicates
+        const map = new Map<string, Agency>();
+        formattedFromStore.forEach(a => map.set(a.id, a));
+        dbAgencies.forEach(a => map.set(a.id, a));
+
+        setAgencies(Array.from(map.values()));
+        return;
       }
+    } catch (e) {
+      console.warn("Could not fetch agencies from server DB, using local store:", e);
     }
-    loadData();
+
+    setAgencies(formattedFromStore);
+  };
+
+  useEffect(() => {
+    loadAgenciesData();
+    const unsub = subscribeSuperAdminStore(() => {
+      loadAgenciesData();
+    });
+    return () => unsub();
   }, []);
 
-  // When an agency row is pressed
+  // Select agency row to manage users
   const handleSelectAgency = async (agency: Agency) => {
     setSelectedAgency(agency);
     setIsLoadingUsers(true);
     setUserFetchError("");
 
-    // Mock fallback users if database is empty or not connected
     const fallbackUsers: User[] = [
       {
-        id: "u-1",
+        id: `u-admin-${agency.id}`,
         agency_id: agency.id,
-        name: "Mauricio Negrin",
-        email: `mauricio@${agency.subdomain}.com`,
+        name: `Admin ${agency.name}`,
+        email: `admin@${agency.subdomain}.com`,
         role: "admin"
-      },
-      {
-        id: "u-2",
-        agency_id: agency.id,
-        name: "Vendedor Demo",
-        email: `vendedor@${agency.subdomain}.com`,
-        role: "agent"
       }
     ];
 
@@ -146,22 +173,79 @@ export default function SuperAdminAgencies() {
     setIsLoadingUsers(false);
   };
 
+  // Switch session to act as Admin of selected organization
+  const handleSwitchTenant = async (agency: Agency, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSwitchingAgencyId(agency.id);
+
+    try {
+      const res = await switchTenantSessionAction(agency.id, agency.subdomain, agency.name);
+      if (res.success && res.redirectUrl) {
+        window.location.href = res.redirectUrl;
+      } else {
+        alert(res.error || "No se pudo cambiar de organización.");
+        setSwitchingAgencyId(null);
+      }
+    } catch (err: any) {
+      alert("Error al cambiar de organización: " + (err.message || "Error desconocido"));
+      setSwitchingAgencyId(null);
+    }
+  };
+
+  // Delete Organization
+  const handleDeleteAgency = async (agency: Agency, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!confirm(`¿Estás seguro de que deseas eliminar permanentemente la organización "${agency.name}" (${agency.subdomain})?\n\nEsta acción eliminará el subdominio y sus accesos.`)) {
+      return;
+    }
+
+    try {
+      const res = await deleteAgency(agency.id);
+      if (res.success) {
+        deleteRegisteredAgency(agency.id);
+        setAgencies(prev => prev.filter(a => a.id !== agency.id));
+        if (selectedAgency?.id === agency.id) {
+          setSelectedAgency(null);
+        }
+      } else {
+        alert(res.error || "Error al eliminar la organización.");
+      }
+    } catch (err: any) {
+      alert("Error al eliminar la organización: " + (err.message || "Error desconocido"));
+    }
+  };
+
   // Handle Create Organization Form Submit
   const handleCreateAgency = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsCreating(true);
     setCreateError("");
     setCreateSuccess("");
+    setCreatedInviteInfo(null);
 
     const formData = new FormData(e.currentTarget);
+    const name = formData.get("name") as string;
+    const subdomain = formData.get("subdomain") as string;
+    const email = formData.get("email") as string;
+
     try {
       const res = await createAgencyAndAdmin(formData);
       if (res.success) {
         setCreateSuccess(res.message || "Organización creada exitosamente.");
-        const name = formData.get("name") as string;
-        const subdomain = formData.get("subdomain") as string;
+        const newAgencyId = res.agencyId || `agency-${Date.now()}`;
+
+        // Update local reactive store
+        addRegisteredTenant({
+          agencyId: newAgencyId,
+          agencyName: name,
+          subdomain,
+          adminName: "Admin",
+          adminEmail: email,
+          planName: "Agencia 360°"
+        });
+
         const newAgencyObj: Agency = {
-          id: res.agencyId || Date.now().toString(),
+          id: newAgencyId,
           name,
           subdomain,
           plan: "Agencia 360°",
@@ -171,19 +255,76 @@ export default function SuperAdminAgencies() {
           created_at: "Recién"
         };
 
-        setAgencies(prev => [newAgencyObj, ...prev]);
+        setAgencies(prev => [newAgencyObj, ...prev.filter(a => a.id !== newAgencyId)]);
 
-        setTimeout(() => {
-          setIsCreateModalOpen(false);
-          setCreateSuccess("");
-        }, 1200);
+        if (res.inviteUrl) {
+          setCreatedInviteInfo({
+            url: res.inviteUrl,
+            code: res.activationCode || "",
+            email: email,
+            emailSent: !!res.emailSent
+          });
+        } else {
+          setTimeout(() => {
+            setIsCreateModalOpen(false);
+            setCreateSuccess("");
+          }, 1200);
+        }
       } else {
-        setCreateError(res.error || "Ocurrió un error.");
+        setCreateError(res.error || "Ocurrió un error al crear la organización.");
       }
     } catch (err: any) {
       setCreateError(err.message || "Error al procesar solicitud.");
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  // Open Edit Agency Modal
+  const handleOpenEditAgencyModal = (agency: Agency, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setEditingAgency(agency);
+    setEditAgencyError("");
+    setEditAgencySuccess("");
+    setIsEditAgencyModalOpen(true);
+  };
+
+  // Handle Edit Organization Form Submit (Name & Subdomain)
+  const handleUpdateAgency = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingAgency) return;
+
+    setIsUpdatingAgency(true);
+    setEditAgencyError("");
+    setEditAgencySuccess("");
+
+    const formData = new FormData(e.currentTarget);
+    formData.append("agency_id", editingAgency.id);
+
+    try {
+      const res = await updateAgency(formData);
+      if (res.success) {
+        setEditAgencySuccess("Organización actualizada exitosamente.");
+        const name = formData.get("name") as string;
+        const subdomain = formData.get("subdomain") as string;
+
+        updateRegisteredAgency(editingAgency.id, { name, subdomain });
+        setAgencies(prev => prev.map(a => a.id === editingAgency.id ? { ...a, name, subdomain } : a));
+        if (selectedAgency?.id === editingAgency.id) {
+          setSelectedAgency(prev => prev ? { ...prev, name, subdomain } : null);
+        }
+
+        setTimeout(() => {
+          setIsEditAgencyModalOpen(false);
+          setEditAgencySuccess("");
+        }, 1000);
+      } else {
+        setEditAgencyError(res.error || "Error al actualizar la organización.");
+      }
+    } catch (err: any) {
+      setEditAgencyError(err.message || "Error inesperado al actualizar la organización.");
+    } finally {
+      setIsUpdatingAgency(false);
     }
   };
 
@@ -232,20 +373,38 @@ export default function SuperAdminAgencies() {
           const role = formData.get("role") as string;
 
           const newUser: User = {
-            id: Date.now().toString(),
+            id: res.userId || Date.now().toString(),
             agency_id: selectedAgency.id,
             name,
             email,
             role
           };
 
+          addRegisteredUser({
+            id: newUser.id,
+            name,
+            email,
+            agencyName: selectedAgency.name,
+            agencyId: selectedAgency.id,
+            role: role === "admin" ? "Admin (Agencia)" : "Agente"
+          });
+
           setAgencyUsers(prev => [newUser, ...prev]);
           setAgencies(prev => prev.map(a => a.id === selectedAgency.id ? { ...a, usersCount: (a.usersCount || 0) + 1 } : a));
 
-          setTimeout(() => {
-            setIsUserModalOpen(false);
-            setUserModalSuccess("");
-          }, 1000);
+          if (res.inviteUrl) {
+            setCreatedInviteInfo({
+              url: res.inviteUrl,
+              code: res.activationCode || "",
+              email: email,
+              emailSent: !!res.emailSent
+            });
+          } else {
+            setTimeout(() => {
+              setIsUserModalOpen(false);
+              setUserModalSuccess("");
+            }, 1000);
+          }
         } else {
           setUserModalError(res.error || "Error al agregar usuario.");
         }
@@ -280,7 +439,7 @@ export default function SuperAdminAgencies() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
         <div>
           <h1 style={{ fontSize: "1.75rem", fontWeight: 800, marginBottom: "0.5rem" }}>Organizaciones</h1>
-          <p style={{ color: "var(--text-color)", opacity: 0.7 }}>Haz clic sobre cualquier organización para administrar sus usuarios.</p>
+          <p style={{ color: "var(--text-color)", opacity: 0.7 }}>Administra el nombre, dominio, accesos y usuarios de las automotoras registradas.</p>
         </div>
         <button 
           onClick={() => setIsCreateModalOpen(true)}
@@ -344,7 +503,7 @@ export default function SuperAdminAgencies() {
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border-color)", textAlign: "left" }}>
                 <th style={{ padding: "1rem 0", fontSize: "0.85rem", opacity: 0.7, paddingLeft: "1rem" }}>Organización</th>
-                <th style={{ padding: "1rem 0", fontSize: "0.85rem", opacity: 0.7 }}>Subdominio</th>
+                <th style={{ padding: "1rem 0", fontSize: "0.85rem", opacity: 0.7 }}>Subdominio / URL</th>
                 <th style={{ padding: "1rem 0", fontSize: "0.85rem", opacity: 0.7 }}>Servicio</th>
                 <th style={{ padding: "1rem 0", fontSize: "0.85rem", opacity: 0.7 }}>Usuarios</th>
                 <th style={{ padding: "1rem 0", fontSize: "0.85rem", opacity: 0.7 }}>Registro</th>
@@ -371,12 +530,29 @@ export default function SuperAdminAgencies() {
                         <Building2 size={18} />
                       </div>
                       <div>
-                        <div style={{ fontWeight: 600 }}>{agency.name}</div>
+                        <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                          {agency.name}
+                        </div>
                         <div style={{ fontSize: "0.75rem", color: "var(--primary)", opacity: 0.9 }}>Clic para administrar usuarios</div>
                       </div>
                     </div>
                   </td>
-                  <td style={{ padding: "1rem 0", opacity: 0.8 }}>{agency.subdomain}</td>
+                  <td style={{ padding: "1rem 0" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.9rem", fontWeight: 500, color: "var(--text-color)" }}>
+                      <Globe size={14} style={{ opacity: 0.6 }} />
+                      <code>{agency.subdomain}</code>
+                      <a 
+                        href={`/portal/${agency.subdomain}`} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        title="Abrir sitio web público de la automotora"
+                        style={{ color: "var(--primary)", display: "inline-flex", marginLeft: "4px" }}
+                      >
+                        <ExternalLink size={13} />
+                      </a>
+                    </div>
+                  </td>
                   <td style={{ padding: "1rem 0" }}>
                     <span style={{ 
                       backgroundColor: "rgba(37, 99, 235, 0.1)", 
@@ -386,13 +562,13 @@ export default function SuperAdminAgencies() {
                       fontSize: "0.75rem", 
                       fontWeight: 600 
                     }}>
-                      Agencia 360°
+                      {agency.plan || "Agencia 360°"}
                     </span>
                   </td>
                   <td style={{ padding: "1rem 0" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.85rem", fontWeight: 600 }}>
                       <Users size={14} style={{ opacity: 0.7 }} />
-                      <span>{agency.usersCount || 0} usuarios</span>
+                      <span>{agency.usersCount || 1} usuarios</span>
                     </div>
                   </td>
                   <td style={{ padding: "1rem 0", opacity: 0.8, fontSize: "0.85rem" }}>{agency.created_at || "Activo"}</td>
@@ -400,27 +576,91 @@ export default function SuperAdminAgencies() {
                     <span style={{ backgroundColor: "rgba(16, 185, 129, 0.1)", color: "#10b981", padding: "0.25rem 0.5rem", borderRadius: "12px", fontSize: "0.75rem", fontWeight: 600 }}>Activo</span>
                   </td>
                   <td style={{ padding: "1rem 0", textAlign: "right", paddingRight: "1rem" }}>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSelectAgency(agency);
-                      }}
-                      style={{
-                        backgroundColor: "var(--primary-light, rgba(37,99,235,0.1))",
-                        color: "var(--primary)",
-                        border: "none",
-                        padding: "0.4rem 0.75rem",
-                        borderRadius: "6px",
-                        fontWeight: 600,
-                        fontSize: "0.8rem",
-                        cursor: "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "0.3rem"
-                      }}
-                    >
-                      <Users size={14} /> Gestionar
-                    </button>
+                    <div style={{ display: "flex", gap: "0.4rem", justifyContent: "flex-end" }}>
+                      <button 
+                        onClick={(e) => handleSwitchTenant(agency, e)}
+                        disabled={switchingAgencyId === agency.id}
+                        title="Ingresar como Administrador de esta automotora"
+                        style={{
+                          backgroundColor: "#10b981",
+                          color: "white",
+                          border: "none",
+                          padding: "0.4rem 0.65rem",
+                          borderRadius: "6px",
+                          fontWeight: 700,
+                          fontSize: "0.78rem",
+                          cursor: switchingAgencyId === agency.id ? "not-allowed" : "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.3rem"
+                        }}
+                      >
+                        {switchingAgencyId === agency.id ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> : <LogIn size={13} />}
+                        Ingresar Admin
+                      </button>
+
+                      <button 
+                        onClick={(e) => handleOpenEditAgencyModal(agency, e)}
+                        title="Editar nombre y subdominio de la automotora"
+                        style={{
+                          backgroundColor: "rgba(255, 255, 255, 0.06)",
+                          color: "var(--text-color)",
+                          border: "1px solid var(--border-color)",
+                          padding: "0.4rem 0.6rem",
+                          borderRadius: "6px",
+                          fontWeight: 600,
+                          fontSize: "0.8rem",
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.3rem"
+                        }}
+                      >
+                        <Edit size={14} /> Editar
+                      </button>
+
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectAgency(agency);
+                        }}
+                        title="Gestionar usuarios de la automotora"
+                        style={{
+                          backgroundColor: "var(--primary-light, rgba(37,99,235,0.1))",
+                          color: "var(--primary)",
+                          border: "none",
+                          padding: "0.4rem 0.65rem",
+                          borderRadius: "6px",
+                          fontWeight: 600,
+                          fontSize: "0.8rem",
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.3rem"
+                        }}
+                      >
+                        <Users size={14} /> Usuarios
+                      </button>
+
+                      <button 
+                        onClick={(e) => handleDeleteAgency(agency, e)}
+                        title="Eliminar organización"
+                        style={{
+                          backgroundColor: "rgba(239, 68, 68, 0.1)",
+                          color: "#ef4444",
+                          border: "none",
+                          padding: "0.4rem 0.55rem",
+                          borderRadius: "6px",
+                          fontWeight: 600,
+                          fontSize: "0.8rem",
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center"
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -429,7 +669,7 @@ export default function SuperAdminAgencies() {
         </div>
       </div>
 
-      {/* DRAWER / MODAL FOR MANAGING ORGANIZATION USERS */}
+      {/* DRAWER / MODAL FOR MANAGING ORGANIZATION USERS & INFO */}
       {selectedAgency && (
         <div style={{
           position: "fixed",
@@ -469,12 +709,32 @@ export default function SuperAdminAgencies() {
 
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", color: "var(--primary)", fontWeight: 700, fontSize: "0.85rem", textTransform: "uppercase" }}>
-                <Building2 size={16} /> {selectedAgency.subdomain}
+                <Globe size={15} /> {selectedAgency.subdomain}
               </div>
-              <h2 style={{ fontSize: "1.5rem", fontWeight: 800, marginTop: "0.25rem", color: "var(--text-color)" }}>
-                {selectedAgency.name}
-              </h2>
-              <p style={{ fontSize: "0.85rem", opacity: 0.7 }}>Gestión de usuarios y accesos de la organización.</p>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginTop: "0.25rem" }}>
+                <h2 style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text-color)", margin: 0 }}>
+                  {selectedAgency.name}
+                </h2>
+                <button 
+                  onClick={() => handleOpenEditAgencyModal(selectedAgency)}
+                  style={{
+                    backgroundColor: "rgba(37, 99, 235, 0.1)",
+                    color: "var(--primary)",
+                    border: "none",
+                    padding: "0.35rem 0.65rem",
+                    borderRadius: "6px",
+                    fontWeight: 600,
+                    fontSize: "0.78rem",
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.3rem"
+                  }}
+                >
+                  <Edit size={13} /> Editar Nombre / Dominio
+                </button>
+              </div>
+              <p style={{ fontSize: "0.85rem", opacity: 0.7, marginTop: "0.35rem" }}>Gestión de usuarios y accesos de la automotora.</p>
             </div>
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "1rem", borderTop: "1px solid var(--border-color)" }}>
@@ -537,7 +797,7 @@ export default function SuperAdminAgencies() {
                           justifyContent: "center",
                           fontWeight: 700
                         }}>
-                          {user.name.substring(0, 2).toUpperCase()}
+                          {user.name ? user.name.substring(0, 2).toUpperCase() : "US"}
                         </div>
                         <div>
                           <div style={{ fontWeight: 600, fontSize: "0.95rem" }}>{user.name}</div>
@@ -600,6 +860,105 @@ export default function SuperAdminAgencies() {
         </div>
       )}
 
+      {/* EDIT AGENCY NAME & SUBDOMAIN MODAL */}
+      {isEditAgencyModalOpen && editingAgency && (
+        <div style={{
+          position: "fixed",
+          top: 0, left: 0, width: "100%", height: "100%",
+          backgroundColor: "rgba(0,0,0,0.6)",
+          backdropFilter: "blur(4px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1150
+        }}>
+          <div style={{
+            backgroundColor: "var(--surface-color)",
+            borderRadius: "16px",
+            width: "90%",
+            maxWidth: "460px",
+            padding: "2rem",
+            boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.2)",
+            position: "relative"
+          }}>
+            <button 
+              onClick={() => setIsEditAgencyModalOpen(false)}
+              style={{
+                position: "absolute", top: "1rem", right: "1rem",
+                background: "none", border: "none", cursor: "pointer",
+                color: "var(--text-color)", opacity: 0.5
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            <h2 style={{ fontSize: "1.25rem", fontWeight: 800, marginBottom: "0.25rem" }}>Editar Automotora</h2>
+            <p style={{ fontSize: "0.85rem", opacity: 0.7, marginBottom: "1.5rem" }}>
+              Modifica el nombre oficial de la automotora o su subdominio / URL asignado.
+            </p>
+
+            {editAgencyError && (
+              <div style={{ backgroundColor: "rgba(239, 68, 68, 0.1)", color: "#ef4444", padding: "0.75rem", borderRadius: "8px", fontSize: "0.85rem", marginBottom: "1rem", fontWeight: 500 }}>
+                {editAgencyError}
+              </div>
+            )}
+            {editAgencySuccess && (
+              <div style={{ backgroundColor: "rgba(16, 185, 129, 0.1)", color: "#10b981", padding: "0.75rem", borderRadius: "8px", fontSize: "0.85rem", marginBottom: "1rem", fontWeight: 500 }}>
+                {editAgencySuccess}
+              </div>
+            )}
+
+            <form onSubmit={handleUpdateAgency} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>Nombre de la Automotora</label>
+                <input 
+                  required 
+                  name="name" 
+                  type="text" 
+                  defaultValue={editingAgency.name} 
+                  placeholder="Ej: Automotores del Sur" 
+                  style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", outline: "none" }} 
+                />
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>Subdominio / Dominio Asignado</label>
+                <div style={{ display: "flex", alignItems: "center", border: "1px solid var(--border-color)", borderRadius: "8px", backgroundColor: "var(--bg-color)", paddingLeft: "0.75rem" }}>
+                  <span style={{ fontSize: "0.85rem", opacity: 0.6, userSelect: "none" }}>https://</span>
+                  <input 
+                    required 
+                    name="subdomain" 
+                    type="text" 
+                    defaultValue={editingAgency.subdomain} 
+                    placeholder="ej: delsur" 
+                    style={{ flex: 1, padding: "0.75rem 0.75rem 0.75rem 0.25rem", border: "none", backgroundColor: "transparent", color: "var(--text-color)", outline: "none", fontFamily: "inherit" }} 
+                  />
+                  <span style={{ fontSize: "0.85rem", opacity: 0.6, paddingRight: "0.75rem", userSelect: "none" }}>.n-autos.com</span>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginTop: "1rem" }}>
+                <button 
+                  type="button" 
+                  onClick={() => setIsEditAgencyModalOpen(false)} 
+                  style={{ padding: "0.75rem 1.25rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "transparent", color: "var(--text-color)", fontWeight: 600, cursor: "pointer" }}
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={isUpdatingAgency} 
+                  style={{ padding: "0.75rem 1.25rem", borderRadius: "8px", border: "none", backgroundColor: "var(--primary)", color: "white", fontWeight: 600, cursor: isUpdatingAgency ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: "0.5rem" }}
+                >
+                  {isUpdatingAgency && <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />}
+                  Guardar Cambios
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* CREATE NEW ORGANIZATION MODAL */}
       {isCreateModalOpen && (
         <div style={{
@@ -616,13 +975,13 @@ export default function SuperAdminAgencies() {
             backgroundColor: "var(--surface-color)",
             borderRadius: "16px",
             width: "90%",
-            maxWidth: "500px",
+            maxWidth: "520px",
             padding: "2rem",
             boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
             position: "relative"
           }}>
             <button 
-              onClick={() => setIsCreateModalOpen(false)}
+              onClick={() => { setIsCreateModalOpen(false); setCreatedInviteInfo(null); }}
               style={{
                 position: "absolute", top: "1rem", right: "1rem",
                 background: "none", border: "none", cursor: "pointer",
@@ -640,44 +999,97 @@ export default function SuperAdminAgencies() {
                 {createError}
               </div>
             )}
-            {createSuccess && (
-              <div style={{ backgroundColor: "rgba(16, 185, 129, 0.1)", color: "#10b981", padding: "0.75rem", borderRadius: "8px", fontSize: "0.85rem", marginBottom: "1rem" }}>
-                {createSuccess}
+
+            {createdInviteInfo ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                <div style={{ backgroundColor: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.3)", padding: "1rem", borderRadius: "12px", color: "var(--text-color)" }}>
+                  <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "#10b981", marginBottom: "0.35rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <CheckCircle2 size={20} /> ¡Organización y Usuario Creados!
+                  </div>
+                  <p style={{ margin: 0, fontSize: "0.85rem", opacity: 0.9, lineHeight: 1.5 }}>
+                    {createdInviteInfo.emailSent
+                      ? `Se ha enviado el correo de activación a ${createdInviteInfo.email}.`
+                      : `La cuenta se creó correctamente para ${createdInviteInfo.email}. Usa el enlace directo a continuación:`}
+                  </p>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                  <label style={{ fontSize: "0.82rem", fontWeight: 700 }}>Enlace de Activación Directo</label>
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <input 
+                      readOnly 
+                      value={createdInviteInfo.url} 
+                      style={{ flex: 1, padding: "0.65rem 0.8rem", borderRadius: "8px", border: "1px solid var(--border-color)", fontSize: "0.82rem", backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(createdInviteInfo.url);
+                        setCopiedInvite(true);
+                        setTimeout(() => setCopiedInvite(false), 2000);
+                      }}
+                      style={{ padding: "0.65rem 1rem", backgroundColor: "#2563eb", color: "white", border: "none", borderRadius: "8px", fontWeight: 700, fontSize: "0.82rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}
+                    >
+                      {copiedInvite ? <Check size={16} /> : <Copy size={16} />}
+                      {copiedInvite ? "¡Copiado!" : "Copiar"}
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.5rem" }}>
+                  <a 
+                    href={createdInviteInfo.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    style={{ flex: 1, textAlign: "center", padding: "0.75rem", backgroundColor: "#16a34a", color: "white", borderRadius: "10px", fontWeight: 700, textDecoration: "none", fontSize: "0.88rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem" }}
+                  >
+                    <ExternalLink size={16} /> Abrir y Establecer Contraseña
+                  </a>
+                  <button 
+                    type="button" 
+                    onClick={() => { setIsCreateModalOpen(false); setCreatedInviteInfo(null); }}
+                    style={{ padding: "0.75rem 1.25rem", borderRadius: "10px", border: "1px solid var(--border-color)", backgroundColor: "transparent", color: "var(--text-color)", fontWeight: 600, cursor: "pointer" }}
+                  >
+                    Cerrar
+                  </button>
+                </div>
               </div>
+            ) : (
+              <form onSubmit={handleCreateAgency} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                    <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>Nombre de la Agencia</label>
+                    <input required name="name" type="text" placeholder="Ej: AutoMotors" style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", outline: "none" }} />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                    <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>Subdominio</label>
+                    <input required name="subdomain" type="text" placeholder="ej: automotors" style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", outline: "none" }} />
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                  <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>Email Administrador</label>
+                  <input required name="email" type="email" placeholder="admin@automotors.com" style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", outline: "none" }} />
+                </div>
+
+                <div style={{ backgroundColor: "rgba(37, 99, 235, 0.08)", border: "1px solid rgba(37, 99, 235, 0.2)", padding: "0.85rem", borderRadius: "8px", fontSize: "0.82rem", color: "var(--text-color)", display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
+                  <Mail size={16} style={{ color: "#2563eb", flexShrink: 0, marginTop: "2px" }} />
+                  <div>
+                    <strong>Invitación automática por correo:</strong> No se requiere ingresar contraseña. Se enviará un correo de activación a este administrador desde <code>contacto@n-sistemas.com</code> con el botón para crear su contraseña.
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginTop: "1rem" }}>
+                  <button type="button" onClick={() => setIsCreateModalOpen(false)} style={{ padding: "0.75rem 1.5rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "transparent", color: "var(--text-color)", fontWeight: 600, cursor: "pointer" }}>
+                    Cancelar
+                  </button>
+                  <button type="submit" disabled={isCreating} style={{ padding: "0.75rem 1.5rem", borderRadius: "8px", border: "none", backgroundColor: "var(--primary)", color: "white", fontWeight: 600, cursor: isCreating ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    {isCreating && <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />}
+                    Crear Cuenta
+                  </button>
+                </div>
+              </form>
             )}
-
-            <form onSubmit={handleCreateAgency} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>Nombre de la Agencia</label>
-                  <input required name="name" type="text" placeholder="Ej: AutoMotors" style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", outline: "none" }} />
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>Subdominio</label>
-                  <input required name="subdomain" type="text" placeholder="ej: automotors" style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", outline: "none" }} />
-                </div>
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>Email Administrador</label>
-                <input required name="email" type="email" placeholder="admin@automotors.com" style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", outline: "none" }} />
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>Contraseña Inicial</label>
-                <input required name="password" type="password" placeholder="••••••••" style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", outline: "none" }} />
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginTop: "1rem" }}>
-                <button type="button" onClick={() => setIsCreateModalOpen(false)} style={{ padding: "0.75rem 1.5rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "transparent", color: "var(--text-color)", fontWeight: 600, cursor: "pointer" }}>
-                  Cancelar
-                </button>
-                <button type="submit" disabled={isCreating} style={{ padding: "0.75rem 1.5rem", borderRadius: "8px", border: "none", backgroundColor: "var(--primary)", color: "white", fontWeight: 600, cursor: isCreating ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  {isCreating && <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />}
-                  Crear Cuenta
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
@@ -698,13 +1110,13 @@ export default function SuperAdminAgencies() {
             backgroundColor: "var(--surface-color)",
             borderRadius: "16px",
             width: "90%",
-            maxWidth: "450px",
+            maxWidth: "480px",
             padding: "2rem",
             boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.2)",
             position: "relative"
           }}>
             <button 
-              onClick={() => setIsUserModalOpen(false)}
+              onClick={() => { setIsUserModalOpen(false); setCreatedInviteInfo(null); }}
               style={{
                 position: "absolute", top: "1rem", right: "1rem",
                 background: "none", border: "none", cursor: "pointer",
@@ -726,82 +1138,141 @@ export default function SuperAdminAgencies() {
                 {userModalError}
               </div>
             )}
-            {userModalSuccess && (
-              <div style={{ backgroundColor: "rgba(16, 185, 129, 0.1)", color: "#10b981", padding: "0.75rem", borderRadius: "8px", fontSize: "0.85rem", marginBottom: "1rem" }}>
-                {userModalSuccess}
-              </div>
-            )}
 
-            <form onSubmit={handleSaveUser} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>Nombre Completo</label>
-                <input 
-                  required 
-                  name="name" 
-                  type="text" 
-                  defaultValue={editingUser?.name || ""} 
-                  placeholder="Ej: Juan Pérez" 
-                  style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", outline: "none" }} 
-                />
-              </div>
+            {createdInviteInfo ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                <div style={{ backgroundColor: "rgba(16, 185, 129, 0.1)", border: "1px solid rgba(16, 185, 129, 0.3)", padding: "1rem", borderRadius: "12px", color: "var(--text-color)" }}>
+                  <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "#10b981", marginBottom: "0.35rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <CheckCircle2 size={20} /> ¡Usuario Agregado Exitosamente!
+                  </div>
+                  <p style={{ margin: 0, fontSize: "0.85rem", opacity: 0.9, lineHeight: 1.5 }}>
+                    {createdInviteInfo.emailSent
+                      ? `Se envió un correo de activación a ${createdInviteInfo.email}.`
+                      : `Usuario registrado para ${createdInviteInfo.email}. Enlace de activación directo:`}
+                  </p>
+                </div>
 
-              {!editingUser && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>Correo Electrónico</label>
+                  <label style={{ fontSize: "0.82rem", fontWeight: 700 }}>Enlace de Activación Directo</label>
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <input 
+                      readOnly 
+                      value={createdInviteInfo.url} 
+                      style={{ flex: 1, padding: "0.65rem 0.8rem", borderRadius: "8px", border: "1px solid var(--border-color)", fontSize: "0.82rem", backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(createdInviteInfo.url);
+                        setCopiedInvite(true);
+                        setTimeout(() => setCopiedInvite(false), 2000);
+                      }}
+                      style={{ padding: "0.65rem 1rem", backgroundColor: "#2563eb", color: "white", border: "none", borderRadius: "8px", fontWeight: 700, fontSize: "0.82rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}
+                    >
+                      {copiedInvite ? <Check size={16} /> : <Copy size={16} />}
+                      {copiedInvite ? "¡Copiado!" : "Copiar"}
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.5rem" }}>
+                  <a 
+                    href={createdInviteInfo.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    style={{ flex: 1, textAlign: "center", padding: "0.75rem", backgroundColor: "#16a34a", color: "white", borderRadius: "10px", fontWeight: 700, textDecoration: "none", fontSize: "0.88rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.4rem" }}
+                  >
+                    <ExternalLink size={16} /> Abrir y Establecer Contraseña
+                  </a>
+                  <button 
+                    type="button" 
+                    onClick={() => { setIsUserModalOpen(false); setCreatedInviteInfo(null); }}
+                    style={{ padding: "0.75rem 1.25rem", borderRadius: "10px", border: "1px solid var(--border-color)", backgroundColor: "transparent", color: "var(--text-color)", fontWeight: 600, cursor: "pointer" }}
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleSaveUser} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                  <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>Nombre Completo</label>
                   <input 
                     required 
-                    name="email" 
-                    type="email" 
-                    placeholder="usuario@dominio.com" 
+                    name="name" 
+                    type="text" 
+                    defaultValue={editingUser?.name || ""} 
+                    placeholder="Ej: Juan Pérez" 
                     style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", outline: "none" }} 
                   />
                 </div>
-              )}
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>Rol dentro de la Agencia</label>
-                <select 
-                  name="role" 
-                  defaultValue={editingUser?.role || "agent"} 
-                  style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", outline: "none" }}
-                >
-                  <option value="admin">Administrador de Agencia (Admin)</option>
-                  <option value="manager">Gerente / Manager</option>
-                  <option value="agent">Agente / Vendedor</option>
-                </select>
-              </div>
+                {!editingUser && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                    <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>Correo Electrónico</label>
+                    <input 
+                      required 
+                      name="email" 
+                      type="email" 
+                      placeholder="usuario@dominio.com" 
+                      style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", outline: "none" }} 
+                    />
+                  </div>
+                )}
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>
-                  {editingUser ? "Nueva Contraseña (dejar en blanco para no cambiar)" : "Contraseña"}
-                </label>
-                <input 
-                  required={!editingUser} 
-                  name="password" 
-                  type="password" 
-                  placeholder="••••••••" 
-                  style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", outline: "none" }} 
-                />
-              </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                  <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>Rol dentro de la Agencia</label>
+                  <select 
+                    name="role" 
+                    defaultValue={editingUser?.role || "agent"} 
+                    style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", outline: "none" }}
+                  >
+                    <option value="admin">Administrador de Agencia (Admin)</option>
+                    <option value="manager">Gerente / Manager</option>
+                    <option value="agent">Agente / Vendedor</option>
+                  </select>
+                </div>
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginTop: "1rem" }}>
-                <button 
-                  type="button" 
-                  onClick={() => setIsUserModalOpen(false)} 
-                  style={{ padding: "0.75rem 1.25rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "transparent", color: "var(--text-color)", fontWeight: 600, cursor: "pointer" }}
-                >
-                  Cancelar
-                </button>
-                <button 
-                  type="submit" 
-                  disabled={isSubmittingUser} 
-                  style={{ padding: "0.75rem 1.25rem", borderRadius: "8px", border: "none", backgroundColor: "var(--primary)", color: "white", fontWeight: 600, cursor: isSubmittingUser ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: "0.5rem" }}
-                >
-                  {isSubmittingUser && <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />}
-                  {editingUser ? "Guardar Cambios" : "Crear Usuario"}
-                </button>
-              </div>
-            </form>
+                {editingUser ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                    <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>
+                      Nueva Contraseña (dejar en blanco para no cambiar)
+                    </label>
+                    <input 
+                      name="password" 
+                      type="password" 
+                      placeholder="••••••••" 
+                      style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", outline: "none" }} 
+                    />
+                  </div>
+                ) : (
+                  <div style={{ backgroundColor: "rgba(37, 99, 235, 0.08)", border: "1px solid rgba(37, 99, 235, 0.2)", padding: "0.85rem", borderRadius: "8px", fontSize: "0.82rem", color: "var(--text-color)", display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
+                    <Mail size={16} style={{ color: "#2563eb", flexShrink: 0, marginTop: "2px" }} />
+                    <div>
+                      <strong>Invitación automática por correo:</strong> No se requiere ingresar contraseña. Se enviará un correo de activación desde <code>contacto@n-sistemas.com</code> con el enlace para crear su contraseña.
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginTop: "1rem" }}>
+                  <button 
+                    type="button" 
+                    onClick={() => setIsUserModalOpen(false)} 
+                    style={{ padding: "0.75rem 1.25rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "transparent", color: "var(--text-color)", fontWeight: 600, cursor: "pointer" }}
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={isSubmittingUser} 
+                    style={{ padding: "0.75rem 1.25rem", borderRadius: "8px", border: "none", backgroundColor: "var(--primary)", color: "white", fontWeight: 600, cursor: isSubmittingUser ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: "0.5rem" }}
+                  >
+                    {isSubmittingUser && <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />}
+                    {editingUser ? "Guardar Cambios" : "Crear Usuario"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

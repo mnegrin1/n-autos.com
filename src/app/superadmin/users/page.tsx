@@ -10,6 +10,7 @@ import {
   UserFeatureOverrideState 
 } from "@/lib/featureFlagsStore";
 import { getRegisteredUsers, subscribeSuperAdminStore, deleteRegisteredUser, SuperAdminUser } from "@/lib/superadminStore";
+import { deleteUserFromAgency } from "@/actions/superadminActions";
 import { Plus, Search, ShieldAlert, Mail, Sliders, X, Check, Globe, Trash2 } from "lucide-react";
 
 export default function SuperAdminUsers() {
@@ -41,8 +42,9 @@ export default function SuperAdminUsers() {
     };
   }, []);
 
-  const handleDeleteUser = (user: SuperAdminUser) => {
+  const handleDeleteUser = async (user: SuperAdminUser) => {
     if (confirm(`¿Estás seguro de eliminar al usuario ${user.name} (${user.email})?`)) {
+      await deleteUserFromAgency(user.id);
       deleteRegisteredUser(user.id);
       deleteRegisteredUser(user.email);
       setUsers(getRegisteredUsers());
