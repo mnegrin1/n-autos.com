@@ -13,6 +13,7 @@ export interface AgencySettingsRecord {
   cover_url?: string;
   primary_color?: string;
   secondary_color?: string;
+  font_family?: string;
   web_template?: string;
   hero_eyebrow?: string;
   hero_title?: string;
@@ -38,15 +39,16 @@ export interface AgencySettingsRecord {
 }
 
 export const DEFAULT_AGENCY_SETTINGS: AgencySettingsRecord = {
-  id: "00000000-0000-0000-0000-000000000000",
+  id: "",
   name: "Automotora",
   subdomain: "hola",
   whatsapp: "+598 99 123 456",
   primary_color: "#10b981",
   secondary_color: "#059669",
+  font_family: "Inter",
   web_template: "standard",
   logo_url: "",
-  cover_url: "",
+  cover_url: "/hero_dealership_drone.jpg",
   hero_eyebrow: "AUTOMOTORA OFICIAL",
   hero_title: "Encuentra tu próximo vehículo",
   hero_subtitle: "Unidades seleccionadas que te brindan seguridad, potencia y tranquilidad en cada kilómetro.",
@@ -119,25 +121,8 @@ export function getPersistentAgencySettings(targetKey?: string): AgencySettingsR
       }
     }
 
-    // BUG5 FIX: Fallback a nivel raíz SOLO si el id o subdominio coincide explícitamente.
-    // De lo contrario, retornar solo DEFAULT_AGENCY_SETTINGS para no mezclar datos de distintas agencias.
-    if (cleanKey && (newestData.subdomain?.toLowerCase() === cleanKey || newestData.id === targetKey)) {
-      return {
-        ...DEFAULT_AGENCY_SETTINGS,
-        ...newestData,
-      };
-    }
-
-    // Si se busca por clave específica y no hay match, retornar defaults limpios
-    if (cleanKey) {
-      return DEFAULT_AGENCY_SETTINGS;
-    }
-
-    // Si se llama sin clave (getAll), devolver el primer registro disponible para retrocompatibilidad
-    return {
-      ...DEFAULT_AGENCY_SETTINGS,
-      ...newestData,
-    };
+    // Si se busca por clave específica (o sin clave) y no hay match en agencies, retornar defaults limpios
+    return DEFAULT_AGENCY_SETTINGS;
   }
 
   return DEFAULT_AGENCY_SETTINGS;
@@ -182,9 +167,13 @@ export function savePersistentAgencySettings(updates: Partial<AgencySettingsReco
   if (updated.subdomain) {
     rawStore.agencies[updated.subdomain.toLowerCase()] = updated;
   }
-  Object.assign(rawStore, updated);
 
-  const jsonStr = JSON.stringify(rawStore, null, 2);
+  // Preservar solo la estructura aislada de agencias para evitar fugas globales entre usuarios
+  const cleanedStore = {
+    agencies: rawStore.agencies,
+  };
+
+  const jsonStr = JSON.stringify(cleanedStore, null, 2);
 
   const pathsToSave = [PRIMARY_STORAGE_PATH, FALLBACK_STORAGE_PATH];
   for (const filePath of pathsToSave) {
@@ -197,3 +186,48 @@ export function savePersistentAgencySettings(updates: Partial<AgencySettingsReco
 
   return updated;
 }
+
+/**
+ * Elimina la configuración de una agencia de forma permanente del almacenamiento en disco
+ */
+export function deletePersistentAgencySettings(targetKey: string): boolean {
+  if (!targetKey) return false;
+  const cleanKey = targetKey.trim().toLowerCase();
+
+  const pathsToSave = [PRIMARY_STORAGE_PATH, FALLBACK_STORAGE_PATH];
+  let deletedCount = 0;
+
+  for (const filePath of pathsToSave) {
+    try {
+      if (fs.existsSync(filePath)) {
+        const content = fs.readFileSync(filePath, "utf8");
+        const parsed = JSON.parse(content);
+        if (parsed && parsed.agencies && typeof parsed.agencies === "object") {
+          let modified = false;
+
+          for (const key of Object.keys(parsed.agencies)) {
+            const rec = parsed.agencies[key];
+            if (
+              key.toLowerCase() === cleanKey ||
+              rec.id === targetKey ||
+              rec.subdomain?.toLowerCase() === cleanKey
+            ) {
+              delete parsed.agencies[key];
+              modified = true;
+              deletedCount++;
+            }
+          }
+
+          if (modified) {
+            fs.writeFileSync(filePath, JSON.stringify(parsed, null, 2), "utf8");
+          }
+        }
+      }
+    } catch (err) {
+      console.error(`Error eliminando agencia de archivo de configuración (${filePath}):`, err);
+    }
+  }
+
+  return deletedCount > 0;
+}
+

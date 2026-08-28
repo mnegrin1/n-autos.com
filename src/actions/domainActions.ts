@@ -39,7 +39,7 @@ export async function getAgencyDomainInfo(agencyId: string): Promise<DomainInfoR
     custom_domain_ssl_status: data.custom_domain_ssl_status,
     custom_domain_hostname_id: data.custom_domain_hostname_id,
     verification: {
-      cnameTarget: 'fallback.n-sistemas.com',
+      cnameTarget: 'admin.n-autos.com',
     },
   };
 
@@ -90,7 +90,7 @@ export async function addCustomDomainAction(agencyId: string, rawDomain: string)
         status: cfResult.status,
         sslStatus: cfResult.sslStatus,
         verification: {
-          cnameTarget: 'fallback.n-sistemas.com',
+          cnameTarget: 'admin.n-autos.com',
           ownershipRecord: cfResult.ownershipVerification,
           sslRecord: cfResult.sslVerification,
         },

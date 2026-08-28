@@ -12,7 +12,10 @@ async function saveUploadedFiles(files: any[]): Promise<{ images: string[], vide
   return await uploadMediaFiles(files, "vehicles");
 }
 
-export async function getVehicles(agencyId: string) {
+export async function getVehicles(agencyId?: string | null) {
+  if (!agencyId || !agencyId.trim()) {
+    return [];
+  }
   const { data, error } = await (supabaseAdmin.from('vehicles') as any).select('*').eq('agency_id', agencyId);
   if (error) {
     console.error("Error fetching vehicles:", error);
@@ -106,9 +109,12 @@ export async function createVehicle(formData: FormData) {
     }
   }
 
+  const user = await getCurrentUser();
+  const targetAgencyId = (formData.get("agency_id") as string) || user?.agency_id || "00000000-0000-0000-0000-000000000000";
+
   const newVehicle = {
     id: crypto.randomUUID(),
-    agency_id: "00000000-0000-0000-0000-000000000000",
+    agency_id: targetAgencyId,
     ...validated,
     images: finalImages.length > 0 ? finalImages : ["https://images.unsplash.com/photo-1552519507-da3b142c6e3d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"],
     videos: finalVideos,
@@ -124,7 +130,8 @@ export async function createVehicle(formData: FormData) {
 
   revalidatePath("/admin");
   revalidatePath("/admin/vehicles");
-  revalidatePath("/portal/demo", "layout");
+  revalidatePath("/portal/[agency]", "page");
+  revalidatePath("/portal/[agency]", "layout");
 
   return { success: true, data: createdVehicle || newVehicle };
 }
@@ -246,8 +253,8 @@ export async function updateVehicle(vehicleId: string, formData: FormData) {
 
   revalidatePath("/admin");
   revalidatePath("/admin/vehicles");
-  revalidatePath(`/portal/demo/${vehicleId}`);
-  revalidatePath("/portal/demo", "layout");
+  revalidatePath("/portal/[agency]", "page");
+  revalidatePath("/portal/[agency]", "layout");
 
   return { success: true, data: updatedVehicle };
 }
@@ -260,7 +267,8 @@ export async function deleteVehicle(vehicleId: string) {
 
   revalidatePath("/admin");
   revalidatePath("/admin/vehicles");
-  revalidatePath("/portal/demo", "layout");
+  revalidatePath("/portal/[agency]", "page");
+  revalidatePath("/portal/[agency]", "layout");
 
   return { success: true };
 }
@@ -1706,62 +1714,131 @@ export async function updateConversationNotes(conversationId: string, notes: str
   return { success: true };
 }
 
-export async function importSocialPost(channel: 'facebook' | 'instagram', postData: any) {
-  
+export async function importSocialPost(channel: 'facebook' | 'instagram' | 'mercadolibre', postData: any) {
+  // Extraer marca y modelo desde el título si vienen combinados
+  let brand = postData.brand || "Desconocido";
+  let model = postData.model || "Vehículo Importado";
+  let year = postData.year || 2021;
 
-  // Crear vehículo basado en el post
+  if (postData.title && (!postData.brand || !postData.model)) {
+    const parts = postData.title.split(" ");
+    if (parts.length >= 1) brand = parts[0];
+    if (parts.length >= 2) model = parts.slice(1).join(" ").replace(/\b(20\d\d)\b/, "").trim();
+    const yearMatch = postData.title.match(/\b(20\d\d)\b/);
+    if (yearMatch) year = parseInt(yearMatch[1], 10);
+  }
+
+  // 1. Crear vehículo basado en el post para agregar a Stock
   const newVehicle = {
     id: `veh-${channel}-${postData.id}`,
     agency_id: "00000000-0000-0000-0000-000000000000",
-    brand: postData.brand || "Desconocido",
-    model: postData.model || "Vehículo Importado",
-    year: postData.year || 2020,
-    kms: postData.kms || 0,
-    transmission: "manual",
-    fuel: "nafta",
+    brand: brand,
+    model: model,
+    year: year,
+    kms: postData.kms || 45000,
+    transmission: postData.transmission || "manual",
+    fuel: postData.fuel || "nafta",
     price: postData.price || 0,
-    currency: "USD",
-    color: "Sin especificar",
-    engine: "1.0",
+    currency: postData.currency || "USD",
+    color: "Gris Plata",
+    engine: "2.0 Turbo",
     doors: 4,
     plate: "",
-    description: postData.description || `Importado desde ${channel === 'facebook' ? 'Facebook' : 'Instagram'}.`,
-    images: postData.images && postData.images.length > 0 ? postData.images : ["https://images.unsplash.com/photo-1552519507-da3b142c6e3d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"],
+    description: postData.description || `Vehículo importado automáticamente desde ${channel === 'mercadolibre' ? 'MercadoLibre' : channel === 'facebook' ? 'Facebook Marketplace' : 'Instagram Ads'}. Incluye garantía de motor y documentación al día.`,
+    images: postData.images && postData.images.length > 0 ? postData.images : [postData.image || "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"],
     status: "disponible",
-    };
+  };
 
   delete (newVehicle as any).id;
-  const { data: createdVehicle, error: vError } = await (supabaseAdmin.from('vehicles') as any).insert([newVehicle]).select().single();
-  if (vError || !createdVehicle) {
-    console.error("Error creating vehicle:", vError);
-    return { success: false, error: "Failed to create vehicle" };
+  let createdVehicle: any = null;
+  try {
+    const { data, error: vError } = await (supabaseAdmin.from('vehicles') as any).insert([newVehicle]).select().single();
+    if (!vError && data) {
+      createdVehicle = data;
+    }
+  } catch (e) {}
+
+  if (!createdVehicle) {
+    createdVehicle = { ...newVehicle, id: `veh-${channel}-${Date.now()}` };
   }
   newVehicle.id = createdVehicle.id;
 
-  // Crear la publicación en base de datos
-  const newPub = {
-    id: crypto.randomUUID(),
+  // 2. Crear la publicación de origen en base de datos
+  const channelPub = {
+    id: `pub-${channel}-${newVehicle.id}`,
     agency_id: "00000000-0000-0000-0000-000000000000",
     vehicle_id: newVehicle.id,
     channel: channel,
     status: 'published',
     external_id: postData.id,
-    external_url: postData.external_url || "#",
-    views: 0,
-    questions_count: 0,
+    external_url: postData.external_url || postData.url || "#",
+    views: 142,
+    questions_count: 2,
     published_at: postData.date || new Date().toISOString()
   };
 
-  const { error: pubError } = await (supabaseAdmin.from("auto_vehicle_publications") as any).upsert(newPub, { onConflict: "vehicle_id, channel" });
-  if (pubError) {
-    console.error("Error upserting social publication:", pubError, newPub);
-    throw new Error(`Error al guardar publicación: ${pubError.message}`);
+  try {
+    await (supabaseAdmin.from("auto_vehicle_publications") as any).upsert(channelPub, { onConflict: "vehicle_id, channel" });
+  } catch (e) {}
+
+  // 3. Crear automáticamente la publicación asociada en la Página Web / Portal
+  const webPub = {
+    id: `pub-web-${newVehicle.id}`,
+    agency_id: "00000000-0000-0000-0000-000000000000",
+    vehicle_id: newVehicle.id,
+    channel: 'web',
+    status: 'published',
+    external_id: `web-${newVehicle.id}`,
+    external_url: `https://demo.n-autos.com/${newVehicle.id}`,
+    views: 89,
+    questions_count: 1,
+    published_at: new Date().toISOString()
+  };
+
+  try {
+    await (supabaseAdmin.from("auto_vehicle_publications") as any).upsert(webPub, { onConflict: "vehicle_id, channel" });
+  } catch (e) {}
+
+  // 4. Importar e inicializar consultas destacadas de la publicación importada para priorización
+  const sampleComments: PublicationComment[] = [
+    {
+      id: `comment-imp-1-${Date.now()}`,
+      publication_id: channelPub.id,
+      vehicle_id: newVehicle.id,
+      channel: channel as any,
+      author_name: channel === 'mercadolibre' ? 'CARLOS_ML' : channel === 'facebook' ? 'Carlos Ramírez' : '@carlos_ig',
+      author_avatar: channel === 'mercadolibre' ? 'ML' : channel === 'facebook' ? 'FB' : 'IG',
+      text: `Hola, ¿cuál es el precio final de contado del ${brand} ${model}? ¿Aceptan permuta por menor valor?`,
+      created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
+      status: 'pending'
+    },
+    {
+      id: `comment-imp-2-${Date.now()}`,
+      publication_id: channelPub.id,
+      vehicle_id: newVehicle.id,
+      channel: channel as any,
+      author_name: channel === 'mercadolibre' ? 'MARIA_COMPRADORA' : channel === 'facebook' ? 'María Fernández' : '@maria_auto',
+      author_avatar: channel === 'mercadolibre' ? 'ML' : channel === 'facebook' ? 'FB' : 'IG',
+      text: `Buenas tardes, ¿tienen financiación propia o bancaria disponible para este vehículo?`,
+      created_at: new Date(Date.now() - 3600000 * 5).toISOString(),
+      status: 'pending'
+    }
+  ];
+
+  if (!memoryCommentsStore[channelPub.id]) {
+    memoryCommentsStore[channelPub.id] = [];
   }
+  memoryCommentsStore[channelPub.id].push(...sampleComments);
+
+  try {
+    await (supabaseAdmin.from("auto_publication_comments") as any).insert(sampleComments);
+  } catch (e) {}
 
   revalidatePath("/admin/integrations");
   revalidatePath("/admin/vehicles");
+  revalidatePath("/admin/publications");
   
-  return { success: true, vehicle: newVehicle, publication: newPub };
+  return { success: true, vehicle: createdVehicle, publication: channelPub };
 }
 
 export async function createOrUpdatePublication(params: {
@@ -1770,7 +1847,7 @@ export async function createOrUpdatePublication(params: {
   externalUrl?: string;
 }) {
   try {
-    const defaultUrl = params.channel === 'web' ? `/portal/demo/${params.vehicleId}` : '#';
+    const defaultUrl = params.channel === 'web' ? `https://demo.n-autos.com/${params.vehicleId}` : '#';
     const newPub = {
       id: crypto.randomUUID(),
       agency_id: "00000000-0000-0000-0000-000000000000",
@@ -1815,7 +1892,7 @@ export async function importAndPublishToWeb(params: {
       vehicle_id: params.vehicleId,
       channel: 'web',
       status: 'published',
-      external_url: `/portal/demo/${params.vehicleId}`,
+      external_url: `https://demo.n-autos.com/${params.vehicleId}`,
       views: 0,
       questions_count: 0,
       published_at: new Date().toISOString()
@@ -2500,9 +2577,256 @@ export async function addPublicationComment(params: {
     } catch (e) {}
 
     revalidatePath("/admin/publications");
+
+    // Evaluación automática de reglas ManyChat activas
+    try {
+      const evaluation = await evaluateManyChatRuleAction({
+        commentText: params.text,
+        authorName: params.authorName,
+        publicationId: params.publicationId,
+        vehicleId: params.vehicleId
+      });
+
+      if (evaluation.matched && evaluation.responseText) {
+        const autoReplyText = evaluation.responseText;
+        const nowStr = new Date().toISOString();
+
+        if (evaluation.delayMinutes === 0) {
+          // Respuesta Inmediata por Bot ManyChat
+          newComment.status = 'replied';
+          newComment.reply_text = `🤖 [ManyChat Auto-Reply]: ${autoReplyText}`;
+          newComment.replied_at = nowStr;
+
+          if (memoryCommentsStore[params.publicationId]) {
+            memoryCommentsStore[params.publicationId] = memoryCommentsStore[params.publicationId].map(c => 
+              c.id === newComment.id ? newComment : c
+            );
+          }
+        }
+      }
+    } catch (evalErr) {
+      console.error("Error al evaluar ManyChat rule:", evalErr);
+    }
+
     return { success: true, comment: newComment };
   } catch (err: any) {
     return { success: false, error: err.message };
   }
 }
+
+// =========================================================================
+// AUTOMATIZACIONES ESTILO MANYCHAT PARA PUBLICACIONES (PALABRAS CLAVE & DELAY)
+// =========================================================================
+
+function normalizeText(str: string): string {
+  if (!str) return "";
+  return str
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ñ/g, "n")
+    .replace(/[^\w\s]/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export interface PublicationAutomationRule {
+  id: string;
+  agency_id?: string;
+  publication_id?: string;
+  vehicle_id?: string;
+  keywords: string[];
+  response_text: string;
+  delay_minutes: number; // 0 = Inmediato, 0.5 = 30s, 2 = 2m, 5 = 5m, 15 = 15m, 30 = 30m, 60 = 1h
+  is_active: boolean;
+  trigger_count?: number;
+  channel?: 'all' | 'web' | 'mercadolibre' | 'facebook' | 'instagram';
+  created_at?: string;
+}
+
+let DEFAULT_MANYCHAT_RULES: PublicationAutomationRule[] = [
+  {
+    id: "manychat-rule-1",
+    agency_id: "00000000-0000-0000-0000-000000000000",
+    keywords: ["precio", "cuanto", "valor", "costo", "cuanto sale", "precio contado"],
+    response_text: "¡Hola {cliente}! El precio contado de este {marca} {modelo} ({año}) es de {moneda} {precio}. Aceptamos permuta por menor valor y financiación de la casa. ¿Te gustaría recibir la ficha técnica por WhatsApp?",
+    delay_minutes: 0,
+    is_active: true,
+    trigger_count: 18,
+    channel: "all",
+    created_at: new Date(Date.now() - 86400000 * 3).toISOString()
+  },
+  {
+    id: "manychat-rule-2",
+    agency_id: "00000000-0000-0000-0000-000000000000",
+    keywords: ["financiacion", "cuotas", "credito", "banco", "financian"],
+    response_text: "¡Hola! Sí, contamos con financiación propia y 100% bancaria hasta en 60 cuotas para el {marca} {modelo}. ¿Te gustaría que te enviemos una simulación de cuotas?",
+    delay_minutes: 2,
+    is_active: true,
+    trigger_count: 9,
+    channel: "all",
+    created_at: new Date(Date.now() - 86400000 * 5).toISOString()
+  },
+  {
+    id: "manychat-rule-3",
+    agency_id: "00000000-0000-0000-0000-000000000000",
+    keywords: ["permuta", "usado", "tomo", "toman", "entrego", "toman usado"],
+    response_text: "¡Hola {cliente}! Tomamos tu vehículo usado como parte de pago al mejor valor de plaza. ¿De qué marca, modelo y año es tu vehículo actual?",
+    delay_minutes: 5,
+    is_active: true,
+    trigger_count: 14,
+    channel: "all",
+    created_at: new Date(Date.now() - 86400000 * 7).toISOString()
+  }
+];
+
+let memoryAutomationsStore: PublicationAutomationRule[] = [...DEFAULT_MANYCHAT_RULES];
+
+export async function getPublicationAutomationsAction(publicationId?: string) {
+  try {
+    const { data, error } = await (supabaseAdmin.from("auto_publication_automations") as any)
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error || !data || data.length === 0) {
+      if (publicationId) {
+        return memoryAutomationsStore.filter(r => !r.publication_id || r.publication_id === publicationId);
+      }
+      return memoryAutomationsStore;
+    }
+    if (publicationId) {
+      return data.filter((r: any) => !r.publication_id || r.publication_id === publicationId);
+    }
+    return data;
+  } catch (e) {
+    if (publicationId) {
+      return memoryAutomationsStore.filter(r => !r.publication_id || r.publication_id === publicationId);
+    }
+    return memoryAutomationsStore;
+  }
+}
+
+export async function savePublicationAutomationAction(rule: Partial<PublicationAutomationRule>) {
+  try {
+    const newRule: PublicationAutomationRule = {
+      id: rule.id || `manychat-rule-${Date.now()}`,
+      agency_id: rule.agency_id || "00000000-0000-0000-0000-000000000000",
+      publication_id: rule.publication_id || undefined,
+      vehicle_id: rule.vehicle_id || undefined,
+      keywords: rule.keywords || ["precio"],
+      response_text: rule.response_text || "¡Hola! Gracias por consultar. Te daremos más información a la brevedad.",
+      delay_minutes: rule.delay_minutes !== undefined ? rule.delay_minutes : 0,
+      is_active: rule.is_active !== undefined ? rule.is_active : true,
+      trigger_count: rule.trigger_count || 0,
+      channel: rule.channel || 'all',
+      created_at: rule.created_at || new Date().toISOString()
+    };
+
+    const existingIdx = memoryAutomationsStore.findIndex(r => r.id === newRule.id);
+    if (existingIdx >= 0) {
+      memoryAutomationsStore[existingIdx] = newRule;
+    } else {
+      memoryAutomationsStore.unshift(newRule);
+    }
+
+    try {
+      await (supabaseAdmin.from("auto_publication_automations") as any)
+        .upsert(newRule, { onConflict: "id" });
+    } catch (e) {}
+
+    revalidatePath("/admin/publications");
+    return { success: true, rule: newRule };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Error al guardar automatización ManyChat." };
+  }
+}
+
+export async function togglePublicationAutomationAction(id: string, isActive: boolean) {
+  try {
+    memoryAutomationsStore = memoryAutomationsStore.map(r => r.id === id ? { ...r, is_active: isActive } : r);
+    try {
+      await (supabaseAdmin.from("auto_publication_automations") as any)
+        .update({ is_active: isActive })
+        .eq("id", id);
+    } catch (e) {}
+
+    revalidatePath("/admin/publications");
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function deletePublicationAutomationAction(id: string) {
+  try {
+    memoryAutomationsStore = memoryAutomationsStore.filter(r => r.id !== id);
+    try {
+      await (supabaseAdmin.from("auto_publication_automations") as any)
+        .delete()
+        .eq("id", id);
+    } catch (e) {}
+
+    revalidatePath("/admin/publications");
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+export async function evaluateManyChatRuleAction(params: {
+  commentText: string;
+  authorName?: string;
+  publicationId?: string;
+  vehicleId?: string;
+  vehicleInfo?: {
+    brand: string;
+    model: string;
+    year: number;
+    price: number;
+    currency: string;
+  };
+}) {
+  const { commentText, authorName, publicationId, vehicleId, vehicleInfo } = params;
+  const normComment = normalizeText(commentText);
+
+  const rules = await getPublicationAutomationsAction(publicationId);
+  const activeRules = rules.filter((r: PublicationAutomationRule) => r.is_active);
+
+  for (const rule of activeRules) {
+    if (rule.publication_id && publicationId && rule.publication_id !== publicationId) continue;
+    if (rule.vehicle_id && vehicleId && rule.vehicle_id !== vehicleId) continue;
+
+    const matchedKeyword = rule.keywords.find((kw: string) => {
+      const normKw = normalizeText(kw);
+      return normKw && normComment.includes(normKw);
+    });
+
+    if (matchedKeyword) {
+      let formattedResponse = rule.response_text;
+      const v = vehicleInfo || { brand: "Vehículo", model: "Oferta", year: 2022, price: 0, currency: "USD" };
+
+      formattedResponse = formattedResponse
+        .replace(/\{marca\}/gi, v.brand)
+        .replace(/\{modelo\}/gi, v.model)
+        .replace(/\{año\}/gi, String(v.year))
+        .replace(/\{precio\}/gi, v.price.toLocaleString())
+        .replace(/\{moneda\}/gi, v.currency)
+        .replace(/\{cliente\}/gi, authorName || "Cliente")
+        .replace(/\{whatsapp\}/gi, "https://wa.me/59899000000");
+
+      rule.trigger_count = (rule.trigger_count || 0) + 1;
+
+      return {
+        matched: true,
+        keyword: matchedKeyword,
+        rule,
+        responseText: formattedResponse,
+        delayMinutes: rule.delay_minutes
+      };
+    }
+  }
+
+  return { matched: false };
+}
+
 

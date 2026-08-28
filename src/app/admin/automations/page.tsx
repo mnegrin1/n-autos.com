@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { getAutomationRulesAction, getWorkflowsAction } from "@/actions/automationActions";
+import { getAutomationRulesAction } from "@/actions/automationActions";
 import { getAgents } from "@/actions/otherActions";
 import { getCurrentUser } from "@/actions/authActions";
 import AutomationsClient from "./AutomationsClient";
@@ -8,11 +8,11 @@ export const dynamic = "force-dynamic";
 
 export default async function AutomationsPage() {
   const currentUser = await getCurrentUser();
-  const agencyId = currentUser?.agency_id || "00000000-0000-0000-0000-000000000000";
+  const isDemoUser = !currentUser || currentUser.email === "mauricio@automotora.com";
+  const agencyId = currentUser?.agency_id || (isDemoUser ? "00000000-0000-0000-0000-000000000000" : null);
 
-  // 1. Obtener reglas, flujos y agentes
-  const rules = await getAutomationRulesAction(agencyId);
-  const workflows = await getWorkflowsAction(agencyId);
+  // 1. Obtener reglas y agentes
+  const rules = agencyId ? await getAutomationRulesAction(agencyId) : [];
   const agents = await getAgents();
 
   // 2. Obtener etiquetas únicas disponibles en los contactos
@@ -28,7 +28,6 @@ export default async function AutomationsPage() {
   return (
     <AutomationsClient
       initialRules={rules}
-      initialWorkflows={workflows}
       availableTags={availableTags}
       initialAgents={agents}
       currentUser={userPayload}

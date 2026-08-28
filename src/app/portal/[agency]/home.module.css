@@ -1,86 +1,211 @@
-.visitorLightMode {
+:global(.visitorLightMode) {
   background-color: #f8fafc !important;
   color: #0f172a !important;
 }
-.visitorLightMode .featuredSection {
+:global(.visitorLightMode) .homeContainer {
   background-color: #f8fafc !important;
   color: #0f172a !important;
 }
-.visitorLightMode .featuredHeader h2,
-.visitorLightMode .featuredHeader p,
-.visitorLightMode .sectionCategoryTag {
+:global(.visitorLightMode) .navbar {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-bottom-color: #e2e8f0 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+}
+:global(.visitorLightMode) .navLinks a {
+  color: #334155 !important;
+}
+:global(.visitorLightMode) .navLinks a:hover {
   color: #0f172a !important;
 }
-.visitorLightMode .vehicleCard {
+:global(.visitorLightMode) .logo span {
+  color: #0f172a !important;
+}
+:global(.visitorLightMode) .featuredSection {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+:global(.visitorLightMode) .featuredHeader h2,
+:global(.visitorLightMode) .featuredHeader p,
+:global(.visitorLightMode) .sectionCategoryTag {
+  color: #0f172a !important;
+}
+:global(.visitorLightMode) .searchBarContainer,
+:global(.visitorLightMode) .searchBar,
+:global(.visitorLightMode) .filterBar {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+}
+:global(.visitorLightMode) .searchInput,
+:global(.visitorLightMode) .searchSelect,
+:global(.visitorLightMode) .filterSelect,
+:global(.visitorLightMode) .filterInput {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+:global(.visitorLightMode) .tabButton {
+  background-color: #f1f5f9 !important;
+  color: #475569 !important;
+  border-color: #cbd5e1 !important;
+}
+:global(.visitorLightMode) .activeTab {
+  background-color: var(--primary, #10b981) !important;
+  color: #ffffff !important;
+}
+:global(.visitorLightMode) .vehicleCard {
   background-color: #ffffff !important;
   border-color: #e2e8f0 !important;
   color: #0f172a !important;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06) !important;
 }
-.visitorLightMode .vehicleCard h3,
-.visitorLightMode .vehicleCard p,
-.visitorLightMode .vehicleCard span,
-.visitorLightMode .vehicleCard div,
-.visitorLightMode .vehicleTitle {
+:global(.visitorLightMode) .vehicleCard h3,
+:global(.visitorLightMode) .vehicleCard p,
+:global(.visitorLightMode) .vehicleCard span,
+:global(.visitorLightMode) .vehicleCard div,
+:global(.visitorLightMode) .vehicleTitle {
   color: #0f172a !important;
 }
-.visitorLightMode .vehiclePrice {
+:global(.visitorLightMode) .vehiclePrice {
   color: #059669 !important;
 }
-.visitorLightMode .specLabel {
+:global(.visitorLightMode) .specLabel {
   color: #64748b !important;
 }
-.visitorLightMode .specValue {
+:global(.visitorLightMode) .specValue {
   color: #0f172a !important;
 }
-.visitorLightMode .pillarCard {
+:global(.visitorLightMode) .aboutSection {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
+  border-top-color: #e2e8f0 !important;
+  border-bottom-color: #e2e8f0 !important;
+}
+:global(.visitorLightMode) .aboutContent h2 {
+  color: #0f172a !important;
+}
+:global(.visitorLightMode) .aboutHighlight {
+  color: #1e293b !important;
+}
+:global(.visitorLightMode) .aboutText {
+  color: #475569 !important;
+}
+:global(.visitorLightMode) .aboutEyebrow {
+  background: rgba(16, 185, 129, 0.1) !important;
+  border-color: rgba(16, 185, 129, 0.25) !important;
+  color: #059669 !important;
+}
+:global(.visitorLightMode) .pillarCard {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
+  color: #0f172a !important;
+}
+:global(.visitorLightMode) .pillarCard:hover {
+  background: #ffffff !important;
+  border-color: var(--primary, #10b981) !important;
+  box-shadow: 0 14px 36px rgba(16, 185, 129, 0.18) !important;
+}
+:global(.visitorLightMode) .pillarIcon {
+  background: rgba(16, 185, 129, 0.12) !important;
+  border-color: rgba(16, 185, 129, 0.25) !important;
+  color: #059669 !important;
+}
+:global(.visitorLightMode) .pillarCard h4,
+:global(.visitorLightMode) .pillarCard h3,
+:global(.visitorLightMode) .pillarCard h2,
+:global(.visitorLightMode) .pillarCard strong {
+  color: #0f172a !important;
+  opacity: 1 !important;
+}
+:global(.visitorLightMode) .pillarCard p,
+:global(.visitorLightMode) .pillarCard span {
+  color: #475569 !important;
+  opacity: 1 !important;
+}
+:global(.visitorLightMode) .contactSection {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+:global(.visitorLightMode) .contactEyebrow {
+  background: rgba(16, 185, 129, 0.1) !important;
+  border-color: rgba(16, 185, 129, 0.25) !important;
+  color: #059669 !important;
+}
+:global(.visitorLightMode) .contactInfoCol h2,
+:global(.visitorLightMode) .contactForm h3 {
+  color: #0f172a !important;
+}
+:global(.visitorLightMode) .contactDesc {
+  color: #475569 !important;
+}
+:global(.visitorLightMode) .contactDetailItem {
   background-color: #ffffff !important;
   border-color: #e2e8f0 !important;
   color: #0f172a !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04) !important;
 }
-.visitorLightMode .pillarCard h3,
-.visitorLightMode .pillarCard p {
+:global(.visitorLightMode) .contactDetailItem:hover {
+  background-color: #ffffff !important;
+  border-color: var(--primary, #10b981) !important;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.12) !important;
+}
+:global(.visitorLightMode) .contactDetailIconBadge {
+  background-color: rgba(16, 185, 129, 0.1) !important;
+  border-color: rgba(16, 185, 129, 0.25) !important;
+}
+:global(.visitorLightMode) .contactDetailIcon {
+  color: #059669 !important;
+}
+:global(.visitorLightMode) .contactDetailItem strong {
   color: #0f172a !important;
 }
-.visitorLightMode .aboutSection,
-.visitorLightMode .aboutCard {
+:global(.visitorLightMode) .contactDetailItem p {
+  color: #475569 !important;
+}
+:global(.visitorLightMode) .contactDetailHighlight {
+  color: #059669 !important;
+}
+:global(.visitorLightMode) .mapCanvasWrapper {
+  border-color: #e2e8f0 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06) !important;
+}
+:global(.visitorLightMode) .contactFormCol {
   background-color: #ffffff !important;
   border-color: #e2e8f0 !important;
   color: #0f172a !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
 }
-.visitorLightMode .aboutSection h2,
-.visitorLightMode .aboutSection h3,
-.visitorLightMode .aboutSection p,
-.visitorLightMode .aboutSection span {
-  color: #0f172a !important;
+:global(.visitorLightMode) .formGroup label {
+  color: #1e293b !important;
 }
-.visitorLightMode .contactSection {
-  background-color: #f1f5f9 !important;
-  color: #0f172a !important;
-}
-.visitorLightMode .contactDetailItem {
-  background-color: #ffffff !important;
-  border-color: #cbd5e1 !important;
-  color: #0f172a !important;
-}
-.visitorLightMode .contactSection h2,
-.visitorLightMode .contactSection h3,
-.visitorLightMode .contactSection p,
-.visitorLightMode .contactSection strong,
-.visitorLightMode .contactDetailItem p,
-.visitorLightMode .contactDetailItem strong {
-  color: #0f172a !important;
-}
-.visitorLightMode .contactForm {
-  background-color: #ffffff !important;
-  border-color: #e2e8f0 !important;
-  color: #0f172a !important;
-}
-.visitorLightMode .contactForm input,
-.visitorLightMode .contactForm select {
+:global(.visitorLightMode) .formGroup input,
+:global(.visitorLightMode) .formGroup select,
+:global(.visitorLightMode) .formGroup textarea {
   background-color: #f8fafc !important;
   color: #0f172a !important;
   border-color: #cbd5e1 !important;
+}
+:global(.visitorLightMode) .formGroup input::placeholder {
+  color: #94a3b8 !important;
+}
+:global(.visitorLightMode) .formGroup input:focus {
+  border-color: #059669 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15) !important;
+  background-color: #ffffff !important;
+}
+:global(.visitorLightMode) .submitFormBtn {
+  background-color: var(--primary, #10b981) !important;
+  color: #ffffff !important;
+}
+:global(.visitorLightMode) .footer {
+  background-color: #f1f5f9 !important;
+  border-top-color: #e2e8f0 !important;
+  color: #334155 !important;
+}
+:global(.visitorLightMode) .footer h3,
+:global(.visitorLightMode) .footer p,
+:global(.visitorLightMode) .footer a {
+  color: #334155 !important;
 }
 
 .homeContainer {
@@ -553,50 +678,112 @@
   transform: translateX(4px);
 }
 
+/* Empty State Card */
+.emptyStateCard {
+  background: rgba(30, 41, 59, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 20px;
+  padding: 4rem 2rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+}
+
+.emptyStateIconWrapper {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: var(--primary, #10b981);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.resetFiltersBtn {
+  background-color: var(--primary, #10b981);
+  color: white;
+  border: none;
+  padding: 0.65rem 1.25rem;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);
+}
+
+.resetFiltersBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35);
+}
+
 .aboutSection {
-  background-color: var(--surface-color);
-  border-top: 1px solid var(--border-color);
-  border-bottom: 1px solid var(--border-color);
-  padding: 5rem 2rem;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.96) 0%, rgba(30, 41, 59, 0.98) 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 5.5rem 2rem;
   margin-top: 4rem;
   width: 100%;
+  position: relative;
 }
 
 .aboutContent {
-  max-width: 1100px;
+  max-width: 1150px;
   margin: 0 auto;
   text-align: center;
+  position: relative;
+  z-index: 2;
 }
 
 .aboutEyebrow {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.15em;
-  color: var(--primary);
-  margin-bottom: 0.5rem;
+  color: var(--primary, #10b981);
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  margin-bottom: 1rem;
   text-transform: uppercase;
 }
 
 .aboutContent h2 {
-  font-size: 2rem;
+  font-size: 2.25rem;
   font-weight: 800;
-  margin-bottom: 1.25rem;
-  color: var(--text-color);
+  margin-bottom: 1rem;
+  color: #ffffff;
+  letter-spacing: -0.03em;
 }
 
 .aboutHighlight {
-  font-size: 1.2rem;
+  font-size: 1.15rem;
   font-weight: 600;
-  margin-bottom: 1rem;
+  color: #e2e8f0;
+  margin-bottom: 1.25rem;
   max-width: 800px;
   margin-left: auto;
   margin-right: auto;
+  line-height: 1.6;
 }
 
 .aboutText {
   font-size: 0.98rem;
-  opacity: 0.8;
+  color: #94a3b8;
   line-height: 1.7;
   max-width: 850px;
   margin: 0 auto 3rem auto;
@@ -605,39 +792,70 @@
 .trustPillarsGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1.5rem;
+  gap: 1.75rem;
   text-align: left;
+  margin-top: 2rem;
 }
 
 .pillarCard {
-  background-color: var(--bg-color);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 1.5rem;
-  transition: transform 0.25s ease, border-color 0.25s ease;
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 1.85rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
 }
 
 .pillarCard:hover {
-  transform: translateY(-4px);
-  border-color: var(--primary);
+  transform: translateY(-6px) scale(1.01);
+  border-color: var(--primary, #10b981);
+  box-shadow: 0 16px 40px rgba(16, 185, 129, 0.25);
+  background: rgba(30, 41, 59, 0.95);
 }
 
 .pillarIcon {
-  color: var(--primary);
-  margin-bottom: 1rem;
+  color: var(--primary, #10b981);
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  width: 48px;
+  height: 48px;
+  padding: 0.6rem;
+  border-radius: 12px;
+  margin-bottom: 1.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease;
 }
 
-.pillarCard h4 {
+.pillarCard:hover .pillarIcon {
+  transform: scale(1.1) rotate(4deg);
+}
+
+.pillarCard h4,
+.pillarCard h3,
+.pillarCard h2,
+.pillarCard strong {
   margin: 0 0 0.5rem 0;
-  font-size: 1.05rem;
+  font-size: 1.1rem;
   font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+  opacity: 1;
 }
 
-.pillarCard p {
+.pillarCard p,
+.pillarCard span {
   margin: 0;
-  font-size: 0.85rem;
-  opacity: 0.75;
-  line-height: 1.5;
+  font-size: 0.88rem;
+  color: #cbd5e1;
+  line-height: 1.6;
+  opacity: 1;
 }
 
 /* Contact Section */
@@ -660,20 +878,26 @@
   font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: 0.15em;
-  color: var(--primary);
+  color: var(--primary, #10b981);
   margin-bottom: 0.5rem;
   text-transform: uppercase;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
 }
 
 .contactInfoCol h2 {
-  font-size: 2rem;
+  font-size: 2.25rem;
   font-weight: 800;
   margin: 0 0 1rem 0;
+  color: #ffffff;
+  letter-spacing: -0.03em;
 }
 
 .contactDesc {
   font-size: 1rem;
-  opacity: 0.8;
+  color: #94a3b8;
   line-height: 1.6;
   margin-bottom: 2rem;
 }
@@ -681,32 +905,75 @@
 .contactDetailsList {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-  margin-bottom: 2rem;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .contactDetailItem {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 1rem;
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 1rem 1.25rem;
+  transition: all 0.25s ease;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.contactDetailItem:hover {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: var(--primary, #10b981);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.15);
+}
+
+.contactDetailIconBadge {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .contactDetailIcon {
-  color: var(--primary);
-  margin-top: 2px;
-  flex-shrink: 0;
+  color: var(--primary, #10b981);
 }
 
 .contactDetailItem strong {
   display: block;
   font-size: 0.95rem;
-  margin-bottom: 0.2rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 0.15rem;
 }
 
 .contactDetailItem p {
   margin: 0;
   font-size: 0.88rem;
-  opacity: 0.75;
+  color: #cbd5e1;
+}
+
+.contactDetailHighlight {
+  color: var(--primary, #10b981) !important;
+  font-weight: 700 !important;
+}
+
+.mapCanvasWrapper {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  height: 280px;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  position: relative;
 }
 
 .contactWhatsappBtn {
@@ -715,27 +982,32 @@
   justify-content: center;
   gap: 0.6rem;
   background-color: #25d366;
-  color: white;
-  padding: 0.85rem 1.5rem;
-  border-radius: 10px;
+  color: #ffffff !important;
+  padding: 0.95rem 1.75rem;
+  border-radius: 12px;
   font-weight: 700;
   font-size: 0.95rem;
   text-decoration: none;
-  box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3);
-  transition: transform 0.2s ease, background-color 0.2s ease;
+  box-shadow: 0 4px 20px rgba(37, 211, 102, 0.35);
+  transition: all 0.25s ease;
+  width: 100%;
 }
 
 .contactWhatsappBtn:hover {
   background-color: #1ebc57;
   transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(37, 211, 102, 0.45);
 }
 
 .contactFormCol {
-  background-color: var(--surface-color);
-  border: 1px solid var(--border-color);
-  border-radius: 16px;
-  padding: 2rem;
-  box-shadow: var(--shadow-sm);
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 2.25rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  color: #ffffff;
 }
 
 .contactForm {
@@ -745,64 +1017,91 @@
 }
 
 .contactForm h3 {
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: 1.35rem;
+  font-weight: 800;
   margin: 0 0 0.5rem 0;
+  color: #ffffff;
+  letter-spacing: -0.02em;
 }
 
 .formGroup {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.45rem;
 }
 
 .formGroup label {
   font-size: 0.85rem;
   font-weight: 600;
+  color: #cbd5e1;
 }
 
 .formGroup input {
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  background-color: var(--bg-color);
-  color: var(--text-color);
-  font-size: 0.9rem;
+  padding: 0.85rem 1.1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background-color: rgba(15, 23, 42, 0.6);
+  color: #ffffff;
+  font-size: 0.92rem;
   outline: none;
+  transition: all 0.2s ease;
+}
+
+.formGroup input::placeholder {
+  color: #64748b;
+}
+
+.formGroup input:focus {
+  border-color: var(--primary, #10b981);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+  background-color: rgba(15, 23, 42, 0.9);
 }
 
 .submitFormBtn {
-  background-color: var(--primary);
+  background-color: var(--primary, #10b981);
   color: white;
   border: none;
-  padding: 0.85rem 1.25rem;
-  border-radius: 8px;
+  padding: 0.95rem 1.5rem;
+  border-radius: 12px;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  transition: opacity 0.2s ease;
+  gap: 0.6rem;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+  margin-top: 0.5rem;
 }
 
 .submitFormBtn:hover {
-  opacity: 0.9;
+  opacity: 0.95;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
 }
 
 .formSuccessMsg {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  color: var(--primary);
-  font-size: 0.82rem;
+  gap: 0.5rem;
+  color: #10b981;
+  font-size: 0.85rem;
   font-weight: 600;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
 }
 
 /* ==========================================================================
-   TEMPLATE 1: STANDARD FUNCIONAL (Básico y Limpio)
+   TEMPLATE 1: STANDARD FUNCIONAL (Básico y Limpio 🚗)
    ========================================================================== */
+.template_standard {
+  background-color: #0a0e17 !important;
+  color: #f8fafc !important;
+  font-family: 'Inter', sans-serif !important;
+}
 .template_standard .heroSection {
   background: linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.85));
 }
@@ -812,370 +1111,306 @@
 }
 
 /* ==========================================================================
-   TEMPLATE 2: GLASSMORPHISM SHOWCASE (PREMIUM ⭐)
+   TEMPLATE 2: GLASSMORPHISM SHOWCASE (PREMIUM ⭐ 🔮)
    ========================================================================== */
 .template_glassmorphism {
   background-color: #0b0f19 !important;
   color: #f1f5f9 !important;
+  font-family: 'Outfit', sans-serif !important;
 }
 .template_glassmorphism .heroSection {
-  background: radial-gradient(circle at 50% 30%, rgba(16, 185, 129, 0.25) 0%, transparent 65%), linear-gradient(rgba(0,0,0,0.65), rgba(0,0,0,0.85));
+  background: radial-gradient(circle at 50% 30%, rgba(52, 211, 153, 0.25) 0%, transparent 65%), linear-gradient(rgba(7,11,20,0.65), rgba(7,11,20,0.95)) !important;
 }
 .template_glassmorphism .heroEyebrow {
-  background: rgba(16, 185, 129, 0.2);
-  border: 1px solid rgba(16, 185, 129, 0.6);
-  color: #34d399;
-  backdrop-filter: blur(12px);
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.35);
+  background: rgba(52, 211, 153, 0.15) !important;
+  border: 1px solid rgba(52, 211, 153, 0.6) !important;
+  color: #34d399 !important;
+  backdrop-filter: blur(12px) !important;
+  box-shadow: 0 0 25px rgba(52, 211, 153, 0.4) !important;
 }
 .template_glassmorphism .searchBox {
-  background: rgba(255, 255, 255, 0.1) !important;
-  backdrop-filter: blur(24px) !important;
-  -webkit-backdrop-filter: blur(24px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.22) !important;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5) !important;
-  border-radius: 16px !important;
-}
-.template_glassmorphism .tabButton {
-  background: rgba(15, 23, 42, 0.7) !important;
-  backdrop-filter: blur(12px) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(28px) !important;
+  -webkit-backdrop-filter: blur(28px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.6) !important;
+  border-radius: 20px !important;
 }
 .template_glassmorphism .activeTab {
-  background: rgba(16, 185, 129, 0.9) !important;
-  color: white !important;
-}
-.template_glassmorphism .searchInput,
-.template_glassmorphism .searchSelect {
-  background: rgba(0, 0, 0, 0.3) !important;
-  border-color: rgba(255, 255, 255, 0.2) !important;
-  color: white !important;
+  background: #34d399 !important;
+  color: #000000 !important;
+  font-weight: 800 !important;
+  box-shadow: 0 0 20px rgba(52, 211, 153, 0.5) !important;
 }
 .template_glassmorphism .vehicleCard {
   background: rgba(255, 255, 255, 0.04) !important;
   backdrop-filter: blur(16px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
 }
 .template_glassmorphism .vehicleCard:hover {
-  border-color: rgba(52, 211, 153, 0.6) !important;
-  box-shadow: 0 12px 40px rgba(16, 185, 129, 0.3) !important;
+  border-color: rgba(52, 211, 153, 0.7) !important;
+  box-shadow: 0 12px 40px rgba(52, 211, 153, 0.35) !important;
   transform: translateY(-8px) scale(1.01) !important;
 }
 .template_glassmorphism .vehiclePrice {
   color: #34d399 !important;
-  text-shadow: 0 0 12px rgba(52, 211, 153, 0.5);
+  text-shadow: 0 0 14px rgba(52, 211, 153, 0.6) !important;
 }
 
 /* ==========================================================================
-   TEMPLATE 3: LUXURY EXECUTIVE DARK (PREMIUM ⭐)
+   TEMPLATE 3: LUXURY EXECUTIVE DARK (PREMIUM ⭐ 👑)
    ========================================================================== */
 .template_luxury {
-  background-color: #07070a !important;
+  background-color: #050508 !important;
   color: #f4f4f5 !important;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Cinzel', serif !important;
 }
 .template_luxury .heroSection {
-  background: radial-gradient(circle at 50% 20%, rgba(245, 158, 11, 0.22) 0%, transparent 60%), linear-gradient(rgba(7, 7, 10, 0.8), rgba(7, 7, 10, 0.95));
+  background: radial-gradient(circle at 50% 20%, rgba(234, 179, 8, 0.3) 0%, transparent 65%), linear-gradient(rgba(5, 5, 8, 0.85), rgba(5, 5, 8, 0.98)) !important;
 }
 .template_luxury .goldFiligree {
-  width: 80px;
+  width: 120px;
   height: 2px;
   background: linear-gradient(90deg, transparent, #eab308, transparent);
   margin: 0 auto 1.25rem auto;
 }
 .template_luxury .heroTitle {
-  font-family: 'Cinzel', Georgia, serif !important;
-  font-weight: 700;
-  background: linear-gradient(135deg, #ffffff 0%, #fef08a 40%, #d97706 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  letter-spacing: 0.02em;
+  font-family: 'Cinzel', serif !important;
+  font-weight: 800 !important;
+  background: linear-gradient(135deg, #ffffff 0%, #fef08a 35%, #eab308 70%, #d97706 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  letter-spacing: 0.05em !important;
 }
 .template_luxury .heroEyebrow {
-  background: rgba(245, 158, 11, 0.15);
-  border: 1px solid rgba(245, 158, 11, 0.6);
-  color: #fef08a;
-  letter-spacing: 0.18em;
-  font-family: 'Cinzel', serif;
+  background: rgba(234, 179, 8, 0.15) !important;
+  border: 1px solid rgba(234, 179, 8, 0.7) !important;
+  color: #fef08a !important;
+  letter-spacing: 0.2em !important;
+  font-family: 'Cinzel', serif !important;
+  box-shadow: 0 0 20px rgba(234, 179, 8, 0.3) !important;
 }
 .template_luxury .searchBox {
-  background: #121216 !important;
-  border: 1px solid rgba(234, 179, 8, 0.35) !important;
-  box-shadow: 0 12px 40px rgba(0,0,0,0.85) !important;
-}
-.template_luxury .tabButton {
-  background: #18181f !important;
-  color: #a1a1aa !important;
+  background: #0f0f14 !important;
+  border: 1px solid rgba(234, 179, 8, 0.45) !important;
+  box-shadow: 0 15px 45px rgba(0, 0, 0, 0.9) !important;
 }
 .template_luxury .activeTab {
-  background: #eab308 !important;
-  color: #000 !important;
-  font-weight: 800 !important;
-}
-.template_luxury .searchInput,
-.template_luxury .searchSelect {
-  background: #18181f !important;
-  border-color: rgba(234, 179, 8, 0.25) !important;
-  color: #fef08a !important;
-}
-.template_luxury .featuredHeader h2 {
-  font-family: 'Cinzel', serif;
-  color: #fef08a;
-}
-.template_luxury .sectionCategoryTag {
-  display: block;
-  font-size: 0.75rem;
-  font-family: 'Cinzel', serif;
-  letter-spacing: 0.2em;
-  color: #eab308;
-  margin-bottom: 0.25rem;
+  background: linear-gradient(135deg, #fef08a, #eab308) !important;
+  color: #000000 !important;
+  font-weight: 900 !important;
+  font-family: 'Cinzel', serif !important;
 }
 .template_luxury .vehicleCard {
-  background: #101014 !important;
-  border: 1px solid rgba(234, 179, 8, 0.25) !important;
-  border-radius: 12px;
+  background: #0d0d12 !important;
+  border: 1px solid rgba(234, 179, 8, 0.3) !important;
+  border-radius: 12px !important;
 }
 .template_luxury .vehicleCard:hover {
   border-color: #eab308 !important;
-  box-shadow: 0 15px 35px rgba(245, 158, 11, 0.2) !important;
+  box-shadow: 0 15px 35px rgba(234, 179, 8, 0.3) !important;
 }
 .template_luxury .vehicleTitle {
-  font-family: 'Cinzel', serif;
-  font-size: 1.1rem;
+  font-family: 'Cinzel', serif !important;
+  font-size: 1.15rem !important;
+  letter-spacing: 0.02em !important;
 }
 .template_luxury .vehiclePrice {
   color: #fef08a !important;
   font-family: 'Cinzel', serif !important;
-  font-weight: 700;
-}
-.template_luxury .luxuryTag {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  background: linear-gradient(135deg, #fef08a, #eab308);
-  color: #000;
-  font-size: 0.65rem;
-  font-weight: 900;
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-  letter-spacing: 0.05em;
+  font-weight: 800 !important;
+  text-shadow: 0 0 10px rgba(254, 240, 138, 0.4) !important;
 }
 
 /* ==========================================================================
-   TEMPLATE 4: SPORT RACING & DYNAMIC (PREMIUM ⭐)
+   TEMPLATE 4: SPORT RACING & DYNAMIC (PREMIUM ⭐ 🏎️)
    ========================================================================== */
 .template_sport {
-  background-color: #0a0e17 !important;
+  background-color: #090d16 !important;
   color: #e2e8f0 !important;
   font-family: 'Space Grotesk', sans-serif !important;
 }
 .template_sport .heroSection {
-  background: repeating-linear-gradient(45deg, rgba(239, 68, 68, 0.06), rgba(239, 68, 68, 0.06) 12px, transparent 12px, transparent 24px), linear-gradient(rgba(10, 14, 23, 0.75), rgba(10, 14, 23, 0.95));
+  background: repeating-linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0px, rgba(239, 68, 68, 0.08) 15px, transparent 15px, transparent 30px), linear-gradient(rgba(9, 13, 22, 0.8), rgba(9, 13, 22, 0.98)) !important;
 }
 .template_sport .heroTitle {
   font-family: 'Space Grotesk', sans-serif !important;
-  font-style: italic;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: -0.03em;
-  color: white;
-  text-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+  font-style: italic !important;
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+  letter-spacing: -0.02em !important;
+  color: #ffffff !important;
+  text-shadow: 0 0 25px rgba(239, 68, 68, 0.6) !important;
 }
 .template_sport .heroEyebrow {
-  background: #ef4444;
-  color: white;
-  transform: skewX(-12deg);
-  box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
-  font-style: italic;
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  transform: skewX(-12deg) !important;
+  box-shadow: 0 0 25px rgba(239, 68, 68, 0.7) !important;
+  font-style: italic !important;
+  font-weight: 900 !important;
 }
 .template_sport .searchBox {
-  background: #141a26 !important;
+  background: #121824 !important;
   border: 2px solid #ef4444 !important;
-  border-radius: 4px !important;
-  border-left: 6px solid #ef4444 !important;
+  border-radius: 6px !important;
+  border-left: 8px solid #ef4444 !important;
+  box-shadow: 0 10px 30px rgba(239, 68, 68, 0.25) !important;
 }
 .template_sport .tabButton {
-  border-radius: 4px 4px 0 0 !important;
-  transform: skewX(-8deg);
-  background: #141a26 !important;
+  transform: skewX(-8deg) !important;
+  background: #121824 !important;
+  font-style: italic !important;
+  font-weight: 700 !important;
 }
 .template_sport .activeTab {
   background: #ef4444 !important;
-  color: white !important;
-}
-.template_sport .searchInput,
-.template_sport .searchSelect {
-  background: #0d121c !important;
-  border-color: #2d3748 !important;
-  color: white !important;
-  border-radius: 4px !important;
-}
-.template_sport .featuredHeader h2 {
-  font-family: 'Space Grotesk', sans-serif;
-  font-style: italic;
-  text-transform: uppercase;
-}
-.template_sport .sectionCategoryTag {
-  display: block;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.15em;
-  color: #ef4444;
-  font-style: italic;
-  margin-bottom: 0.2rem;
+  color: #ffffff !important;
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.6) !important;
 }
 .template_sport .vehicleCard {
-  background: #141a26 !important;
-  border: 1px solid #2d3748 !important;
+  background: #121824 !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
   border-radius: 8px !important;
+  border-left: 4px solid #ef4444 !important;
 }
 .template_sport .vehicleCard:hover {
   border-color: #ef4444 !important;
-  transform: translateY(-8px) skewX(-1.5deg) !important;
-  box-shadow: 0 15px 35px rgba(239, 68, 68, 0.3) !important;
+  transform: translateY(-8px) skewX(-2deg) !important;
+  box-shadow: 0 15px 40px rgba(239, 68, 68, 0.4) !important;
 }
-.template_sport .vehicleTypeBadge {
-  background-color: #ef4444;
-  color: white;
-  border-radius: 2px;
-  font-style: italic;
-}
-.template_sport .sportTag {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  background-color: #06b6d4;
-  color: #000;
-  font-size: 0.65rem;
-  font-weight: 900;
-  padding: 0.2rem 0.5rem;
-  border-radius: 2px;
-  font-style: italic;
+.template_sport .vehicleTitle {
+  font-family: 'Space Grotesk', sans-serif !important;
+  font-style: italic !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
 }
 .template_sport .vehiclePrice {
   color: #ef4444 !important;
   font-family: 'Space Grotesk', sans-serif !important;
-  font-style: italic;
+  font-style: italic !important;
+  font-weight: 900 !important;
+  font-size: 1.3rem !important;
 }
 
 /* ==========================================================================
-   TEMPLATE 5: MINIMAL TECH / TESLA VIBE (PREMIUM ⭐)
+   TEMPLATE 5: MINIMAL TECH / TESLA VIBE (PREMIUM ⭐ ⚡)
    ========================================================================== */
 .template_tech {
-  background-color: #f8fafc !important;
-  color: #0f172a !important;
+  background-color: #080c16 !important;
+  color: #f8fafc !important;
   font-family: 'Outfit', sans-serif !important;
 }
-:global(.theme-dark-dim) .template_tech,
-:global(.theme-dark-black) .template_tech {
-  background-color: #0b0f19 !important;
-  color: #f8fafc !important;
-}
 .template_tech .heroSection {
-  background: linear-gradient(rgba(15, 23, 42, 0.65), rgba(15, 23, 42, 0.85));
+  background: linear-gradient(180deg, rgba(8, 12, 22, 0.7) 0%, rgba(8, 12, 22, 0.95) 100%) !important;
 }
 .template_tech .heroEyebrow {
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  color: white;
-  font-weight: 700;
-  backdrop-filter: blur(10px);
+  background: rgba(6, 182, 212, 0.15) !important;
+  border: 1px solid rgba(6, 182, 212, 0.5) !important;
+  color: #06b6d4 !important;
+  font-weight: 800 !important;
+  border-radius: 9999px !important;
 }
 .template_tech .heroTitle {
   font-family: 'Outfit', sans-serif !important;
-  font-weight: 900;
-  letter-spacing: -0.04em;
+  font-weight: 900 !important;
+  letter-spacing: -0.04em !important;
 }
 .template_tech .searchBox {
   border-radius: 9999px !important;
   padding: 0.6rem 1.25rem !important;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15) !important;
+  border: 1px solid rgba(6, 182, 212, 0.3) !important;
+  box-shadow: 0 0 30px rgba(6, 182, 212, 0.2) !important;
 }
-.template_tech .tabButton {
+.template_tech .activeTab {
+  background: #06b6d4 !important;
+  color: #000000 !important;
+  font-weight: 800 !important;
   border-radius: 9999px !important;
-  margin-right: 0.25rem;
 }
 .template_tech .vehicleCard {
   border-radius: 24px !important;
-  border: 1px solid rgba(226, 232, 240, 0.8) !important;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.04) !important;
-}
-:global(.theme-dark-dim) .template_tech .vehicleCard,
-:global(.theme-dark-black) .template_tech .vehicleCard {
-  border-color: rgba(255, 255, 255, 0.1) !important;
-  background: #131926 !important;
+  border: 1px solid rgba(6, 182, 212, 0.25) !important;
+  background: #0e1424 !important;
 }
 .template_tech .vehicleCard:hover {
-  box-shadow: 0 25px 45px rgba(0,0,0,0.12) !important;
-  transform: translateY(-5px) !important;
+  border-color: #06b6d4 !important;
+  box-shadow: 0 15px 40px rgba(6, 182, 212, 0.25) !important;
+  transform: translateY(-6px) !important;
+}
+.template_tech .vehiclePrice {
+  color: #06b6d4 !important;
+  font-weight: 900 !important;
 }
 
 /* ==========================================================================
-   TEMPLATE 6: EDITORIAL MOTORS MAGAZINE (PREMIUM ⭐)
+   TEMPLATE 6: EDITORIAL MOTORS MAGAZINE (PREMIUM ⭐ 📰)
    ========================================================================== */
 .template_editorial {
-  background-color: #0d0f14 !important;
+  background-color: #0a0b0e !important;
   color: #f1f5f9 !important;
   font-family: 'Syne', sans-serif !important;
 }
 .template_editorial .heroSection {
   text-align: left !important;
-  background: linear-gradient(to right, rgba(13, 15, 20, 0.95) 0%, rgba(13, 15, 20, 0.4) 100%);
+  background: linear-gradient(to right, rgba(10, 11, 14, 0.98) 0%, rgba(10, 11, 14, 0.5) 100%) !important;
   padding: 4rem 2.5rem !important;
   max-width: 1280px;
   margin: 1.5rem auto !important;
-  border-radius: 16px;
-}
-.template_editorial .heroContent {
-  margin: 0 !important;
-  max-width: 780px !important;
 }
 .template_editorial .heroTitle {
   font-family: 'Syne', sans-serif !important;
-  font-size: 3.2rem;
-  line-height: 1.1;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: -0.02em;
+  font-size: 3.2rem !important;
+  line-height: 1.1 !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: -0.02em !important;
 }
 .template_editorial .heroEyebrow {
-  background-color: transparent;
-  border: 1px solid white;
-  color: white;
-  border-radius: 0;
-  letter-spacing: 0.2em;
+  background-color: transparent !important;
+  border: 1px solid #8b5cf6 !important;
+  color: #8b5cf6 !important;
+  border-radius: 0px !important;
+  letter-spacing: 0.2em !important;
+  font-weight: 800 !important;
 }
-.template_editorial .sectionCategoryTag {
-  display: block;
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.2em;
-  color: var(--primary);
-  margin-bottom: 0.3rem;
-  font-family: 'Syne', sans-serif;
-}
-.template_editorial .featuredHeader h2 {
-  font-family: 'Syne', sans-serif;
-  font-size: 2.2rem;
-  text-transform: uppercase;
+.template_editorial .activeTab {
+  background: #8b5cf6 !important;
+  color: #ffffff !important;
+  border-radius: 0px !important;
+  font-weight: 800 !important;
 }
 .template_editorial .vehicleCard {
-  border-radius: 0 !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  background: #141720 !important;
+  border-radius: 0px !important;
+  border: 1px solid rgba(139, 92, 246, 0.3) !important;
+  background: #12141c !important;
 }
-.template_editorial .imageWrapper {
-  height: 250px;
+.template_editorial .vehicleCard:hover {
+  border-color: #8b5cf6 !important;
+  box-shadow: 0 15px 35px rgba(139, 92, 246, 0.3) !important;
 }
 .template_editorial .vehicleTitle {
-  font-family: 'Syne', sans-serif;
-  font-size: 1.2rem;
-  text-transform: uppercase;
+  font-family: 'Syne', sans-serif !important;
+  font-size: 1.2rem !important;
+  text-transform: uppercase !important;
+}
+.template_editorial .vehiclePrice {
+  color: #8b5cf6 !important;
+  font-family: 'Syne', sans-serif !important;
+  font-weight: 800 !important;
 }
 
 /* ==========================================================================
    RESPONSIVE DESIGN (MOBILE OPTIMIZATION)
    ========================================================================== */
+@media (max-width: 992px) {
+  .contactContainer {
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+  }
+}
+
 @media (max-width: 768px) {
   .heroSection {
     min-height: auto;
@@ -1246,3 +1481,611 @@
     padding: 3rem 1.25rem !important;
   }
 }
+
+/* ==========================================================================
+   OFFICIAL 6 THEMES SYSTEM (REPORTE DE DISEÑO FRONTEND)
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   THEME 01: EXECUTIVE MOTORS
+   -------------------------------------------------------------------------- */
+.homeContainer[data-theme="executive"], .tmpl-executive, .template_executive {
+  font-family: 'Inter', sans-serif;
+  background-color: #ffffff !important;
+  color: #111318 !important;
+}
+.homeContainer[data-theme="executive"] .navbar {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-bottom: 1px solid #E4E7EB !important;
+  box-shadow: 0 1px 12px rgba(0, 0, 0, 0.05) !important;
+}
+.homeContainer[data-theme="executive"] .heroSection {
+  background: linear-gradient(135deg, #ffffff 0%, #F5F6F7 100%) !important;
+  color: #111318 !important;
+  min-height: 540px;
+}
+.homeContainer[data-theme="executive"] .heroTitle,
+.homeContainer[data-theme="executive"] .featuredHeader h2,
+.homeContainer[data-theme="executive"] h1,
+.homeContainer[data-theme="executive"] h2,
+.homeContainer[data-theme="executive"] h3 {
+  font-family: 'Manrope', sans-serif !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.035em !important;
+  color: #111318 !important;
+}
+.homeContainer[data-theme="executive"] .heroSubtitle,
+.homeContainer[data-theme="executive"] .specLabel {
+  color: #68707C !important;
+}
+.homeContainer[data-theme="executive"] .heroEyebrow {
+  background: transparent !important;
+  color: #17212F !important;
+  border: 1px solid #E4E7EB !important;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+.homeContainer[data-theme="executive"] .tabButton.activeTab {
+  background-color: #17212F !important;
+  color: #ffffff !important;
+}
+.homeContainer[data-theme="executive"] .featuredSection,
+.homeContainer[data-theme="executive"] .aboutSection,
+.homeContainer[data-theme="executive"] .contactSection {
+  background-color: #ffffff !important;
+  color: #111318 !important;
+}
+.homeContainer[data-theme="executive"] .vehicleCard {
+  border-radius: 12px !important;
+  border: 1px solid #E4E7EB !important;
+  background: #ffffff !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03) !important;
+  transition: transform 180ms ease, box-shadow 180ms ease !important;
+}
+.homeContainer[data-theme="executive"] .vehicleCard:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.07) !important;
+}
+
+/* --------------------------------------------------------------------------
+   THEME 02: BLACK PERFORMANCE
+   -------------------------------------------------------------------------- */
+.homeContainer[data-theme="performance"], .tmpl-performance, .template_performance {
+  font-family: 'Inter', sans-serif;
+  background-color: #0B0C0E !important;
+  color: #F5F5F5 !important;
+}
+.homeContainer[data-theme="performance"] .navbar {
+  background: rgba(11, 12, 14, 0.95) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+.homeContainer[data-theme="performance"] .heroSection {
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.92) 0%, rgba(0, 0, 0, 0.45) 100%) !important;
+  color: #F5F5F5 !important;
+}
+.homeContainer[data-theme="performance"] .heroTitle,
+.homeContainer[data-theme="performance"] .featuredHeader h2,
+.homeContainer[data-theme="performance"] h1,
+.homeContainer[data-theme="performance"] h2,
+.homeContainer[data-theme="performance"] h3 {
+  font-family: 'Sora', sans-serif !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.045em !important;
+  text-transform: uppercase !important;
+  color: #F5F5F5 !important;
+}
+.homeContainer[data-theme="performance"] .heroSubtitle {
+  color: #94979E !important;
+}
+.homeContainer[data-theme="performance"] .heroEyebrow {
+  background: #FF3B30 !important;
+  color: #ffffff !important;
+  border-radius: 4px !important;
+  letter-spacing: 0.12em !important;
+}
+.homeContainer[data-theme="performance"] .featuredSection,
+.homeContainer[data-theme="performance"] .aboutSection,
+.homeContainer[data-theme="performance"] .contactSection {
+  background-color: #0B0C0E !important;
+  color: #F5F5F5 !important;
+}
+.homeContainer[data-theme="performance"] .vehicleCard {
+  background: #151619 !important;
+  border: 1px solid #24262B !important;
+  border-radius: 8px !important;
+}
+.homeContainer[data-theme="performance"] .vehicleCard:hover {
+  border-color: #FF3B30 !important;
+  box-shadow: 0 8px 25px rgba(255, 59, 48, 0.2) !important;
+}
+.homeContainer[data-theme="performance"] .vehicleCard img {
+  transition: transform 350ms ease !important;
+}
+.homeContainer[data-theme="performance"] .vehicleCard:hover img {
+  transform: scale(1.025) !important;
+}
+.homeContainer[data-theme="performance"] .tabButton.activeTab {
+  background-color: #FF3B30 !important;
+  color: #ffffff !important;
+}
+
+/* --------------------------------------------------------------------------
+   THEME 03: SCANDINAVIAN AUTO
+   -------------------------------------------------------------------------- */
+.homeContainer[data-theme="scandinavian"], .tmpl-scandinavian, .template_scandinavian {
+  font-family: 'DM Sans', sans-serif;
+  background-color: #FAFAF8 !important;
+  color: #20221F !important;
+}
+.homeContainer[data-theme="scandinavian"] .navbar {
+  background: rgba(250, 250, 248, 0.92) !important;
+  backdrop-filter: blur(16px) !important;
+  border-bottom: 1px solid #EFEFEA !important;
+}
+.homeContainer[data-theme="scandinavian"] .heroSection {
+  background-color: #FAFAF8 !important;
+  color: #20221F !important;
+  padding: 6rem 2rem !important;
+}
+.homeContainer[data-theme="scandinavian"] .heroTitle,
+.homeContainer[data-theme="scandinavian"] .featuredHeader h2,
+.homeContainer[data-theme="scandinavian"] h1,
+.homeContainer[data-theme="scandinavian"] h2,
+.homeContainer[data-theme="scandinavian"] h3 {
+  font-family: 'DM Sans', sans-serif !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.045em !important;
+  color: #20221F !important;
+}
+.homeContainer[data-theme="scandinavian"] .heroSubtitle {
+  color: #74766F !important;
+}
+.homeContainer[data-theme="scandinavian"] .heroEyebrow {
+  background: #E7EAE5 !important;
+  color: #33443C !important;
+  border-radius: 999px !important;
+}
+.homeContainer[data-theme="scandinavian"] .tabButton {
+  border-radius: 999px !important;
+  padding: 0.5rem 1.25rem !important;
+}
+.homeContainer[data-theme="scandinavian"] .tabButton.activeTab {
+  background-color: #33443C !important;
+  color: #ffffff !important;
+}
+.homeContainer[data-theme="scandinavian"] .featuredSection,
+.homeContainer[data-theme="scandinavian"] .aboutSection,
+.homeContainer[data-theme="scandinavian"] .contactSection {
+  background-color: #FAFAF8 !important;
+  color: #20221F !important;
+}
+.homeContainer[data-theme="scandinavian"] .vehicleCard {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+.homeContainer[data-theme="scandinavian"] .vehicleCard .imageWrapper {
+  border-radius: 14px !important;
+  overflow: hidden !important;
+}
+.homeContainer[data-theme="scandinavian"] .vehicleCard:hover {
+  transform: translateY(-2px) !important;
+}
+
+/* --------------------------------------------------------------------------
+   THEME 04: HERITAGE AUTOMOTIVE
+   -------------------------------------------------------------------------- */
+.homeContainer[data-theme="heritage"], .tmpl-heritage, .template_heritage {
+  font-family: 'Inter', sans-serif;
+  background-color: #F4F0E8 !important;
+  color: #24211D !important;
+}
+.homeContainer[data-theme="heritage"] .navbar {
+  background: #FCFAF5 !important;
+  border-bottom: 1px solid #D8D1C5 !important;
+}
+.homeContainer[data-theme="heritage"] .heroSection {
+  background-color: #F4F0E8 !important;
+  color: #24211D !important;
+}
+.homeContainer[data-theme="heritage"] .heroTitle,
+.homeContainer[data-theme="heritage"] .featuredHeader h2,
+.homeContainer[data-theme="heritage"] .vehiclePrice,
+.homeContainer[data-theme="heritage"] h1,
+.homeContainer[data-theme="heritage"] h2 {
+  font-family: 'Libre Baskerville', Georgia, serif !important;
+  color: #24211D !important;
+}
+.homeContainer[data-theme="heritage"] .heroSubtitle {
+  color: #777168 !important;
+}
+.homeContainer[data-theme="heritage"] .heroEyebrow {
+  background: #8A3024 !important;
+  color: #ffffff !important;
+  border-radius: 2px !important;
+}
+.homeContainer[data-theme="heritage"] .tabButton.activeTab {
+  background-color: #292924 !important;
+  color: #ffffff !important;
+}
+.homeContainer[data-theme="heritage"] .featuredSection,
+.homeContainer[data-theme="heritage"] .aboutSection,
+.homeContainer[data-theme="heritage"] .contactSection {
+  background-color: #F4F0E8 !important;
+  color: #24211D !important;
+}
+.homeContainer[data-theme="heritage"] .vehicleCard {
+  background: #FCFAF5 !important;
+  border: 1px solid #D8D1C5 !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+}
+.homeContainer[data-theme="heritage"] .vehicleCard:hover {
+  border-color: #8A3024 !important;
+}
+
+/* --------------------------------------------------------------------------
+   THEME 05: URBAN DRIVE
+   -------------------------------------------------------------------------- */
+.homeContainer[data-theme="urban"], .tmpl-urban, .template_urban {
+  font-family: 'Inter', sans-serif;
+  background-color: #F7F8FA !important;
+  color: #111827 !important;
+}
+.homeContainer[data-theme="urban"] .navbar {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-bottom: 1px solid #EAECF0 !important;
+}
+.homeContainer[data-theme="urban"] .heroSection {
+  background: #ffffff !important;
+  border-radius: 32px !important;
+  margin: 1.5rem auto !important;
+  max-width: 1240px !important;
+  box-shadow: 0 12px 36px rgba(91, 79, 255, 0.08) !important;
+  color: #111827 !important;
+}
+.homeContainer[data-theme="urban"] .heroTitle,
+.homeContainer[data-theme="urban"] .featuredHeader h2,
+.homeContainer[data-theme="urban"] h1,
+.homeContainer[data-theme="urban"] h2,
+.homeContainer[data-theme="urban"] h3 {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.045em !important;
+  color: #111827 !important;
+}
+.homeContainer[data-theme="urban"] .heroSubtitle {
+  color: #667085 !important;
+}
+.homeContainer[data-theme="urban"] .heroEyebrow {
+  background: #5B4FFF !important;
+  color: #ffffff !important;
+  border-radius: 999px !important;
+}
+.homeContainer[data-theme="urban"] .tabButton {
+  border-radius: 999px !important;
+}
+.homeContainer[data-theme="urban"] .tabButton.activeTab {
+  background-color: #5B4FFF !important;
+  color: #ffffff !important;
+}
+.homeContainer[data-theme="urban"] .featuredSection,
+.homeContainer[data-theme="urban"] .aboutSection,
+.homeContainer[data-theme="urban"] .contactSection {
+  background-color: #F7F8FA !important;
+  color: #111827 !important;
+}
+.homeContainer[data-theme="urban"] .vehicleCard {
+  background: #ffffff !important;
+  border: 1px solid #EAECF0 !important;
+  border-radius: 20px !important;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.05) !important;
+  transition: transform 200ms ease, box-shadow 200ms ease !important;
+}
+.homeContainer[data-theme="urban"] .vehicleCard:hover {
+  transform: translateY(-4px) !important;
+  box-shadow: 0 16px 36px rgba(91, 79, 255, 0.12) !important;
+}
+
+/* --------------------------------------------------------------------------
+   THEME 06: LOCAL TRUST
+   -------------------------------------------------------------------------- */
+.homeContainer[data-theme="local-trust"], .tmpl-local-trust, .template_local-trust {
+  font-family: 'Inter', sans-serif;
+  background-color: #ffffff !important;
+  color: #1E293B !important;
+}
+.homeContainer[data-theme="local-trust"] .navbar {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-bottom: 1px solid #E2E8F0 !important;
+}
+.homeContainer[data-theme="local-trust"] .heroSection {
+  background-color: #ffffff !important;
+  color: #1E293B !important;
+}
+.homeContainer[data-theme="local-trust"] .heroTitle {
+  color: #164E63 !important;
+  font-family: 'Nunito Sans', sans-serif !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.03em !important;
+}
+.homeContainer[data-theme="local-trust"] .featuredHeader h2,
+.homeContainer[data-theme="local-trust"] h1,
+.homeContainer[data-theme="local-trust"] h2,
+.homeContainer[data-theme="local-trust"] h3 {
+  font-family: 'Nunito Sans', sans-serif !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.03em !important;
+  color: #1E293B !important;
+}
+.homeContainer[data-theme="local-trust"] .heroSubtitle {
+  color: #64748B !important;
+}
+.homeContainer[data-theme="local-trust"] .locationBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #F7F9FB;
+  border: 1px solid #E2E8F0;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #164E63;
+}
+.homeContainer[data-theme="local-trust"] .heroEyebrow {
+  background: #164E63 !important;
+  color: #ffffff !important;
+  border-radius: 8px !important;
+}
+.homeContainer[data-theme="local-trust"] .tabButton.activeTab {
+  background-color: #164E63 !important;
+  color: #ffffff !important;
+}
+.homeContainer[data-theme="local-trust"] .featuredSection,
+.homeContainer[data-theme="local-trust"] .aboutSection,
+.homeContainer[data-theme="local-trust"] .contactSection {
+  background-color: #ffffff !important;
+  color: #1E293B !important;
+}
+.homeContainer[data-theme="local-trust"] .vehicleCard {
+  background: #ffffff !important;
+  border: 1px solid #E2E8F0 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 14px rgba(22, 78, 99, 0.05) !important;
+}
+.homeContainer[data-theme="local-trust"] .vehicleCard:hover {
+  box-shadow: 0 10px 28px rgba(22, 78, 99, 0.12) !important;
+}
+
+/* Custom UI Additions */
+.techChipsRow {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-top: 0.4rem;
+}
+.techChipsRow span {
+  background: rgba(255, 59, 48, 0.15);
+  color: #FF3B30;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+.commercialBadgesRow {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-top: 0.4rem;
+}
+.commercialBadge {
+  background: #FEF3C7;
+  color: #D97706;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+}
+.urbanChipsContainer {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+}
+.urbanChip {
+  background: #FFFFFF;
+  border: 1px solid #EAECF0;
+  box-shadow: 0 4px 12px rgba(91, 79, 255, 0.08);
+  color: #5B4FFF;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.4rem 1rem;
+  border-radius: 999px;
+}
+.heritageStatBox {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.5rem 0;
+  border-top: 1px solid #D8D1C5;
+  border-bottom: 1px solid #D8D1C5;
+  margin: 1.5rem 0;
+}
+.heritageStatNumber {
+  font-family: 'Libre Baskerville', Georgia, serif;
+  font-size: 4rem;
+  font-weight: 700;
+  color: #8A3024;
+  line-height: 1;
+}
+.heritageStatLabel {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #24211D;
+  max-width: 200px;
+}
+
+/* ==========================================================================
+   GLOBAL VISITOR LIGHT MODE OVERRIDES (AFTER TEMPLATES - HIGHEST CASCADE)
+   ========================================================================== */
+:global(.visitorLightMode) body,
+:global(.visitorLightMode) .homeContainer,
+:global(.visitorLightMode) [class*="template_"],
+:global(.visitorLightMode) [class*="tmpl-"],
+:global(.visitorLightMode) [data-theme] {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+:global(.visitorLightMode) .navbar {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-bottom-color: #e2e8f0 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+}
+
+:global(.visitorLightMode) .navLink,
+:global(.visitorLightMode) .navLinks a,
+:global(.visitorLightMode) .brandTitle,
+:global(.visitorLightMode) .logo span {
+  color: #0f172a !important;
+  opacity: 1 !important;
+}
+
+:global(.visitorLightMode) .featuredSection,
+:global(.visitorLightMode) .aboutSection,
+:global(.visitorLightMode) .contactSection {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+:global(.visitorLightMode) .featuredHeader h2,
+:global(.visitorLightMode) .aboutContent h2,
+:global(.visitorLightMode) .contactInfoCol h2,
+:global(.visitorLightMode) .contactForm h3 {
+  color: #0f172a !important;
+}
+
+:global(.visitorLightMode) .featuredHeader p,
+:global(.visitorLightMode) .viewAll,
+:global(.visitorLightMode) .sectionCategoryTag,
+:global(.visitorLightMode) .aboutHighlight,
+:global(.visitorLightMode) .aboutText,
+:global(.visitorLightMode) .contactDesc,
+:global(.visitorLightMode) .contactDetailItem p {
+  color: #334155 !important;
+  opacity: 1 !important;
+}
+
+:global(.visitorLightMode) .searchBarContainer,
+:global(.visitorLightMode) .searchBar,
+:global(.visitorLightMode) .filterBar,
+:global(.visitorLightMode) .searchBox {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+}
+
+:global(.visitorLightMode) .searchInput,
+:global(.visitorLightMode) .searchSelect,
+:global(.visitorLightMode) .filterSelect,
+:global(.visitorLightMode) .filterInput {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+:global(.visitorLightMode) .tabButton {
+  background-color: #f1f5f9 !important;
+  color: #475569 !important;
+  border-color: #cbd5e1 !important;
+}
+
+:global(.visitorLightMode) .activeTab,
+:global(.visitorLightMode) .tabButton.activeTab {
+  background-color: var(--primary, #10b981) !important;
+  color: #ffffff !important;
+}
+
+:global(.visitorLightMode) .vehicleCard {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06) !important;
+}
+
+:global(.visitorLightMode) .vehicleCard h3,
+:global(.visitorLightMode) .vehicleCard p,
+:global(.visitorLightMode) .vehicleCard span,
+:global(.visitorLightMode) .vehicleTitle,
+:global(.visitorLightMode) .specValue {
+  color: #0f172a !important;
+}
+
+:global(.visitorLightMode) .specLabel {
+  color: #64748b !important;
+}
+
+:global(.visitorLightMode) .vehiclePrice {
+  color: #059669 !important;
+  text-shadow: none !important;
+}
+
+:global(.visitorLightMode) .pillarCard {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
+  color: #0f172a !important;
+}
+
+:global(.visitorLightMode) .pillarCard h4,
+:global(.visitorLightMode) .pillarCard h3,
+:global(.visitorLightMode) .pillarCard h2,
+:global(.visitorLightMode) .pillarCard strong {
+  color: #0f172a !important;
+  opacity: 1 !important;
+}
+
+:global(.visitorLightMode) .pillarCard p,
+:global(.visitorLightMode) .pillarCard span {
+  color: #475569 !important;
+  opacity: 1 !important;
+}
+
+:global(.visitorLightMode) .contactDetailItem {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04) !important;
+}
+
+:global(.visitorLightMode) .contactDetailItem strong {
+  color: #0f172a !important;
+}
+
+:global(.visitorLightMode) .contactFormCol {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
+}
+
+:global(.visitorLightMode) .formGroup label {
+  color: #1e293b !important;
+}
+
+:global(.visitorLightMode) .formGroup input {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+:global(.visitorLightMode) .formGroup input::placeholder {
+  color: #94a3b8 !important;
+}
+
+

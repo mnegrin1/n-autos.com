@@ -219,7 +219,7 @@ export default function BrandingRequestModal({
                 </label>
                 <div style={{ display: "flex", alignItems: "center" }}>
                   <span style={{
-                    padding: "0.75rem 0.85rem",
+                    padding: "0.75rem 0.65rem",
                     backgroundColor: "rgba(255, 255, 255, 0.05)",
                     border: "1px solid rgba(255, 255, 255, 0.15)",
                     borderRight: "none",
@@ -227,17 +227,17 @@ export default function BrandingRequestModal({
                     fontSize: "0.85rem",
                     opacity: 0.7
                   }}>
-                    n-autos.com/portal/
+                    https://
                   </span>
                   <input
                     type="text"
                     value={requestedSubdomain}
                     onChange={(e) => setRequestedSubdomain(e.target.value)}
-                    placeholder="uruguay-vip"
+                    placeholder="tu-automotora"
                     style={{
-                      width: "100%",
-                      padding: "0.75rem 1rem",
-                      borderRadius: "0 8px 8px 0",
+                      flex: 1,
+                      padding: "0.75rem 0.75rem",
+                      borderRadius: "0",
                       border: "1px solid rgba(255, 255, 255, 0.15)",
                       backgroundColor: "rgba(0, 0, 0, 0.2)",
                       color: "inherit",
@@ -245,6 +245,18 @@ export default function BrandingRequestModal({
                       outline: "none"
                     }}
                   />
+                  <span style={{
+                    padding: "0.75rem 0.65rem",
+                    backgroundColor: "rgba(255, 255, 255, 0.05)",
+                    border: "1px solid rgba(255, 255, 255, 0.15)",
+                    borderLeft: "none",
+                    borderRadius: "0 8px 8px 0",
+                    fontSize: "0.85rem",
+                    color: "var(--primary)",
+                    fontWeight: 700
+                  }}>
+                    .n-autos.com
+                  </span>
                 </div>
                 <span style={{ fontSize: "0.75rem", opacity: 0.6, marginTop: "0.25rem", display: "block" }}>
                   Subdominio actual: <strong>{currentSubdomain}</strong>

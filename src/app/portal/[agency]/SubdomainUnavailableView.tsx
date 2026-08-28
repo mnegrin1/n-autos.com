@@ -106,7 +106,7 @@ export default function SubdomainUnavailableView({
         >
           {isNotFound
             ? `El subdominio '${oldSubdomain}' no está vinculado a ninguna automotora activa en nuestra plataforma.`
-            : `El subdominio '${oldSubdomain}.n-sistemas.com' ya no está activo porque la concesionaria actualizó su dirección oficial.`}
+            : `El subdominio '${oldSubdomain}.n-autos.com' ya no está activo porque la concesionaria actualizó su dirección oficial.`}
         </p>
 
         {newSubdomain && (
@@ -128,7 +128,7 @@ export default function SubdomainUnavailableView({
               Nueva dirección oficial disponible:
             </span>
             <a
-              href={`https://${newSubdomain}.n-sistemas.com`}
+              href={`https://${newSubdomain}.n-autos.com`}
               style={{
                 fontSize: "1.1rem",
                 fontWeight: 800,
@@ -140,7 +140,7 @@ export default function SubdomainUnavailableView({
               }}
             >
               <Globe size={18} />
-              {newSubdomain}.n-sistemas.com
+              {newSubdomain}.n-autos.com
               <ArrowRight size={18} />
             </a>
           </div>
@@ -149,7 +149,7 @@ export default function SubdomainUnavailableView({
         <div style={{ display: "flex", gap: "1rem", marginTop: "1rem", flexWrap: "wrap", justifyContent: "center" }}>
           {newSubdomain ? (
             <a
-              href={`https://${newSubdomain}.n-sistemas.com`}
+              href={`https://${newSubdomain}.n-autos.com`}
               style={{
                 backgroundColor: "#10b981",
                 color: "#022c22",

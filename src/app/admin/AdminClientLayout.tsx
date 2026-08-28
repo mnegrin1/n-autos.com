@@ -35,6 +35,8 @@ import ComposeEmailModal from "@/components/ComposeEmailModal";
 import QuickSearchModal from "@/components/QuickSearchModal";
 import SupportModal from "@/components/SupportModal";
 import SessionGuard from "@/components/SessionGuard";
+import ServiceWorkerRegister from "@/components/PWA/ServiceWorkerRegister";
+import MobileBottomNav from "@/components/PWA/MobileBottomNav";
 import { notifySessionEvent, getCurrentClientSession } from "@/lib/sessionHelper";
 import { isFeatureEnabledForUser, subscribeFeatureFlags } from "@/lib/featureFlagsStore";
 import { getTenantSession, subscribeTenantSession, syncTenantSessionForUser, TenantSession } from "@/lib/tenantStore";
@@ -77,9 +79,11 @@ export default function AdminClientLayout({
   const [agencyBranding, setAgencyBranding] = useState<{
     name: string;
     logoUrl: string;
+    subdomain: string;
   }>({
     name: tenantSession.agencyName || "Automotora VIP",
-    logoUrl: ""
+    logoUrl: "",
+    subdomain: tenantSession.subdomain || "demo"
   });
 
   useEffect(() => {
@@ -116,7 +120,8 @@ export default function AdminClientLayout({
         if (agency && isMounted) {
           const name = agency.name || tenantSession.agencyName || "Automotora VIP";
           const logoUrl = agency.logo_url || "";
-          setAgencyBranding({ name, logoUrl });
+          const subdomain = agency.subdomain || tenantSession.subdomain || "demo";
+          setAgencyBranding({ name, logoUrl, subdomain });
           updateFaviconAndTitle(logoUrl, name);
         }
       } catch (err) {
@@ -130,8 +135,9 @@ export default function AdminClientLayout({
       setAgencyBranding(prev => {
         const nextName = detail.name !== undefined && detail.name !== "" ? detail.name : prev.name;
         const nextLogo = detail.logo_url !== undefined ? detail.logo_url : prev.logoUrl;
+        const nextSubdomain = detail.subdomain !== undefined ? detail.subdomain : prev.subdomain;
         updateFaviconAndTitle(nextLogo, nextName);
-        return { name: nextName, logoUrl: nextLogo };
+        return { name: nextName, logoUrl: nextLogo, subdomain: nextSubdomain };
       });
     }
 
@@ -170,6 +176,35 @@ export default function AdminClientLayout({
   const userEmail = initialUser?.email || clientSession?.email || tenantSession.adminEmail || "mauricio@automotora.com";
   const userId = initialUser?.id || clientSession?.id || tenantSession.agencyId;
 
+  const rawUserName = initialUser?.name || clientSession?.name || tenantSession.adminName || "";
+  
+  const displayUserName = (() => {
+    if (rawUserName && rawUserName.trim() !== "" && rawUserName !== "Mauricio Negrin") {
+      if (!rawUserName.includes(" ") && rawUserName.toLowerCase() === userEmail.split("@")[0].toLowerCase()) {
+        const handle = rawUserName.replace(/[._-]/g, " ");
+        return handle.split(" ").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+      }
+      return rawUserName;
+    }
+    if (initialUser?.name) return initialUser.name;
+    if (clientSession?.name) return clientSession.name;
+    if (tenantSession.adminName) return tenantSession.adminName;
+    if (userEmail && userEmail.includes("@")) {
+      const handle = userEmail.split("@")[0].replace(/[._-]/g, " ");
+      return handle.split(" ").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+    }
+    return "Mauricio Negrin";
+  })();
+
+  const getInitials = (name: string): string => {
+    if (!name || name.trim() === "") return "U";
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
   useEffect(() => {
     const unsubscribe = subscribeFeatureFlags(() => {
       setFeaturesVersion(v => v + 1);
@@ -192,11 +227,12 @@ export default function AdminClientLayout({
 
     const theme = localStorage.getItem("crm-theme") || "light";
     setCurrentTheme(theme);
-    const pattern = localStorage.getItem("crm-bg-pattern") || "solid";
-    document.documentElement.className = "";
+    const pattern = localStorage.getItem("crm-bg-pattern") || "topography";
     document.documentElement.classList.add("theme-" + theme);
-    if (pattern === "topography") {
+    if (pattern === "topography" || !pattern) {
       document.documentElement.classList.add("bg-pattern-topography");
+    } else if (pattern === "gradient" || pattern === "emerald") {
+      document.documentElement.classList.add("bg-pattern-gradient");
     }
 
     const zoom = localStorage.getItem("crm-zoom") || "100%";
@@ -254,22 +290,26 @@ export default function AdminClientLayout({
     }
   };
 
-  const handleLogout = async () => {
-    if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
-      try {
-        if (typeof window !== "undefined") {
-          sessionStorage.clear();
-          localStorage.removeItem("n_sistemas_tenant_session_v1");
-          localStorage.removeItem("n_sistemas_session_event");
-        }
-        notifySessionEvent("LOGOUT");
-        document.cookie = "admin-session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;";
-        await logout();
-      } catch (e) {
-        console.error("Error cerrando sesión:", e);
-      }
-      window.location.href = "/admin/login";
+  const handleLogout = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
     }
+    try {
+      if (typeof window !== "undefined") {
+        sessionStorage.clear();
+        localStorage.removeItem("n_sistemas_tenant_session_v1");
+        localStorage.removeItem("n_sistemas_session_event");
+        localStorage.removeItem("n_sistemas_tab_user_id");
+        localStorage.removeItem("n_sistemas_tab_user_email");
+      }
+      notifySessionEvent("LOGOUT");
+      document.cookie = "admin-session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;";
+      document.cookie = "admin-session=; path=/; max-age=0;";
+      await logout();
+    } catch (err) {
+      console.error("Error cerrando sesión:", err);
+    }
+    window.location.href = "/admin/login";
   };
   const isAuthPage = pathname === "/admin/login" || pathname === "/admin/accept-invite";
 
@@ -605,10 +645,36 @@ export default function AdminClientLayout({
               {isExpanded && <span>Publicaciones</span>}
             </Link>
           )}
-          <Link href="/admin/website" title="Página Web" className={`${styles.navLink} ${pathname.startsWith("/admin/website") ? styles.activeNavLink : ""}`}>
-            <Globe size={18} style={{ flexShrink: 0 }} />
-            {isExpanded && <span>Página Web</span>}
-          </Link>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", width: "100%" }}>
+            <Link href="/admin/website" title="Página Web" className={`${styles.navLink} ${pathname.startsWith("/admin/website") ? styles.activeNavLink : ""}`} style={{ flex: 1, minWidth: 0 }}>
+              <Globe size={18} style={{ flexShrink: 0 }} />
+              {isExpanded && <span>Página Web</span>}
+            </Link>
+            {isExpanded && (
+              <a
+                href={typeof window !== "undefined" && window.location.hostname.endsWith(".localhost")
+                  ? `http://${agencyBranding.subdomain || "demo"}.localhost:3000`
+                  : `https://${agencyBranding.subdomain || "demo"}.n-autos.com`}
+
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`Abrir ${agencyBranding.subdomain || "demo"}.n-autos.com en vivo`}
+                style={{
+                  fontSize: "0.72rem",
+                  fontWeight: 800,
+                  color: "var(--primary)",
+                  backgroundColor: "rgba(16, 185, 129, 0.14)",
+                  padding: "0.25rem 0.5rem",
+                  borderRadius: "6px",
+                  textDecoration: "none",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0
+                }}
+              >
+                ↗ Web
+              </a>
+            )}
+          </div>
           {isFeatureEnabledForUser("crm", userEmail) && (
             <Link href="/admin/crm" title="Contactos" className={`${styles.navLink} ${pathname.startsWith("/admin/crm") ? styles.activeNavLink : ""}`}>
               <Users size={18} style={{ flexShrink: 0 }} />
@@ -643,17 +709,23 @@ export default function AdminClientLayout({
             <div 
               style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", flex: 1, minWidth: 0 }}
               onClick={() => setShowDropdown(!showDropdown)}
-              title="Cuenta de Usuario"
+              title={`Cuenta de ${displayUserName}`}
             >
               <div className={styles.avatar} style={{ width: "30px", height: "30px", fontSize: "0.8rem", flexShrink: 0 }}>
-                {(tenantSession.adminName || "MN").substring(0, 2).toUpperCase()}
+                {getInitials(displayUserName)}
               </div>
               {isExpanded && (
                 <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
-                  <span style={{ fontSize: "0.825rem", fontWeight: 600, color: "var(--text-color)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {tenantSession.adminName || "Mauricio Negrin"}
+                  <span 
+                    title={displayUserName}
+                    style={{ fontSize: "0.825rem", fontWeight: 600, color: "var(--text-color)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                  >
+                    {displayUserName}
                   </span>
-                  <span style={{ fontSize: "0.7rem", color: "var(--text-color)", opacity: 0.6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <span 
+                    title={agencyBranding.name || tenantSession.agencyName || "Automotora"}
+                    style={{ fontSize: "0.7rem", color: "var(--text-color)", opacity: 0.6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                  >
                     {agencyBranding.name || tenantSession.agencyName || "Automotora"}
                   </span>
                 </div>
@@ -718,10 +790,13 @@ export default function AdminClientLayout({
                 onClick={(e) => e.stopPropagation()}
               >
                 <div style={{ padding: "0.5rem", borderBottom: "1px solid var(--border-color)", marginBottom: "0.5rem" }}>
-                  <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-color)", opacity: 0.7, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {tenantSession.adminEmail || "admin@automotora.com"}
+                  <p style={{ margin: 0, fontSize: "0.825rem", fontWeight: 700, color: "var(--text-color)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {displayUserName}
                   </p>
-                  <p style={{ margin: 0, fontSize: "0.75rem", fontWeight: 700, color: "var(--primary)", marginTop: "2px" }}>
+                  <p style={{ margin: "2px 0 0 0", fontSize: "0.725rem", color: "var(--text-color)", opacity: 0.7, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {userEmail}
+                  </p>
+                  <p style={{ margin: "2px 0 0 0", fontSize: "0.7rem", fontWeight: 700, color: "var(--primary)" }}>
                     Administrador de Automotora
                   </p>
                 </div>
@@ -765,8 +840,8 @@ export default function AdminClientLayout({
             )}
           </div>
 
-          {/* Cloudflare-style Pin Toggle Button - Static on the left */}
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.25rem 0.25rem 0 0.25rem" }}>
+          {/* Cloudflare-style Pin Toggle Button & n-autos.com Branding Logo */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.25rem 0.25rem 0 0.25rem", width: "100%" }}>
             <button
               type="button"
               onClick={togglePin}
@@ -796,6 +871,56 @@ export default function AdminClientLayout({
             >
               {isPinned ? <PanelLeftClose size={18} /> : <PanelLeft size={18} />}
             </button>
+
+            {isExpanded && (
+              <a
+                href="https://n-autos.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                title="n-autos.com"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "baseline",
+                  gap: "0.05rem",
+                  textDecoration: "none",
+                  padding: "0.25rem 0.4rem",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
+                  userSelect: "none"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "rgba(128,128,128,0.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                }}
+              >
+                <span 
+                  style={{ 
+                    fontFamily: '"Test Tiempos Headline Light", "Test Tiempos Headline Light Placeholder", serif', 
+                    fontSize: "1rem", 
+                    fontWeight: 700, 
+                    color: "var(--text-color)", 
+                    letterSpacing: "-0.01em", 
+                    lineHeight: 1 
+                  }}
+                >
+                  n-autos
+                </span>
+                <span 
+                  style={{ 
+                    fontFamily: '"Test Tiempos Headline Light", "Test Tiempos Headline Light Placeholder", serif', 
+                    fontSize: "0.85rem", 
+                    fontWeight: 400, 
+                    color: currentTheme === "light" ? "#64748b" : "#94a3b8", 
+                    letterSpacing: 0, 
+                    lineHeight: 1 
+                  }}
+                >
+                  .com
+                </span>
+              </a>
+            )}
           </div>
 
         </div>
@@ -833,8 +958,8 @@ export default function AdminClientLayout({
       <SupportModal 
         isOpen={isSupportOpen}
         onClose={() => setIsSupportOpen(false)}
-        userEmail={tenantSession.adminEmail || userEmail}
-        userName={tenantSession.adminName || "Mauricio Negrin"}
+        userEmail={userEmail}
+        userName={displayUserName}
         agencyName={agencyBranding.name || tenantSession.agencyName || "Test-Automotora"}
       />
 
@@ -842,6 +967,9 @@ export default function AdminClientLayout({
         currentUserId={userId} 
         currentUserEmail={userEmail} 
       />
+
+      <ServiceWorkerRegister />
+      <MobileBottomNav />
     </div>
   );
 }

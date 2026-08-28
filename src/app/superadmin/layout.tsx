@@ -20,9 +20,13 @@ import {
   PanelLeft,
   PanelLeftClose,
   BookOpen,
-  ShieldAlert
+  ShieldAlert,
+  MousePointerClick
 } from "lucide-react";
 import { getBrandingRequests, subscribeBrandingRequestStore } from "@/lib/brandingRequestStore";
+import { getLandingInquiries, subscribeInquiries } from "@/lib/inquiryStore";
+import SessionGuard from "@/components/SessionGuard";
+import { getCurrentClientSession, notifySessionEvent } from "@/lib/sessionHelper";
 
 export default function SuperAdminLayout({
   children,
@@ -30,6 +34,11 @@ export default function SuperAdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const isAuthPage = pathname === "/superadmin/login";
+
+  if (isAuthPage) {
+    return <>{children}</>;
+  }
   // Dropdown & Menu states
   const [showDropdown, setShowDropdown] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -46,13 +55,63 @@ export default function SuperAdminLayout({
   const isExpanded = isPinned || isHovered || isMobileMenuOpen;
 
   useEffect(() => {
-    const updateCount = () => {
+    const updateCount = async () => {
+      if (document.hidden) return;
+
       const reqs = getBrandingRequests();
-      setPendingRequestsCount(reqs.filter((r) => r.status === "pending").length);
+      const localInqs = getLandingInquiries();
+      
+      let apiInqs: any[] = [];
+      try {
+        const res = await fetch("/api/landing-inquiries", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.inquiries)) {
+            apiInqs = data.inquiries;
+          }
+        }
+      } catch (e) {}
+
+      const pendingBrand = reqs.filter((r) => r.status === "pending").length;
+      
+      const map = new Map<string, any>();
+
+      const addDeduplicated = (item: any) => {
+        if (!item || !item.id) return;
+        if (!map.has(item.id)) {
+          map.set(item.id, item);
+        }
+      };
+
+      apiInqs.forEach(addDeduplicated);
+      localInqs.forEach(addDeduplicated);
+
+      const pendingInq = Array.from(map.values()).filter(i => i.status === "pending").length;
+      
+      setPendingRequestsCount(pendingBrand + pendingInq);
     };
+
     updateCount();
-    const unsub = subscribeBrandingRequestStore(updateCount);
-    return () => unsub();
+    const interval = setInterval(updateCount, 15000);
+
+    const handleFocusOrVisibility = () => {
+      if (!document.hidden) {
+        updateCount();
+      }
+    };
+
+    window.addEventListener("focus", handleFocusOrVisibility);
+    document.addEventListener("visibilitychange", handleFocusOrVisibility);
+
+    const unsubBrand = subscribeBrandingRequestStore(updateCount);
+    const unsubInq = subscribeInquiries(updateCount);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocusOrVisibility);
+      document.removeEventListener("visibilitychange", handleFocusOrVisibility);
+      unsubBrand();
+      unsubInq();
+    };
   }, []);
 
   // Load pinned preference & theme from localStorage
@@ -114,15 +173,41 @@ export default function SuperAdminLayout({
     }
   };
 
-  const handleLogout = async () => {
-    if (confirm("¿Estás seguro de que deseas cerrar sesión?")) {
-      await logout();
-      window.location.href = "/admin/login";
+  const [sessionUserEmail, setSessionUserEmail] = useState<string>("");
+
+  useEffect(() => {
+    const session = getCurrentClientSession();
+    if (session && session.email) {
+      setSessionUserEmail(session.email);
     }
+  }, []);
+
+  const handleLogout = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    setShowDropdown(false);
+    try {
+      if (typeof window !== "undefined") {
+        sessionStorage.clear();
+        localStorage.removeItem("n_sistemas_tenant_session_v1");
+        localStorage.removeItem("n_sistemas_session_event");
+        localStorage.removeItem("n_sistemas_tab_user_id");
+        localStorage.removeItem("n_sistemas_tab_user_email");
+      }
+      notifySessionEvent("LOGOUT");
+      document.cookie = "admin-session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;";
+      document.cookie = "admin-session=; path=/; max-age=0;";
+      await logout();
+    } catch (err) {
+      console.error("Error cerrando sesión de Superadmin:", err);
+    }
+    window.location.href = "/superadmin/login";
   };
 
   return (
     <div className={styles.adminContainer}>
+      <SessionGuard />
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -164,7 +249,7 @@ export default function SuperAdminLayout({
           {isExpanded && (
             <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", transition: "opacity 0.2s" }}>
               <span style={{ fontSize: "1.1rem", fontWeight: 800, color: "var(--text-color)", letterSpacing: "-0.02em", whiteSpace: "nowrap" }}>
-                N<span style={{ color: "var(--primary)" }}>Sistemas</span>
+                N<span style={{ color: "var(--primary)" }}>Autos</span>
               </span>
               <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--danger, #ef4444)", letterSpacing: "0.05em", textTransform: "uppercase", whiteSpace: "nowrap" }}>
                 Superadmin
@@ -182,11 +267,15 @@ export default function SuperAdminLayout({
             <Building2 size={18} style={{ flexShrink: 0 }} />
             {isExpanded && <span>Organizaciones</span>}
           </Link>
-          <Link href="/superadmin/requests" title="Solicitudes de Cambio" className={`${styles.navLink} ${pathname.startsWith("/superadmin/requests") ? styles.activeNavLink : ""}`}>
+          <Link href="/superadmin/clicks" title="Estadísticas Landing" className={`${styles.navLink} ${pathname.startsWith("/superadmin/clicks") ? styles.activeNavLink : ""}`}>
+            <MousePointerClick size={18} style={{ flexShrink: 0, color: "#3b82f6" }} />
+            {isExpanded && <span>Estadísticas Landing</span>}
+          </Link>
+          <Link href="/superadmin/requests" title="Solicitudes & Consultas" className={`${styles.navLink} ${pathname.startsWith("/superadmin/requests") ? styles.activeNavLink : ""}`}>
             <ShieldAlert size={18} style={{ flexShrink: 0, color: pendingRequestsCount > 0 ? "#ef4444" : "inherit" }} />
             {isExpanded && (
               <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
-                <span>Solicitudes de Cambio</span>
+                <span>Solicitudes & Consultas</span>
                 {pendingRequestsCount > 0 && (
                   <span style={{
                     backgroundColor: "#ef4444",
@@ -224,6 +313,7 @@ export default function SuperAdminLayout({
         <div style={{ marginTop: "auto", padding: "0.6rem", borderTop: "1px solid var(--border-color)", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
           
           <div 
+            ref={dropdownRef}
             style={{ display: "flex", alignItems: "center", position: "relative", padding: "0.4rem", borderRadius: "8px", transition: "background-color 0.2s" }}
             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(128,128,128,0.06)"}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
@@ -231,7 +321,6 @@ export default function SuperAdminLayout({
             <div 
               style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", flex: 1, minWidth: 0 }}
               onClick={() => setShowDropdown(!showDropdown)}
-              ref={dropdownRef}
               title="Cuenta Superadmin"
             >
               <div className={styles.avatar} style={{ width: "30px", height: "30px", fontSize: "0.8rem", flexShrink: 0, backgroundColor: "var(--danger, #ef4444)" }}>SA</div>
@@ -289,18 +378,17 @@ export default function SuperAdminLayout({
                   zIndex: 1000
                 }}
                 onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
               >
                 <div style={{ padding: "0.5rem", borderBottom: "1px solid var(--border-color)", marginBottom: "0.5rem" }}>
-                  <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-color)", opacity: 0.7, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>admin@n-sistemas.com</p>
+                  <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-color)", opacity: 0.7, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sessionUserEmail || "mauricio.negrin@n-sistemas.com"}</p>
                   <p style={{ margin: 0, fontSize: "0.75rem", fontWeight: 600, color: "var(--danger, #ef4444)", marginTop: "2px" }}>Control Total</p>
                 </div>
                 
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
                   <button 
-                    onClick={() => {
-                      setShowDropdown(false);
-                      handleLogout();
-                    }}
+                    onClick={(e) => handleLogout(e)}
+                    onMouseDown={(e) => e.stopPropagation()}
                     style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", fontWeight: 600, color: "var(--error, #ef4444)", background: "none", border: "none", width: "100%", textAlign: "left", padding: "0.5rem", borderRadius: "6px", cursor: "pointer", transition: "background-color 0.2s" }}
                     onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(239, 68, 68, 0.08)"}
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}

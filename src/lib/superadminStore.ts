@@ -25,49 +25,18 @@ export interface SuperAdminAgency {
 const SUPERADMIN_USERS_KEY = "n_sistemas_superadmin_users_v1";
 const SUPERADMIN_AGENCIES_KEY = "n_sistemas_superadmin_agencies_v1";
 
-export const DEFAULT_SUPERADMIN_AGENCIES: SuperAdminAgency[] = [
-  {
-    id: "agency-delsur",
-    name: "Automotores del Sur",
-    subdomain: "delsur",
-    plan: "Premium",
-    users: 5,
-    properties: 124,
-    status: "active",
-    createdAt: "19 Jul 2026"
-  },
-  {
-    id: "tenant-carmax-001",
-    name: "Automotora CarMax Uruguay",
-    subdomain: "carmax",
-    plan: "Starter",
-    users: 1,
-    properties: 14,
-    status: "active",
-    createdAt: "18 Jul 2026"
-  }
-];
+export const DEFAULT_SUPERADMIN_AGENCIES: SuperAdminAgency[] = [];
 
 export const DEFAULT_SUPERADMIN_USERS: SuperAdminUser[] = [
   {
-    id: "user-mauricio",
+    id: "user-superadmin-mauricio",
     name: "Mauricio Negrin",
-    email: "mauricio@automotora.com",
-    agency: "Automotora CarMax Uruguay",
-    agencyId: "tenant-carmax-001",
-    role: "Admin (Agencia)",
-    status: "active",
-    createdAt: "18 Jul 2026"
-  },
-  {
-    id: "user-superadmin",
-    name: "Admin Principal",
-    email: "admin@n-autos.com",
-    agency: "N-Autos (Plataforma)",
-    agencyId: "platform",
+    email: "mauricio.negrin@n-sistemas.com",
+    agency: "N-Sistemas Global Admin",
+    agencyId: "00000000-0000-0000-0000-000000000000",
     role: "Superadmin",
     status: "active",
-    createdAt: "1 Ene 2026"
+    createdAt: new Date().toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric" }),
   }
 ];
 
@@ -89,9 +58,9 @@ export function getRegisteredAgencies(): SuperAdminAgency[] {
   if (typeof window === "undefined") return DEFAULT_SUPERADMIN_AGENCIES;
   try {
     const saved = localStorage.getItem(SUPERADMIN_AGENCIES_KEY);
-    if (saved) {
+    if (saved !== null) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
@@ -105,9 +74,9 @@ export function getRegisteredUsers(): SuperAdminUser[] {
   if (typeof window === "undefined") return DEFAULT_SUPERADMIN_USERS;
   try {
     const saved = localStorage.getItem(SUPERADMIN_USERS_KEY);
-    if (saved) {
+    if (saved !== null) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
@@ -116,6 +85,7 @@ export function getRegisteredUsers(): SuperAdminUser[] {
   }
   return DEFAULT_SUPERADMIN_USERS;
 }
+
 
 export function addRegisteredTenant(params: {
   agencyId: string;
@@ -183,13 +153,24 @@ export function addRegisteredTenant(params: {
   }
 }
 
-export function deleteRegisteredAgency(agencyId: string): void {
+export function deleteRegisteredAgency(agencyIdOrSubdomain: string): void {
   if (typeof window === "undefined") return;
   try {
+    const key = agencyIdOrSubdomain.toLowerCase().trim();
     const currentAgencies = getRegisteredAgencies();
-    const updatedAgencies = currentAgencies.filter((a) => a.id !== agencyId);
+    const updatedAgencies = currentAgencies.filter(
+      (a) =>
+        a.id !== agencyIdOrSubdomain &&
+        a.subdomain.toLowerCase() !== key &&
+        (key !== "carmax" || (a.subdomain !== "carmax" && a.id !== "tenant-carmax-001"))
+    );
+
     const currentUsers = getRegisteredUsers();
-    const updatedUsers = currentUsers.filter((u) => u.agencyId !== agencyId);
+    const updatedUsers = currentUsers.filter(
+      (u) =>
+        u.agencyId !== agencyIdOrSubdomain &&
+        u.agencyId !== "tenant-carmax-001"
+    );
 
     localStorage.setItem(SUPERADMIN_AGENCIES_KEY, JSON.stringify(updatedAgencies));
     localStorage.setItem(SUPERADMIN_USERS_KEY, JSON.stringify(updatedUsers));
@@ -198,6 +179,7 @@ export function deleteRegisteredAgency(agencyId: string): void {
     console.error("Error deleting agency from SuperAdmin store:", e);
   }
 }
+
 
 export function updateRegisteredAgency(agencyId: string, updates: Partial<SuperAdminAgency>): void {
   if (typeof window === "undefined") return;

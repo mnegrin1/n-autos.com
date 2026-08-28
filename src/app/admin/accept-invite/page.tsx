@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { registerUserSession } from "@/actions/authActions";
+import { activateUserAccount } from "@/actions/authActions";
 import { 
   KeyRound, 
   Lock, 
@@ -59,13 +59,13 @@ function AcceptInviteContent() {
     setLoading(true);
 
     try {
-      // Registrar la sesión del usuario invitado
-      const res = await registerUserSession({
-        id: `user-employee-${Date.now()}`,
+      const codeParam = searchParams.get("code") || "";
+      const res = await activateUserAccount({
         email: email,
+        code: codeParam,
+        password: password,
+        agencyId: agencyId,
         name: name,
-        role: "agent",
-        agency_id: agencyId,
       });
 
       if (res.success) {
@@ -80,8 +80,14 @@ function AcceptInviteContent() {
     }
   };
 
+  const isSuperAdminRole = searchParams.get("role") === "superadmin" || email.toLowerCase() === "mauricio.negrin@n-sistemas.com";
+
   const handleGoToDashboard = () => {
-    router.push("/admin");
+    if (isSuperAdminRole) {
+      router.push("/superadmin");
+    } else {
+      router.push("/admin");
+    }
     router.refresh();
   };
 
@@ -276,7 +282,7 @@ function AcceptInviteContent() {
               style={{
                 width: "100%",
                 padding: "1rem",
-                backgroundColor: "#16a34a",
+                backgroundColor: isSuperAdminRole ? "#ef4444" : "#16a34a",
                 color: "#ffffff",
                 border: "none",
                 borderRadius: "12px",
@@ -287,10 +293,10 @@ function AcceptInviteContent() {
                 alignItems: "center",
                 justifyContent: "center",
                 gap: "0.5rem",
-                boxShadow: "0 10px 20px -5px rgba(22, 163, 74, 0.4)"
+                boxShadow: isSuperAdminRole ? "0 10px 20px -5px rgba(239, 68, 68, 0.4)" : "0 10px 20px -5px rgba(22, 163, 74, 0.4)"
               }}
             >
-              Ir al Panel de Ventas <ArrowRight size={18} />
+              {isSuperAdminRole ? "Ir al Panel de Superadmin" : "Ir al Panel de Ventas"} <ArrowRight size={18} />
             </button>
           </div>
         )}

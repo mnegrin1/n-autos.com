@@ -10,7 +10,12 @@ import {
   MessageSquare,
   PhoneCall,
   Unlink2,
-  Link2
+  Link2,
+  Copy,
+  CheckCheck,
+  ExternalLink,
+  Webhook,
+  Shield
 } from "lucide-react";
 import styles from "./integrations.module.css";
 import { updateIntegration, syncMetaConversations } from "@/actions/autoActions";
@@ -51,6 +56,13 @@ export default function IntegrationsClient({
     token: "",
     phoneNumber: ""
   });
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
 
   useEffect(() => {
     if (errorMsg) {
@@ -295,6 +307,117 @@ export default function IntegrationsClient({
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Panel de Configuración Meta para Desarrolladores */}
+      <div style={{
+        backgroundColor: 'var(--surface-color)',
+        border: '1px solid rgba(24, 119, 242, 0.3)',
+        borderRadius: '16px',
+        padding: '1.75rem',
+        boxShadow: 'var(--shadow-sm)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1.25rem'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ width: '38px', height: '38px', borderRadius: '10px', backgroundColor: 'rgba(24, 119, 242, 0.15)', color: '#1877f2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Webhook size={20} />
+          </div>
+          <div>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: 'var(--text-color)' }}>Configuración de Webhooks Meta</h3>
+            <p style={{ fontSize: '0.8rem', opacity: 0.65, margin: 0 }}>Datos necesarios para configurar el App Review y el panel de Meta for Developers.</p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {[
+            {
+              label: 'URL del Webhook (Callback URL)',
+              value: 'https://admin.n-autos.com/api/webhooks/meta',
+              field: 'webhook_url',
+              icon: Webhook,
+              description: 'Registrar esta URL en Meta for Developers › Tu App › Webhooks'
+            },
+            {
+              label: 'Token de Verificación (Verify Token)',
+              value: 'CRM_AUTO_META_TOKEN_12345',
+              field: 'verify_token',
+              icon: Shield,
+              description: 'Usar este token al configurar el webhook en Meta for Developers'
+            },
+            {
+              label: 'OAuth Callback URL (para App Review)',
+              value: 'https://admin.n-autos.com/api/auth/meta/callback',
+              field: 'oauth_callback',
+              icon: ExternalLink,
+              description: 'URL de redireccionamiento OAuth registrada en la app de Meta'
+            }
+          ].map((item) => {
+            const IconComp = item.icon;
+            return (
+              <div key={item.field} style={{
+                backgroundColor: 'var(--bg-color)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '10px',
+                padding: '0.85rem 1rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '1rem',
+                flexWrap: 'wrap'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', flex: 1, minWidth: '200px' }}>
+                  <IconComp size={16} style={{ color: '#1877f2', marginTop: '2px', flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 700, opacity: 0.6, marginBottom: '2px' }}>{item.label}</div>
+                    <code style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-color)', wordBreak: 'break-all' }}>{item.value}</code>
+                    <div style={{ fontSize: '0.74rem', opacity: 0.55, marginTop: '2px' }}>{item.description}</div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => copyToClipboard(item.value, item.field)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    padding: '0.4rem 0.85rem',
+                    borderRadius: '7px',
+                    border: '1px solid var(--border-color)',
+                    backgroundColor: copiedField === item.field ? 'rgba(16,185,129,0.1)' : 'var(--surface-color)',
+                    color: copiedField === item.field ? '#10b981' : 'var(--text-color)',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    flexShrink: 0
+                  }}
+                >
+                  {copiedField === item.field ? <CheckCheck size={14} /> : <Copy size={14} />}
+                  {copiedField === item.field ? 'Copiado' : 'Copiar'}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{
+          backgroundColor: 'rgba(24, 119, 242, 0.07)',
+          border: '1px solid rgba(24, 119, 242, 0.2)',
+          borderRadius: '10px',
+          padding: '0.85rem 1rem',
+          fontSize: '0.8rem',
+          color: 'var(--text-color)',
+          display: 'flex',
+          gap: '0.6rem',
+          alignItems: 'flex-start'
+        }}>
+          <Info size={15} style={{ color: '#1877f2', flexShrink: 0, marginTop: '1px' }} />
+          <div>
+            <strong>Permisos solicitados en la app de Meta:</strong>{' '}
+            <code style={{ fontSize: '0.75rem' }}>pages_show_list, pages_read_engagement, pages_manage_posts, instagram_basic, instagram_content_publish, instagram_manage_messages, pages_messaging</code>
+          </div>
         </div>
       </div>
 

@@ -465,6 +465,7 @@
   
   .mainContent {
     margin-left: 0;
+    padding-bottom: 70px;
   }
 
   .topbar {
@@ -476,5 +477,10 @@
     justify-content: space-between;
     padding: 0 1rem;
   }
+
+  :global(.pwa-mobile-nav) {
+    display: flex !important;
+  }
 }
+
 

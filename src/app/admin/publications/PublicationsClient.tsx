@@ -1,7 +1,11 @@
 "use client";
 
 import { useState, useEffect, useTransition } from "react";
-import { Link2, ExternalLink, Eye, MessageSquare, Car, Plus, RefreshCw, X, Check, Share2, Globe, Download, Sparkles, Send, Bot, Filter, MessageCircle, User, Clock, CheckCircle2, AlertCircle, CornerDownRight } from "lucide-react";
+import { 
+  Link2, ExternalLink, Eye, MessageSquare, Car, Plus, RefreshCw, X, Check, 
+  Share2, Globe, Download, Sparkles, Send, Bot, Filter, MessageCircle, User, 
+  Clock, CheckCircle2, AlertCircle, CornerDownRight, Zap, Sliders, Play, Pause, Trash2
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { 
@@ -12,7 +16,13 @@ import {
   replyToPublicationComment, 
   generateAICommentReply, 
   addPublicationComment, 
-  PublicationComment 
+  PublicationComment,
+  PublicationAutomationRule,
+  getPublicationAutomationsAction,
+  savePublicationAutomationAction,
+  togglePublicationAutomationAction,
+  deletePublicationAutomationAction,
+  evaluateManyChatRuleAction
 } from "@/actions/autoActions";
 
 interface Vehicle {
@@ -44,18 +54,18 @@ interface PublicationsClientProps {
 }
 
 const NATIVE_URLS = {
-  web: "/portal/demo",
+  web: "https://demo.n-autos.com",
   mercadolibre: "https://vender.mercadolibre.com.ar/sell/",
   facebook: "https://business.facebook.com/latest/composer",
   instagram: "https://www.instagram.com/create/select/",
   whatsapp: "https://web.whatsapp.com/"
 };
 
-// Mocks de publicaciones disponibles en canales externos para importar
+// Mocks de publicaciones disponibles en canales externos para importar a Stock y Web
 const MOCK_EXTERNAL_POSTS = [
   {
     id: "fb-post-101",
-    channel: "facebook",
+    channel: "facebook" as const,
     title: "Toyota Hilux 2.8 SRX 4x4 2021",
     price: 38500,
     currency: "USD",
@@ -65,7 +75,7 @@ const MOCK_EXTERNAL_POSTS = [
   },
   {
     id: "ml-post-202",
-    channel: "mercadolibre",
+    channel: "mercadolibre" as const,
     title: "Volkswagen Amarok V6 Black Edition 2022",
     price: 42000,
     currency: "USD",
@@ -75,7 +85,7 @@ const MOCK_EXTERNAL_POSTS = [
   },
   {
     id: "ig-ad-303",
-    channel: "instagram",
+    channel: "instagram" as const,
     title: "BMW 330i M Sport 2.0 Turbo 2020",
     price: 49900,
     currency: "USD",
@@ -85,8 +95,9 @@ const MOCK_EXTERNAL_POSTS = [
   }
 ];
 
-export default function PublicationsClient({ vehicles, publications: initialPublications }: PublicationsClientProps) {
+export default function PublicationsClient({ vehicles: initialVehicles, publications: initialPublications }: PublicationsClientProps) {
   const router = useRouter();
+  const [vehicles, setVehicles] = useState<Vehicle[]>(initialVehicles);
   const [publications, setPublications] = useState<Publication[]>(initialPublications);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedChannelFilter, setSelectedChannelFilter] = useState<string>("all");
@@ -101,7 +112,7 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [publishingWebId, setPublishingWebId] = useState<string | null>(null);
 
-  // Modal "Importar Redes / ML" State
+  // Modal "Importar Redes / ML a Stock y Web" State
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importingPostId, setImportingPostId] = useState<string | null>(null);
 
@@ -120,7 +131,133 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
   const [newCommentAuthor, setNewCommentAuthor] = useState("");
   const [isSubmittingNewComment, setIsSubmittingNewComment] = useState(false);
 
+  // ManyChat Automations Modal State
+  const [isManyChatModalOpen, setIsManyChatModalOpen] = useState(false);
+  const [manyChatRules, setManyChatRules] = useState<PublicationAutomationRule[]>([]);
+  const [selectedPubForManyChat, setSelectedPubForManyChat] = useState<Publication | null>(null);
+  const [editingManyChatRuleId, setEditingManyChatRuleId] = useState<string | null>(null);
+  const [manyChatKeywordsInput, setManyChatKeywordsInput] = useState("precio, cuanto, valor, costo");
+  const [manyChatResponseInput, setManyChatResponseInput] = useState("¡Hola {cliente}! El precio del {marca} {modelo} ({año}) es de {moneda} {precio}. Tomamos permuta y tenemos financiación. ¿Te gustaría la ficha técnica por WhatsApp?");
+  const [manyChatDelayInput, setManyChatDelayInput] = useState<number>(0);
+  const [manyChatChannelInput, setManyChatChannelInput] = useState<'all' | 'web' | 'mercadolibre' | 'facebook' | 'instagram'>('all');
+  const [isSavingManyChat, setIsSavingManyChat] = useState(false);
+
+  // Simulator State inside ManyChat Modal
+  const [testCommentInput, setTestCommentInput] = useState("");
+  const [testResult, setTestResult] = useState<any | null>(null);
+  const [isTestingManyChat, setIsTestingManyChat] = useState(false);
+
   const [isPending, startTransition] = useTransition();
+
+  // Load ManyChat Rules on mount / modal open
+  const handleOpenManyChatModal = async (pub?: Publication) => {
+    setSelectedPubForManyChat(pub || null);
+    setIsManyChatModalOpen(true);
+    try {
+      const rules = await getPublicationAutomationsAction(pub?.id);
+      setManyChatRules(rules);
+    } catch (err) {
+      console.error("Error al cargar reglas ManyChat:", err);
+    }
+  };
+
+  const handleSaveManyChatRule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const keywordsArr = manyChatKeywordsInput
+      .split(",")
+      .map(k => k.trim())
+      .filter(Boolean);
+
+    if (keywordsArr.length === 0) {
+      alert("Por favor ingresa al menos una palabra clave.");
+      return;
+    }
+    if (!manyChatResponseInput.trim()) {
+      alert("Por favor escribe el mensaje de respuesta automática.");
+      return;
+    }
+
+    setIsSavingManyChat(true);
+    try {
+      const res = await savePublicationAutomationAction({
+        id: editingManyChatRuleId || undefined,
+        publication_id: selectedPubForManyChat?.id,
+        vehicle_id: selectedPubForManyChat?.vehicle_id,
+        keywords: keywordsArr,
+        response_text: manyChatResponseInput.trim(),
+        delay_minutes: Number(manyChatDelayInput),
+        is_active: true,
+        channel: manyChatChannelInput
+      });
+
+      if (res.success && res.rule) {
+        setManyChatRules(prev => {
+          const idx = prev.findIndex(r => r.id === res.rule!.id);
+          if (idx >= 0) {
+            const next = [...prev];
+            next[idx] = res.rule!;
+            return next;
+          }
+          return [res.rule!, ...prev];
+        });
+        setEditingManyChatRuleId(null);
+        alert("¡Regla de automatización ManyChat guardada con éxito!");
+      } else {
+        alert("Error al guardar regla: " + (res.error || "Desconocido"));
+      }
+    } catch (err: any) {
+      alert("Error al guardar regla: " + err.message);
+    } finally {
+      setIsSavingManyChat(false);
+    }
+  };
+
+  const handleToggleManyChatRule = async (id: string, currentState: boolean) => {
+    try {
+      await togglePublicationAutomationAction(id, !currentState);
+      setManyChatRules(prev => prev.map(r => r.id === id ? { ...r, is_active: !currentState } : r));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteManyChatRule = async (id: string) => {
+    if (!confirm("¿Deseas eliminar esta regla de automatización ManyChat?")) return;
+    try {
+      await deletePublicationAutomationAction(id);
+      setManyChatRules(prev => prev.filter(r => r.id !== id));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleTestManyChatRule = async () => {
+    if (!testCommentInput.trim()) return;
+    setIsTestingManyChat(true);
+    const pub = selectedPubForManyChat;
+    const v = pub ? vehicles.find(v => v.id === pub.vehicle_id) : vehicles[0];
+
+    try {
+      const res = await evaluateManyChatRuleAction({
+        commentText: testCommentInput,
+        authorName: "Cliente de Prueba",
+        publicationId: pub?.id,
+        vehicleId: pub?.vehicle_id,
+        vehicleInfo: v ? {
+          brand: v.brand,
+          model: v.model,
+          year: v.year,
+          price: v.price,
+          currency: v.currency
+        } : undefined
+      });
+      setTestResult(res);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsTestingManyChat(false);
+    }
+  };
 
   // Handlers para la gestión de comentarios
   const handleOpenComments = async (pub: Publication) => {
@@ -238,6 +375,14 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
         setNewCommentText("");
         setNewCommentAuthor("");
         setIsAddCommentOpen(false);
+
+        setPublications(prev => prev.map(p => {
+          const match = p.id ? p.id === pubId : (p.vehicle_id === selectedPubForComments?.vehicle_id && p.channel === selectedPubForComments?.channel);
+          if (match) {
+            return { ...p, questions_count: (p.questions_count || 0) + 1 };
+          }
+          return p;
+        }));
       }
     } catch (err: any) {
       alert("Error al agregar consulta: " + err.message);
@@ -249,7 +394,8 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
   // Keep state in sync with server props
   useEffect(() => {
     setPublications(initialPublications);
-  }, [initialPublications]);
+    setVehicles(initialVehicles);
+  }, [initialPublications, initialVehicles]);
 
   // Periodic Auto-refresh every 60 seconds (1 minute)
   useEffect(() => {
@@ -317,17 +463,15 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
     setIsSubmitting(true);
 
     const defaultChannelUrl = selectedChannel === 'web' 
-      ? `/portal/demo/${selectedVehicleId}` 
+      ? `https://demo.n-autos.com/${selectedVehicleId}` 
       : NATIVE_URLS[selectedChannel];
     const destinationUrl = customUrl.trim() || defaultChannelUrl;
 
     try {
-      // Si es un canal externo, abrir la página nativa
       if (selectedChannel !== 'web') {
         window.open(destinationUrl, "_blank", "noopener,noreferrer");
       }
 
-      // Registrar la publicación en Supabase
       const res = await createOrUpdatePublication({
         vehicleId: selectedVehicleId,
         channel: selectedChannel,
@@ -362,33 +506,25 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
     }
   };
 
-  // Importar anuncio de Redes Sociales / MercadoLibre y publicar en Web App
+  // Importar anuncio de Redes Sociales / MercadoLibre -> a Stock y publicar en Página Web
   const handleImportAndPublishToWeb = async (post: typeof MOCK_EXTERNAL_POSTS[0]) => {
     setImportingPostId(post.id);
     try {
-      const res = await importSocialPost(post.channel as 'facebook' | 'instagram', {
+      const res = await importSocialPost(post.channel, {
         id: post.id,
         title: post.title,
         price: post.price,
         currency: post.currency,
         images: [post.image],
         external_url: post.url,
-        description: `Importado desde ${post.channel} y publicado en Página Web.`
+        description: `Importado desde ${post.channel} directamente al catálogo de Stock y publicado en la Página Web.`
       });
 
-      if (res.success && res.publication) {
-        // También aseguramos la publicación web
-        const webRes = await importAndPublishToWeb({
-          vehicleId: res.vehicle.id,
-          sourceChannel: post.channel,
-          externalUrl: post.url
-        });
+      if (res.success && res.vehicle && res.publication) {
+        setVehicles(prev => [res.vehicle as Vehicle, ...prev]);
+        setPublications(prev => [res.publication as Publication, ...prev]);
 
-        if (webRes.success && webRes.publication) {
-          setPublications(prev => [webRes.publication as Publication, res.publication as Publication, ...prev]);
-        }
-
-        alert(`¡Anuncio "${post.title}" importado de ${post.channel.toUpperCase()} y publicado en la Página Web!`);
+        alert(`¡Anuncio "${post.title}" guardado en el Stock de la Automotora y publicado en la Página Web con consultas sincronizadas!`);
         setIsImportModalOpen(false);
         handleManualRefresh();
       } else {
@@ -405,6 +541,10 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
     const v = vehicles.find(v => v.id === pub.vehicle_id);
     if (!v) return false;
     
+    if (selectedChannelFilter === "pending") {
+      return (pub.questions_count || 0) > 0;
+    }
+
     if (selectedChannelFilter !== "all" && pub.channel !== selectedChannelFilter) {
       return false;
     }
@@ -417,7 +557,6 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
 
   return (
     <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
-      {/* UNIFIED SINGLE BLOCK CONTAINER OVER BACKGROUND */}
       <div style={{
         backgroundColor: "var(--surface-color)",
         border: "1px solid var(--border-color)",
@@ -437,10 +576,10 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
           <div>
             <h1 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-color)", margin: "0 0 0.25rem 0" }}>
-              Publicaciones y Canales
+              Publicaciones, Canales y Consultas
             </h1>
             <p style={{ color: "var(--text-color)", opacity: 0.7, margin: 0, fontSize: "0.88rem" }}>
-              Gestiona la presencia de tus vehículos en la <strong>Página Web</strong>, <strong>MercadoLibre</strong>, <strong>Facebook</strong> e <strong>Instagram Ads</strong>.
+              Importa publicaciones de <strong>MercadoLibre</strong>, <strong>Facebook</strong> e <strong>Instagram</strong> hacia tu <strong>Stock</strong> y <strong>Página Web</strong>, gestiona consultas con prioridad y configura respuestas ManyChat.
             </p>
           </div>
 
@@ -458,24 +597,22 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
             </div>
 
             <button
-              onClick={() => setIsImportModalOpen(true)}
+              onClick={() => handleOpenManyChatModal()}
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: "0.4rem",
                 padding: "0.55rem 0.9rem",
-                backgroundColor: "transparent",
-                color: "var(--text-color)",
-                border: "none",
-                fontWeight: 600,
+                backgroundColor: "rgba(139, 92, 246, 0.12)",
+                color: "#8B5CF6",
+                border: "1px solid rgba(139, 92, 246, 0.3)",
+                borderRadius: "8px",
+                fontWeight: 700,
                 fontSize: "0.85rem",
-                cursor: "pointer",
-                transition: "color 0.2s"
+                cursor: "pointer"
               }}
-              onMouseEnter={(e) => e.currentTarget.style.color = "#1877F2"}
-              onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-color)"}
             >
-              <Download size={15} /> Importar de FB
+              <Zap size={16} /> 🤖 ManyChat Bot
             </button>
 
             <button
@@ -487,37 +624,15 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
                 padding: "0.55rem 0.9rem",
                 backgroundColor: "transparent",
                 color: "var(--text-color)",
-                border: "none",
+                border: "1px solid var(--border-color)",
+                borderRadius: "8px",
                 fontWeight: 600,
                 fontSize: "0.85rem",
                 cursor: "pointer",
                 transition: "color 0.2s"
               }}
-              onMouseEnter={(e) => e.currentTarget.style.color = "#E1306C"}
-              onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-color)"}
             >
-              <Download size={15} /> Importar de IG
-            </button>
-
-            <button
-              onClick={() => setIsImportModalOpen(true)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.4rem",
-                padding: "0.55rem 0.9rem",
-                backgroundColor: "transparent",
-                color: "var(--text-color)",
-                border: "none",
-                fontWeight: 600,
-                fontSize: "0.85rem",
-                cursor: "pointer",
-                transition: "color 0.2s"
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.color = "#eab308"}
-              onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-color)"}
-            >
-              <Download size={15} /> Importar de ML
+              <Download size={15} /> Importar a Stock (ML/FB/IG)
             </button>
 
             <button
@@ -539,9 +654,10 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
 
         {/* Buscador y Filtros dentro del Banner Superior */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
-          <div style={{ display: "flex", gap: "0.5rem", backgroundColor: "var(--bg-color)", padding: "0.25rem", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
+          <div style={{ display: "flex", gap: "0.5rem", backgroundColor: "var(--bg-color)", padding: "0.25rem", borderRadius: "8px", border: "1px solid var(--border-color)", flexWrap: "wrap" }}>
             {[
-              { id: "all", label: "Todos" },
+              { id: "all", label: "Todas" },
+              { id: "pending", label: "🔥 Con Consultas Pendientes" },
               { id: "web", label: "🌐 Página Web" },
               { id: "mercadolibre", label: "MercadoLibre" },
               { id: "facebook", label: "Facebook" },
@@ -554,9 +670,9 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
                   padding: "0.4rem 0.8rem",
                   borderRadius: "6px",
                   border: "none",
-                  backgroundColor: selectedChannelFilter === tab.id ? "var(--primary)" : "transparent",
+                  backgroundColor: selectedChannelFilter === tab.id ? (tab.id === 'pending' ? "#EF4444" : "var(--primary)") : "transparent",
                   color: selectedChannelFilter === tab.id ? "#fff" : "var(--text-color)",
-                  fontWeight: selectedChannelFilter === tab.id ? 600 : 500,
+                  fontWeight: selectedChannelFilter === tab.id ? 700 : 500,
                   fontSize: "0.8rem",
                   cursor: "pointer",
                   transition: "all 0.2s ease"
@@ -618,8 +734,8 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
             const v = vehicles.find(v => v.id === pub.vehicle_id);
             if (!v) return null;
 
-            // Verificar si este vehículo ya está publicado en la Página Web
             const isAlreadyOnWeb = publications.some(p => p.vehicle_id === pub.vehicle_id && p.channel === 'web');
+            const hasPendingQuestions = (pub.questions_count || 0) > 0;
 
             return (
               <div 
@@ -630,9 +746,9 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
                   justifyContent: "space-between",
                   padding: "1rem 1.25rem",
                   backgroundColor: "var(--surface-color)",
-                  border: "1px solid var(--border-color)",
+                  border: hasPendingQuestions ? "1px solid rgba(239, 68, 68, 0.4)" : "1px solid var(--border-color)",
                   borderRadius: "12px",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.04)"
+                  boxShadow: hasPendingQuestions ? "0 2px 8px rgba(239, 68, 68, 0.08)" : "0 1px 3px rgba(0,0,0,0.04)"
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "1.25rem" }}>
@@ -649,16 +765,35 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
                   )}
                   
                   <div>
-                    <h3 style={{ margin: "0 0 0.35rem 0", fontSize: "1rem", color: "var(--text-color)", fontWeight: 600 }}>
-                      {v.brand} {v.model} <span style={{ opacity: 0.6, fontSize: "0.85rem", fontWeight: 400 }}>({v.year})</span>
-                    </h3>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                      <h3 style={{ margin: "0 0 0.35rem 0", fontSize: "1rem", color: "var(--text-color)", fontWeight: 600 }}>
+                        {v.brand} {v.model} <span style={{ opacity: 0.6, fontSize: "0.85rem", fontWeight: 400 }}>({v.year})</span>
+                      </h3>
+
+                      {hasPendingQuestions && (
+                        <span style={{
+                          fontSize: "0.7rem",
+                          padding: "0.15rem 0.5rem",
+                          borderRadius: "12px",
+                          backgroundColor: "#EF4444",
+                          color: "#fff",
+                          fontWeight: 800,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.2rem"
+                        }}>
+                          🔥 PRIORIDAD: Consultas Activas
+                        </span>
+                      )}
+                    </div>
+
                     <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                       <span style={{ 
                         fontSize: "0.75rem", 
                         padding: "0.2rem 0.65rem", 
                         borderRadius: "6px", 
                         backgroundColor: pub.channel === 'web' ? '#10B981' : pub.channel === 'mercadolibre' ? '#FFE600' : pub.channel === 'facebook' ? '#1877F2' : pub.channel === 'instagram' ? '#E1306C' : '#25D366',
-                        color: (pub.channel === 'mercadolibre' || pub.channel === 'web') ? '#fff' : '#fff',
+                        color: (pub.channel === 'mercadolibre' || pub.channel === 'web') ? (pub.channel === 'mercadolibre' ? '#333' : '#fff') : '#fff',
                         fontWeight: 700,
                         textTransform: "capitalize"
                       }}>
@@ -671,27 +806,27 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
                   </div>
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "1.25rem" }}>
-                  <div style={{ display: "flex", gap: "1rem", color: "var(--text-color)", opacity: 0.85 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }} title="Visitas">
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", gap: "0.8rem", color: "var(--text-color)", opacity: 0.85 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }} title="Visitas totales">
                       <Eye size={16} />
                       <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>{pub.views || 0}</span>
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
                     <button
                       onClick={() => handleOpenComments(pub)}
-                      title="Abrir comentarios y preguntas de esta publicación"
+                      title="Abrir comentarios y preguntas públicas para responder"
                       style={{
                         display: "flex",
                         alignItems: "center",
                         gap: "0.4rem",
                         padding: "0.45rem 0.85rem",
-                        backgroundColor: "rgba(37, 99, 235, 0.12)",
-                        border: "1px solid rgba(37, 99, 235, 0.3)",
+                        backgroundColor: hasPendingQuestions ? "rgba(239, 68, 68, 0.12)" : "rgba(37, 99, 235, 0.12)",
+                        border: hasPendingQuestions ? "1px solid rgba(239, 68, 68, 0.4)" : "1px solid rgba(37, 99, 235, 0.3)",
                         borderRadius: "6px",
-                        color: "var(--primary)",
+                        color: hasPendingQuestions ? "#EF4444" : "var(--primary)",
                         fontSize: "0.82rem",
                         fontWeight: 700,
                         cursor: "pointer",
@@ -699,14 +834,36 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
                       }}
                     >
                       <MessageSquare size={15} />
-                      <span>{pub.questions_count || 0} Comentarios</span>
+                      <span>{pub.questions_count || 0} Consultas</span>
                     </button>
+
+                    {/* Botón ManyChat por Publicación */}
+                    <button
+                      onClick={() => handleOpenManyChatModal(pub)}
+                      title="Configurar automatización ManyChat para esta publicación"
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.35rem",
+                        padding: "0.45rem 0.75rem",
+                        backgroundColor: "rgba(139, 92, 246, 0.1)",
+                        border: "1px solid rgba(139, 92, 246, 0.3)",
+                        borderRadius: "6px",
+                        color: "#8B5CF6",
+                        fontSize: "0.8rem",
+                        fontWeight: 700,
+                        cursor: "pointer"
+                      }}
+                    >
+                      <Zap size={14} /> ManyChat
+                    </button>
+
                     {/* Botón 1-Clic: Publicar en Página Web (si proviene de red social / ML) */}
                     {pub.channel !== 'web' && !isAlreadyOnWeb && (
                       <button
                         onClick={() => handlePublishToWeb(v.id, pub.channel)}
                         disabled={publishingWebId === v.id}
-                        title="Publicar este vehículo en la Aplicación / Portal Web"
+                        title="Publicar este vehículo en el catálogo de la Página Web"
                         style={{
                           display: "flex",
                           alignItems: "center",
@@ -723,7 +880,7 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
                         }}
                       >
                         <Globe size={14} />
-                        {publishingWebId === v.id ? "Publicando..." : "Publicar en Web App"}
+                        {publishingWebId === v.id ? "Publicando..." : "Publicar en Web"}
                       </button>
                     )}
 
@@ -746,29 +903,9 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
                           fontWeight: 500
                         }}
                       >
-                        <ExternalLink size={14} /> {pub.channel === 'web' ? 'Ver en Web' : 'Ver Nativo'}
+                        <ExternalLink size={14} /> {pub.channel === 'web' ? 'Ver en Web' : 'Nativo'}
                       </a>
-                    ) : (
-                      <span style={{ fontSize: "0.8rem", color: "var(--text-color)", opacity: 0.5 }}>Sin URL</span>
-                    )}
-
-                    <Link
-                      href={`/admin/vehicles?action=edit&id=${v.id}`}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        padding: "0.45rem 0.8rem",
-                        backgroundColor: "var(--primary-light)",
-                        border: "1px solid var(--primary-light)",
-                        borderRadius: "6px",
-                        color: "var(--primary)",
-                        fontSize: "0.8rem",
-                        textDecoration: "none",
-                        fontWeight: 600
-                      }}
-                    >
-                      Editar
-                    </Link>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -822,7 +959,6 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
             </div>
 
             <form onSubmit={handlePublishAndSync} style={{ padding: "1.5rem" }}>
-              {/* Selector de Vehículo */}
               <div style={{ marginBottom: "1.25rem" }}>
                 <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-color)", marginBottom: "0.5rem" }}>
                   1. Selecciona el Vehículo de tu Inventario:
@@ -851,7 +987,6 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
                 </select>
               </div>
 
-              {/* Vista Previa del Vehículo Seleccionado */}
               {selectedVehicle && (
                 <div style={{
                   display: "flex",
@@ -881,7 +1016,6 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
                 </div>
               )}
 
-              {/* Selector de Canal / Plataforma */}
               <div style={{ marginBottom: "1.25rem" }}>
                 <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-color)", marginBottom: "0.5rem" }}>
                   2. Selecciona el Canal de Destino:
@@ -977,14 +1111,13 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
                 </div>
               </div>
 
-              {/* URL Nativa u Opcional */}
               <div style={{ marginBottom: "1.5rem" }}>
                 <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 500, color: "var(--text-color)", opacity: 0.8, marginBottom: "0.35rem" }}>
                   URL de la publicación (opcional):
                 </label>
                 <input
                   type="text"
-                  placeholder={selectedChannel === 'web' ? `/portal/demo/${selectedVehicleId}` : NATIVE_URLS[selectedChannel]}
+                  placeholder={selectedChannel === 'web' ? `https://demo.n-autos.com/${selectedVehicleId}` : NATIVE_URLS[selectedChannel]}
                   value={customUrl}
                   onChange={(e) => setCustomUrl(e.target.value)}
                   style={{
@@ -999,7 +1132,6 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
                 />
               </div>
 
-              {/* Submit Buttons */}
               <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
                 <button
                   type="button"
@@ -1043,7 +1175,7 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
         </div>
       )}
 
-      {/* MODAL 2: IMPORTAR DESDE REDES / ML A PÁGINA WEB */}
+      {/* MODAL 2: IMPORTAR DESDE REDES / ML A STOCK Y PÁGINA WEB */}
       {isImportModalOpen && (
         <div style={{
           position: "fixed",
@@ -1060,7 +1192,7 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
             backgroundColor: "var(--surface-color)",
             borderRadius: "16px",
             width: "100%",
-            maxWidth: "600px",
+            maxWidth: "640px",
             border: "1px solid var(--border-color)",
             boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)",
             overflow: "hidden"
@@ -1076,7 +1208,7 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <Download size={20} color="var(--primary)" />
                 <h2 style={{ fontSize: "1.15rem", fontWeight: 700, margin: 0, color: "var(--text-color)" }}>
-                  Importar Anuncios a la Página Web
+                  Importar Anuncios al Stock y Página Web
                 </h2>
               </div>
               <button 
@@ -1089,7 +1221,7 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
 
             <div style={{ padding: "1.5rem" }}>
               <p style={{ fontSize: "0.875rem", color: "var(--text-color)", opacity: 0.8, margin: "0 0 1.25rem 0" }}>
-                Selecciona publicaciones o anuncios de **Facebook**, **MercadoLibre** o **Instagram Ads** para importarlos a tu catálogo e integrarlos automáticamente a tu **Página Web**:
+                Selecciona publicaciones de <strong>MercadoLibre</strong>, <strong>Facebook</strong> o <strong>Instagram</strong> para importarlas al <strong>Stock de tu Automotora</strong>, publicarlas en la <strong>Página Web</strong> y priorizar sus consultas:
               </p>
 
               <div style={{ display: "grid", gap: "1rem" }}>
@@ -1150,7 +1282,7 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
                       }}
                     >
                       <Globe size={14} />
-                      {importingPostId === post.id ? "Importando..." : "Importar a Web"}
+                      {importingPostId === post.id ? "Importando..." : "Importar a Stock y Web"}
                     </button>
                   </div>
                 ))}
@@ -1160,7 +1292,7 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
                 <button
                   onClick={() => setIsImportModalOpen(false)}
                   style={{
-                    padding: "0.6rem 1.25rem",
+                    padding: "0.66rem 1.25rem",
                     borderRadius: "8px",
                     border: "1px solid var(--border-color)",
                     backgroundColor: "transparent",
@@ -1320,7 +1452,7 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
                         />
                         <input
                           type="text"
-                          placeholder="Escribe la pregunta pública..."
+                          placeholder="Escribe la pregunta pública (ej: ¿Cuál es el precio contado y permuta?)"
                           value={newCommentText}
                           onChange={(e) => setNewCommentText(e.target.value)}
                           style={{
@@ -1418,6 +1550,7 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
                     ) : (
                       filteredComments.map(comment => {
                         const isReplied = comment.status === 'replied';
+                        const isBotReplied = comment.reply_text && comment.reply_text.includes("ManyChat");
                         const timeAgo = new Date(comment.created_at).toLocaleDateString("es-ES", {
                           day: "numeric",
                           month: "short",
@@ -1439,7 +1572,6 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
                               gap: "0.85rem"
                             }}
                           >
-                            {/* Header del Comentario */}
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                               <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
                                 <div style={{
@@ -1466,26 +1598,40 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
                                 </div>
                               </div>
 
-                              <span style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "0.3rem",
-                                fontSize: "0.75rem",
-                                padding: "0.2rem 0.6rem",
-                                borderRadius: "20px",
-                                backgroundColor: isReplied ? "rgba(16, 185, 129, 0.15)" : "rgba(245, 158, 11, 0.15)",
-                                color: isReplied ? "#10B981" : "#F59E0B",
-                                fontWeight: 700
-                              }}>
-                                {isReplied ? (
-                                  <><CheckCircle2 size={13} /> Respondido</>
-                                ) : (
-                                  <><AlertCircle size={13} /> Pendiente</>
+                              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                {isBotReplied && (
+                                  <span style={{
+                                    fontSize: "0.7rem",
+                                    padding: "0.2rem 0.5rem",
+                                    borderRadius: "12px",
+                                    backgroundColor: "rgba(139, 92, 246, 0.15)",
+                                    color: "#8B5CF6",
+                                    fontWeight: 800
+                                  }}>
+                                    🤖 ManyChat Bot
+                                  </span>
                                 )}
-                              </span>
+
+                                <span style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "0.3rem",
+                                  fontSize: "0.75rem",
+                                  padding: "0.2rem 0.6rem",
+                                  borderRadius: "20px",
+                                  backgroundColor: isReplied ? "rgba(16, 185, 129, 0.15)" : "rgba(245, 158, 11, 0.15)",
+                                  color: isReplied ? "#10B981" : "#F59E0B",
+                                  fontWeight: 700
+                                }}>
+                                  {isReplied ? (
+                                    <><CheckCircle2 size={13} /> Respondido</>
+                                  ) : (
+                                    <><AlertCircle size={13} /> Pendiente</>
+                                  )}
+                                </span>
+                              </div>
                             </div>
 
-                            {/* Texto del comentario del cliente */}
                             <div style={{
                               fontSize: "0.92rem",
                               color: "var(--text-color)",
@@ -1496,20 +1642,19 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
                               "{comment.text}"
                             </div>
 
-                            {/* Respuesta Existente del Vendedor */}
                             {isReplied && comment.reply_text && (
                               <div style={{
                                 marginTop: "0.25rem",
                                 padding: "0.85rem 1rem",
                                 backgroundColor: "var(--bg-color)",
                                 borderRadius: "8px",
-                                borderLeft: "3px solid var(--primary)",
+                                borderLeft: isBotReplied ? "3px solid #8B5CF6" : "3px solid var(--primary)",
                                 display: "flex",
                                 flexDirection: "column",
                                 gap: "0.35rem"
                               }}>
-                                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.78rem", fontWeight: 700, color: "var(--primary)" }}>
-                                  <CornerDownRight size={14} /> Respuesta de la Automotora
+                                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.78rem", fontWeight: 700, color: isBotReplied ? "#8B5CF6" : "var(--primary)" }}>
+                                  <CornerDownRight size={14} /> {isBotReplied ? "Respuesta de Bot ManyChat" : "Respuesta de la Automotora"}
                                 </div>
                                 <div style={{ fontSize: "0.88rem", color: "var(--text-color)", lineHeight: 1.4 }}>
                                   {comment.reply_text}
@@ -1517,7 +1662,6 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
                               </div>
                             )}
 
-                            {/* Área de Entrada para Responder */}
                             <div style={{
                               marginTop: "0.5rem",
                               display: "flex",
@@ -1563,7 +1707,7 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
                                   }}
                                 >
                                   <Sparkles size={14} className={generatingAiId === comment.id ? "spin-animation" : ""} />
-                                  {generatingAiId === comment.id ? "Generando con IA..." : "Sugerir con IA 🪄"}
+                                  {generatingAiId === comment.id ? "Generando..." : "Sugerir con IA 🪄"}
                                 </button>
 
                                 <button
@@ -1598,6 +1742,386 @@ export default function PublicationsClient({ vehicles, publications: initialPubl
                 </>
               );
             })()}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: AUTOMATIZACIONES ESTILO MANYCHAT (KEYWORDS & DELAY) */}
+      {isManyChatModalOpen && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.75)",
+          backdropFilter: "blur(6px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1200,
+          padding: "1rem"
+        }}>
+          <div style={{
+            backgroundColor: "var(--surface-color)",
+            borderRadius: "16px",
+            width: "100%",
+            maxWidth: "850px",
+            maxHeight: "92vh",
+            display: "flex",
+            flexDirection: "column",
+            border: "1px solid var(--border-color)",
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.3)",
+            overflow: "hidden"
+          }}>
+            {/* Header Modal ManyChat */}
+            <div style={{
+              padding: "1.25rem 1.5rem",
+              borderBottom: "1px solid var(--border-color)",
+              backgroundColor: "var(--bg-color)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                <Zap size={22} color="#8B5CF6" />
+                <div>
+                  <h2 style={{ fontSize: "1.2rem", fontWeight: 800, margin: 0, color: "var(--text-color)" }}>
+                    Automatización ManyChat de Publicaciones
+                  </h2>
+                  <span style={{ fontSize: "0.8rem", color: "var(--text-color)", opacity: 0.7 }}>
+                    {selectedPubForManyChat ? `Configuración vinculada a la publicación #${selectedPubForManyChat.id}` : 'Reglas generales aplicables a todas las publicaciones'}
+                  </span>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsManyChatModalOpen(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-color)", opacity: 0.6 }}
+              >
+                <X size={22} />
+              </button>
+            </div>
+
+            {/* Content Container */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "1.5rem", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem" }}>
+              {/* Columna Izquierda: Formulario de Nueva / Edición de Regla */}
+              <form onSubmit={handleSaveManyChatRule} style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
+                <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--text-color)", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem" }}>
+                  {editingManyChatRuleId ? "✏️ Editar Regla ManyChat" : "➕ Nueva Regla de Respuesta por Palabra Clave"}
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "0.82rem", fontWeight: 700, color: "var(--text-color)", marginBottom: "0.35rem" }}>
+                    1. Palabras Clave (separadas por coma):
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="ej: precio, cuanto sale, financiacion, permuta"
+                    value={manyChatKeywordsInput}
+                    onChange={(e) => setManyChatKeywordsInput(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "0.6rem 0.85rem",
+                      borderRadius: "8px",
+                      border: "1px solid var(--border-color)",
+                      backgroundColor: "var(--bg-color)",
+                      color: "var(--text-color)",
+                      fontSize: "0.85rem",
+                      outline: "none"
+                    }}
+                    required
+                  />
+                  <div style={{ fontSize: "0.75rem", color: "#8B5CF6", marginTop: "0.3rem", fontWeight: 600 }}>
+                    💡 Detección inteligente: Tolera Mayúsculas/Minúsculas, tildes y signos (ej: "PRECIO?" detecta "precio").
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "0.82rem", fontWeight: 700, color: "var(--text-color)", marginBottom: "0.35rem" }}>
+                    2. Tiempo de Espera (Delay seleccionado por Automotora):
+                  </label>
+                  <select
+                    value={manyChatDelayInput}
+                    onChange={(e) => setManyChatDelayInput(parseFloat(e.target.value))}
+                    style={{
+                      width: "100%",
+                      padding: "0.6rem 0.85rem",
+                      borderRadius: "8px",
+                      border: "1px solid var(--border-color)",
+                      backgroundColor: "var(--bg-color)",
+                      color: "var(--text-color)",
+                      fontSize: "0.85rem",
+                      outline: "none"
+                    }}
+                  >
+                    <option value={0}>⚡ Inmediato (0 segundos)</option>
+                    <option value={0.5}>⏳ 30 segundos de espera</option>
+                    <option value={2}>⏱️ 2 minutos de espera</option>
+                    <option value={5}>⏱️ 5 minutos de espera</option>
+                    <option value={15}>⏱️ 15 minutos de espera</option>
+                    <option value={30}>⏱️ 30 minutos de espera</option>
+                    <option value={60}>⏱️ 1 hora de espera</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: "0.82rem", fontWeight: 700, color: "var(--text-color)", marginBottom: "0.35rem" }}>
+                    3. Mensaje de Respuesta Automática:
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={manyChatResponseInput}
+                    onChange={(e) => setManyChatResponseInput(e.target.value)}
+                    placeholder="Escribe el mensaje..."
+                    style={{
+                      width: "100%",
+                      padding: "0.65rem 0.85rem",
+                      borderRadius: "8px",
+                      border: "1px solid var(--border-color)",
+                      backgroundColor: "var(--bg-color)",
+                      color: "var(--text-color)",
+                      fontSize: "0.85rem",
+                      fontFamily: "inherit"
+                    }}
+                    required
+                  />
+
+                  {/* Variables Insertables */}
+                  <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap", marginTop: "0.4rem" }}>
+                    <span style={{ fontSize: "0.72rem", opacity: 0.7, alignSelf: "center", marginRight: "0.2rem" }}>Insertar:</span>
+                    {[
+                      { tag: "{cliente}", label: "+ Cliente" },
+                      { tag: "{marca}", label: "+ Marca" },
+                      { tag: "{modelo}", label: "+ Modelo" },
+                      { tag: "{precio}", label: "+ Precio" },
+                      { tag: "{moneda}", label: "+ Moneda" },
+                      { tag: "{whatsapp}", label: "+ Link WA" }
+                    ].map(chip => (
+                      <button
+                        key={chip.tag}
+                        type="button"
+                        onClick={() => setManyChatResponseInput(prev => prev + " " + chip.tag)}
+                        style={{
+                          fontSize: "0.7rem",
+                          padding: "0.15rem 0.45rem",
+                          borderRadius: "4px",
+                          backgroundColor: "var(--border-color)",
+                          color: "var(--text-color)",
+                          border: "none",
+                          cursor: "pointer",
+                          fontWeight: 600
+                        }}
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "0.5rem" }}>
+                  {editingManyChatRuleId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingManyChatRuleId(null);
+                        setManyChatKeywordsInput("precio, cuanto, valor");
+                        setManyChatResponseInput("¡Hola {cliente}! El precio...");
+                      }}
+                      style={{
+                        padding: "0.55rem 1rem",
+                        borderRadius: "8px",
+                        border: "1px solid var(--border-color)",
+                        backgroundColor: "transparent",
+                        color: "var(--text-color)",
+                        fontSize: "0.82rem"
+                      }}
+                    >
+                      Cancelar Edición
+                    </button>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={isSavingManyChat}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.4rem",
+                      padding: "0.6rem 1.25rem",
+                      borderRadius: "8px",
+                      border: "none",
+                      backgroundColor: "#8B5CF6",
+                      color: "#fff",
+                      fontWeight: 700,
+                      fontSize: "0.85rem",
+                      cursor: isSavingManyChat ? "not-allowed" : "pointer"
+                    }}
+                  >
+                    <Check size={16} />
+                    {isSavingManyChat ? "Guardando..." : editingManyChatRuleId ? "Actualizar Regla" : "Guardar Regla ManyChat"}
+                  </button>
+                </div>
+              </form>
+
+              {/* Columna Derecha: Lista de Reglas + Probador en Vivo */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                {/* Probador en Vivo de Palabras Clave */}
+                <div style={{
+                  padding: "1rem",
+                  backgroundColor: "rgba(139, 92, 246, 0.08)",
+                  border: "1px solid rgba(139, 92, 246, 0.25)",
+                  borderRadius: "12px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.6rem"
+                }}>
+                  <div style={{ fontWeight: 800, fontSize: "0.85rem", color: "#8B5CF6", display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                    <Sparkles size={16} /> Probador en Vivo de Automatización:
+                  </div>
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <input
+                      type="text"
+                      placeholder="Escribe un mensaje de prueba (ej: ¿PRÉCIO Y FINANCIACIÓN?)"
+                      value={testCommentInput}
+                      onChange={(e) => setTestCommentInput(e.target.value)}
+                      style={{
+                        flex: 1,
+                        padding: "0.45rem 0.75rem",
+                        borderRadius: "6px",
+                        border: "1px solid var(--border-color)",
+                        fontSize: "0.82rem",
+                        backgroundColor: "var(--bg-color)",
+                        color: "var(--text-color)"
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleTestManyChatRule}
+                      disabled={isTestingManyChat || !testCommentInput.trim()}
+                      style={{
+                        padding: "0.45rem 0.85rem",
+                        backgroundColor: "#8B5CF6",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "6px",
+                        fontSize: "0.8rem",
+                        fontWeight: 700,
+                        cursor: "pointer"
+                      }}
+                    >
+                      Probar
+                    </button>
+                  </div>
+
+                  {testResult && (
+                    <div style={{
+                      marginTop: "0.3rem",
+                      padding: "0.65rem",
+                      backgroundColor: testResult.matched ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
+                      border: testResult.matched ? "1px solid #10B981" : "1px solid #EF4444",
+                      borderRadius: "6px",
+                      fontSize: "0.78rem"
+                    }}>
+                      {testResult.matched ? (
+                        <div>
+                          <div style={{ color: "#10B981", fontWeight: 800 }}>
+                            ✅ Coincidencia con palabra clave: "{testResult.keyword}" (Delay: {testResult.delayMinutes === 0 ? "Inmediato" : `${testResult.delayMinutes} min`})
+                          </div>
+                          <div style={{ color: "var(--text-color)", marginTop: "0.25rem", fontStyle: "italic" }}>
+                            "{testResult.responseText}"
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ color: "#EF4444", fontWeight: 700 }}>
+                          ❌ Ninguna regla coincidente para este texto.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Lista de Reglas ManyChat Guardadas */}
+                <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--text-color)", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem" }}>
+                  📋 Reglas de Automatización Activas ({manyChatRules.length})
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", maxHeight: "360px", overflowY: "auto" }}>
+                  {manyChatRules.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "1.5rem", opacity: 0.6, fontSize: "0.85rem" }}>
+                      No hay reglas de automatización guardadas aún.
+                    </div>
+                  ) : (
+                    manyChatRules.map(rule => (
+                      <div
+                        key={rule.id}
+                        style={{
+                          padding: "0.85rem 1rem",
+                          backgroundColor: "var(--bg-color)",
+                          borderRadius: "10px",
+                          border: "1px solid var(--border-color)",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "0.5rem"
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap" }}>
+                            {rule.keywords.map(kw => (
+                              <span key={kw} style={{ fontSize: "0.7rem", backgroundColor: "#8B5CF6", color: "#fff", padding: "0.15rem 0.45rem", borderRadius: "4px", fontWeight: 700 }}>
+                                {kw}
+                              </span>
+                            ))}
+                          </div>
+
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleManyChatRule(rule.id, rule.is_active)}
+                              title={rule.is_active ? "Pausar regla" : "Activar regla"}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: rule.is_active ? "#10B981" : "#EF4444" }}
+                            >
+                              {rule.is_active ? <Play size={16} /> : <Pause size={16} />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteManyChatRule(rule.id)}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "#EF4444" }}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div style={{ fontSize: "0.8rem", color: "var(--text-color)", opacity: 0.9 }}>
+                          "{rule.response_text}"
+                        </div>
+
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.74rem", opacity: 0.7 }}>
+                          <span>⏱️ Delay: {rule.delay_minutes === 0 ? "Inmediato" : `${rule.delay_minutes} min`}</span>
+                          <span>Ejecuciones: {rule.trigger_count || 0}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Modal ManyChat */}
+            <div style={{ padding: "1rem 1.5rem", borderTop: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", display: "flex", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setIsManyChatModalOpen(false)}
+                style={{
+                  padding: "0.55rem 1.25rem",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border-color)",
+                  backgroundColor: "transparent",
+                  color: "var(--text-color)",
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
+                  cursor: "pointer"
+                }}
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       )}

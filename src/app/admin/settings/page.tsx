@@ -14,12 +14,13 @@ export default async function SettingsPage({
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
   const currentUser = await getCurrentUser();
-  const agencyId = currentUser?.agency_id || "00000000-0000-0000-0000-000000000000";
+  const isDemoUser = !currentUser || currentUser.email === "mauricio@automotora.com";
+  const agencyId = currentUser?.agency_id || (isDemoUser ? "00000000-0000-0000-0000-000000000000" : null);
 
-  const agency = await getPrimaryAgency(agencyId);
-  const stockVehicles = await getVehicles(agencyId);
-  const integrations = await getIntegrations();
-  const publications = await getVehiclePublications(agencyId);
+  const agency = await getPrimaryAgency(agencyId || undefined);
+  const stockVehicles = agencyId ? await getVehicles(agencyId) : [];
+  const integrations = await getIntegrations(agencyId || undefined);
+  const publications = agencyId ? await getVehiclePublications(agencyId) : [];
   
   let users = [];
   if (agency?.id) {
@@ -38,6 +39,7 @@ export default async function SettingsPage({
         initialIntegrations={integrations as any}
         initialPublications={publications}
         initialUsers={users}
+        currentUser={currentUser as any}
         appId={process.env.MERCADOLIBRE_APP_ID}
         appUrl={process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}
         errorMsg={searchParams.error as string}

@@ -47,7 +47,7 @@ export async function createMercadoPagoSubscription(agencyId: string, planId: "s
   if (!plan) return { success: false, error: "Plan no válido." };
 
   const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://prueba.n-sistemas.com";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://admin.n-autos.com";
 
   if (!accessToken) {
     // Si no se han configurado credenciales reales de MercadoPago en entorno local, retorna checkout simulado
@@ -102,7 +102,7 @@ export async function createPayPalSubscription(agencyId: string, planId: "starte
   if (!plan) return { success: false, error: "Plan no válido." };
 
   const clientId = process.env.PAYPAL_CLIENT_ID;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://prueba.n-sistemas.com";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://admin.n-autos.com";
 
   if (!clientId) {
     // Si no está configurado PayPal API en entorno dev, retorna checkout simulado

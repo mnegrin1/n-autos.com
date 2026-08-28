@@ -1,6 +1,10 @@
 import { getVehicles } from "@/actions/autoActions";
 import { getAgencyBySlug } from "@/actions/agencyActions";
 import PortalShowroomClient from "./PortalShowroomClient";
+import SubdomainUnavailableView from "./SubdomainUnavailableView";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function PortalPage({
   params,
@@ -10,12 +14,27 @@ export default async function PortalPage({
   const { agency: agencySlug } = await params;
   const agency = await getAgencyBySlug(agencySlug);
 
-  if (agency?.isUnavailable || agency?.isNotFound) {
-    return null;
+  if (agency?.isUnavailable) {
+    return (
+      <SubdomainUnavailableView
+        oldSubdomain={agency.oldSubdomain || agencySlug}
+        newSubdomain={agency.newSubdomain}
+        isNotFound={false}
+      />
+    );
   }
 
-  const agencyId = agency?.id || "00000000-0000-0000-0000-000000000000";
-  const vehicles = await getVehicles(agencyId);
+  if (agency?.isNotFound && agencySlug !== "demo" && agencySlug !== "hola") {
+    return (
+      <SubdomainUnavailableView
+        oldSubdomain={agencySlug}
+        isNotFound={true}
+      />
+    );
+  }
+
+  const agencyId = agency?.id || null;
+  const vehicles = agencyId ? await getVehicles(agencyId) : [];
 
   return (
     <PortalShowroomClient 

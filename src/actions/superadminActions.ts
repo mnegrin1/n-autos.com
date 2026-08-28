@@ -5,10 +5,13 @@ import { revalidatePath } from "next/cache";
 
 import { sendAccountInvitationEmail } from "@/actions/emailActions";
 import { registerUserSession } from "@/actions/authActions";
+import { deletePersistentAgencySettings, getPersistentAgencySettings } from "@/lib/persistentAgencyStore";
+import { clearServerAgencyCache } from "@/actions/agencyActions";
+
 
 function getAdminClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://joadvlatdeyamtspvruu.supabase.co";
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !serviceRoleKey) {
     return null;
@@ -30,13 +33,15 @@ function isValidUUID(str: string) {
 export async function createAgencyAndAdmin(formData: FormData) {
   try {
     const name = formData.get("name") as string;
-    const subdomain = formData.get("subdomain") as string;
+    const cleanSubdomain = (formData.get("subdomain") as string)?.toLowerCase().trim();
+    const adminName = (formData.get("admin_name") as string)?.trim() || "Administrador";
     const email = formData.get("email") as string;
     const plan = (formData.get("plan") as string) || "Free";
 
-    if (!name || !subdomain || !email) {
+    if (!name || !cleanSubdomain || !email) {
       return { success: false, error: "El nombre, subdominio y correo electrónico son requeridos." };
     }
+
 
     const supabaseAdmin = getAdminClient();
 
@@ -47,28 +52,41 @@ export async function createAgencyAndAdmin(formData: FormData) {
       };
     }
 
-    // 1. Check if subdomain exists
+    // 1. Verificar si el subdominio existe en Supabase DB
     const { data: existingAgency } = await supabaseAdmin
       .from("agencies")
       .select("id")
-      .eq("subdomain", subdomain)
-      .single();
+      .eq("subdomain", cleanSubdomain)
+      .maybeSingle();
 
     if (existingAgency) {
-      return { success: false, error: "El subdominio ya está en uso." };
+      // Verificar si la agencia existente tiene usuarios activos
+      const { data: activeUsers } = await supabaseAdmin
+        .from("users")
+        .select("id")
+        .eq("agency_id", existingAgency.id);
+
+      if (!activeUsers || activeUsers.length === 0) {
+        // Registro huérfano sin usuarios: Purgar la agencia residual
+        await deleteAgency(existingAgency.id);
+        await deleteAgency(cleanSubdomain);
+      } else {
+        return { success: false, error: "El subdominio ya está en uso por otra organización activa." };
+      }
     }
 
-    // 2. Create the Agency
+    // 2. Crear la Organización
     const { data: newAgency, error: agencyError } = await supabaseAdmin
       .from("agencies")
       .insert({
         name,
-        subdomain,
+        subdomain: cleanSubdomain,
         primary_color: "#2563eb",
         secondary_color: "#1e3a8a",
       })
       .select("id")
       .single();
+
 
     if (agencyError || !newAgency) {
       return { success: false, error: `Error creando organización: ${agencyError?.message}` };
@@ -81,56 +99,120 @@ export async function createAgencyAndAdmin(formData: FormData) {
     const activationCode = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAtIso = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
-    // 3. Create the user in Auth
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
+    const cleanEmail = email.toLowerCase().trim();
+    let authUserId: string | null = null;
+
+    // 3. Crear usuario en Auth (con purga de usuarios previos huérfanos)
+    let authRes = await supabaseAdmin.auth.admin.createUser({
+      email: cleanEmail,
       password: tempPassword,
       email_confirm: true,
     });
 
-    if (authError || !authData.user) {
-      await supabaseAdmin.from("agencies").delete().eq("id", agencyId);
-      return { success: false, error: `Error creando usuario (Auth): ${authError?.message}` };
+    if (authRes.data?.user?.id) {
+      authUserId = authRes.data.user.id;
+    } else if (
+      authRes.error && 
+      (authRes.error.message?.toLowerCase().includes("already") || 
+       authRes.error.message?.toLowerCase().includes("registrado") || 
+       authRes.error.message?.toLowerCase().includes("exists"))
+    ) {
+      // Intentar listar paginado hasta 1000 usuarios para encontrar y purgar/actualizar la cuenta huérfana
+      try {
+        const { data: listData } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        const existingAuthUser = listData?.users?.find(
+          (u) => u.email?.toLowerCase().trim() === cleanEmail
+        );
+
+        if (existingAuthUser?.id) {
+          authUserId = existingAuthUser.id;
+          // Purga previa en public.users por si existía un registro viejo con otro ID
+          try {
+            await supabaseAdmin.from("users").delete().ilike("email", cleanEmail);
+          } catch (e) {}
+
+          // Actualizar contraseña y metadata en Supabase Auth
+          await supabaseAdmin.auth.admin.updateUserById(authUserId, {
+            password: tempPassword,
+            email_confirm: true,
+          });
+        } else {
+          // Si no se encontró en la lista, forzar eliminación por mail si fuera necesario y reintentar
+          authRes = await supabaseAdmin.auth.admin.createUser({
+            email: cleanEmail,
+            password: tempPassword,
+            email_confirm: true,
+          });
+          if (authRes.data?.user?.id) {
+            authUserId = authRes.data.user.id;
+          }
+        }
+      } catch (e) {
+        console.warn("Error al resolver usuario previo en Auth:", e);
+      }
     }
 
-    const authUserId = authData.user.id;
+    if (!authUserId) {
+      await supabaseAdmin.from("agencies").delete().eq("id", agencyId);
+      return { 
+        success: false, 
+        error: `Error creando usuario (Auth): ${authRes.error?.message || "No se pudo vincular la cuenta."}` 
+      };
+    }
 
-    // 4. Link user in public.users
-    let { error: publicUserError } = await supabaseAdmin
+
+    // 4. Vincular o actualizar en public.users
+    const { data: existingPublicUser } = await supabaseAdmin
       .from("users")
-      .insert({
-        id: authUserId,
-        agency_id: agencyId,
-        name: "Admin",
-        email,
-        role: "admin",
-        reset_code: activationCode,
-        reset_expires_at: expiresAtIso,
-      });
+      .select("id")
+      .ilike("email", email)
+      .maybeSingle();
 
-    if (publicUserError && (publicUserError.message?.includes("reset_code") || publicUserError.message?.includes("schema cache"))) {
-      const retry = await supabaseAdmin
+    if (existingPublicUser) {
+      await supabaseAdmin
+        .from("users")
+        .update({
+          agency_id: agencyId,
+          name: adminName,
+          role: "admin",
+          reset_code: activationCode,
+          reset_expires_at: expiresAtIso,
+        })
+        .eq("id", existingPublicUser.id);
+    } else {
+      let { error: publicUserError } = await supabaseAdmin
         .from("users")
         .insert({
           id: authUserId,
           agency_id: agencyId,
-          name: "Admin",
+          name: adminName,
           email,
           role: "admin",
+          reset_code: activationCode,
+          reset_expires_at: expiresAtIso,
         });
-      publicUserError = retry.error;
-    }
 
-    if (publicUserError) {
-      return { success: false, error: `Error vinculando usuario: ${publicUserError?.message}` };
+      if (publicUserError) {
+        // Retry sin reset_code por si hay desincronización de esquema
+        await supabaseAdmin
+          .from("users")
+          .upsert({
+            id: authUserId,
+            agency_id: agencyId,
+            name: adminName,
+            email,
+            role: "admin",
+          });
+      }
     }
 
     // 5. Generar enlace directo de invitación
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://superadmin.n-autos.com";
-    const inviteUrl = `${appUrl}/admin/accept-invite?email=${encodeURIComponent(email)}&code=${activationCode}&agency=${encodeURIComponent(name)}&agencyId=${agencyId}&name=Admin`;
+    const inviteUrl = `${appUrl}/admin/accept-invite?email=${encodeURIComponent(email)}&code=${activationCode}&agency=${encodeURIComponent(name)}&agencyId=${agencyId}&name=${encodeURIComponent(adminName)}`;
 
     // Enviar correo de invitación
-    const emailRes = await sendAccountInvitationEmail(email, activationCode, "Admin", name, inviteUrl);
+    const emailRes = await sendAccountInvitationEmail(email, activationCode, adminName, name, inviteUrl);
+
 
     revalidatePath("/superadmin/agencies");
     revalidatePath("/superadmin/users");
@@ -145,6 +227,7 @@ export async function createAgencyAndAdmin(formData: FormData) {
       inviteUrl,
       emailSent: emailRes?.success || false,
     };
+
   } catch (error: any) {
     return { success: false, error: error.message || "Error desconocido al procesar la solicitud." };
   }
@@ -153,24 +236,50 @@ export async function createAgencyAndAdmin(formData: FormData) {
 export async function fetchAgencies() {
   try {
     const supabaseAdmin = getAdminClient();
-    if (!supabaseAdmin) {
-      return { success: false, data: [] };
+    let dbAgencies: any[] = [];
+
+    if (supabaseAdmin) {
+      const { data, error } = await supabaseAdmin
+        .from("agencies")
+        .select("*, users(id)")
+        .order("created_at", { ascending: false });
+      if (!error && data) {
+        dbAgencies = data;
+      }
     }
 
-    const { data: agencies, error } = await supabaseAdmin
-      .from("agencies")
-      .select("*, users(id)")
-      .order("created_at", { ascending: false });
+    // Combinar con almacenamiento persistente en disco (.agency_settings.json)
+    const map = new Map<string, any>();
+    dbAgencies.forEach((a) => {
+      map.set(a.id, a);
+      if (a.subdomain) map.set(a.subdomain.toLowerCase(), a);
+    });
 
-    if (error) {
-      return { success: false, error: error.message, data: [] };
+    const persistentStore = getPersistentAgencySettings() as any;
+    if (persistentStore && persistentStore.agencies) {
+      Object.entries(persistentStore.agencies).forEach(([key, settings]: [string, any]) => {
+        if (settings && (settings.subdomain || settings.agencyId)) {
+          const agencyId = settings.agencyId || key;
+          const sub = settings.subdomain || key;
+          if (!map.has(agencyId) && !map.has(sub.toLowerCase())) {
+            map.set(agencyId, {
+              id: agencyId,
+              name: settings.agencyName || settings.name || key,
+              subdomain: sub,
+              created_at: new Date().toISOString(),
+              users: []
+            });
+          }
+        }
+      });
     }
 
-    return { success: true, data: agencies || [] };
+    return { success: true, data: Array.from(map.values()) };
   } catch (err: any) {
     return { success: false, error: err.message, data: [] };
   }
 }
+
 
 export async function fetchAgencyUsers(agencyId: string) {
   try {
@@ -340,6 +449,7 @@ export async function updateUserInAgency(formData: FormData) {
 }
 
 export async function deleteUserFromAgency(userId: string) {
+
   try {
     if (!userId) return { success: false, error: "ID de usuario inválido." };
 
@@ -352,6 +462,21 @@ export async function deleteUserFromAgency(userId: string) {
       return { success: false, error: "Falta SUPABASE_SERVICE_ROLE_KEY en el servidor." };
     }
 
+    // Obtener correo del usuario antes de eliminar
+    let targetEmail: string | null = null;
+    try {
+      const { data: userRec } = await supabaseAdmin.from("users").select("email").eq("id", userId).maybeSingle();
+      if (userRec?.email) targetEmail = userRec.email;
+    } catch {}
+
+    // Unset / nullify foreign key references to this user if any
+    try {
+      await supabaseAdmin.from("events").update({ agent_id: null }).eq("agent_id", userId);
+    } catch {}
+    try {
+      await supabaseAdmin.from("auto_leads").update({ assigned_agent_id: null }).eq("assigned_agent_id", userId);
+    } catch {}
+
     // Delete from public.users
     const { error: dbError } = await supabaseAdmin
       .from("users")
@@ -362,12 +487,23 @@ export async function deleteUserFromAgency(userId: string) {
       return { success: false, error: `Error al eliminar de base de datos: ${dbError.message}` };
     }
 
-    // Delete from auth.users
+    // Delete from auth.users (por ID y por email)
     try {
       await supabaseAdmin.auth.admin.deleteUser(userId);
     } catch (e) {
-      console.warn("No se pudo eliminar auth user de Supabase:", e);
+      console.warn("No se pudo eliminar auth user de Supabase por ID:", e);
     }
+
+    if (targetEmail) {
+      try {
+        const { data: listData } = await supabaseAdmin.auth.admin.listUsers();
+        const authUser = listData?.users?.find((u) => u.email?.toLowerCase().trim() === targetEmail!.toLowerCase().trim());
+        if (authUser?.id) {
+          await supabaseAdmin.auth.admin.deleteUser(authUser.id);
+        }
+      } catch (e) {}
+    }
+
 
     revalidatePath("/superadmin/agencies");
     revalidatePath("/superadmin/users");
@@ -423,21 +559,103 @@ export async function updateAgency(formData: FormData) {
   }
 }
 
-export async function deleteAgency(agencyId: string) {
+export async function deleteAgency(agencyIdOrSubdomain: string) {
   try {
-    if (!agencyId) {
+    if (!agencyIdOrSubdomain) {
       return { success: false, error: "ID de organización no proporcionado." };
     }
 
+    const key = agencyIdOrSubdomain.trim();
     const supabaseAdmin = getAdminClient();
-    if (supabaseAdmin && isValidUUID(agencyId)) {
-      // 1. Eliminar usuarios vinculados en public.users
-      await supabaseAdmin.from("users").delete().eq("agency_id", agencyId);
-      // 2. Eliminar la organización
-      const { error } = await supabaseAdmin.from("agencies").delete().eq("id", agencyId);
-      if (error) {
-        return { success: false, error: `Error al eliminar en base de datos: ${error.message}` };
+
+    if (supabaseAdmin) {
+      // 1. Buscar la agencia en Supabase por ID o por subdominio
+      let agencyRecord: any = null;
+
+      if (isValidUUID(key)) {
+        const { data } = await supabaseAdmin.from("agencies").select("*").eq("id", key).maybeSingle();
+        agencyRecord = data;
       }
+
+      if (!agencyRecord) {
+        const { data } = await supabaseAdmin.from("agencies").select("*").eq("subdomain", key.toLowerCase()).maybeSingle();
+        agencyRecord = data;
+      }
+
+      // Buscar también por carmax o demo si la clave coincide
+      if (!agencyRecord && (key.toLowerCase() === "carmax" || key === "tenant-carmax-001")) {
+        const { data } = await supabaseAdmin.from("agencies").select("*").eq("subdomain", "carmax").maybeSingle();
+        agencyRecord = data;
+      }
+
+      const realAgencyId = agencyRecord?.id || (isValidUUID(key) ? key : null);
+      const agencySubdomain = agencyRecord?.subdomain || key.toLowerCase();
+
+      // 2. Si encontramos un ID o subdominio en Supabase, borrar usuarios asociados de Auth y tablas secundarias
+      if (realAgencyId) {
+        const { data: agencyUsers } = await supabaseAdmin.from("users").select("id").eq("agency_id", realAgencyId);
+        if (agencyUsers && agencyUsers.length > 0) {
+          for (const u of agencyUsers) {
+            try {
+              await supabaseAdmin.auth.admin.deleteUser(u.id);
+            } catch (e) {
+              console.warn(`No se pudo eliminar usuario de auth ${u.id}:`, e);
+            }
+          }
+        }
+
+        const tablesToDelete = [
+          "auto_vehicle_publications",
+          "auto_publication_automations",
+          "inbox_conversations",
+          "auto_leads",
+          "vehicles",
+          "auto_integrations",
+          "rentals",
+          "tickets",
+          "developments",
+          "lots",
+          "notifications",
+          "payments",
+          "events",
+          "offers",
+          "properties",
+          "leads",
+          "subdomain_history",
+          "users"
+        ];
+
+        for (const table of tablesToDelete) {
+          try {
+            await supabaseAdmin.from(table).delete().eq("agency_id", realAgencyId);
+          } catch (e) {}
+        }
+
+        await supabaseAdmin.from("agencies").delete().eq("id", realAgencyId);
+      }
+
+      if (agencySubdomain) {
+        try {
+          await supabaseAdmin.from("agencies").delete().eq("subdomain", agencySubdomain);
+        } catch (e) {}
+      }
+    }
+
+    // 3. Limpieza profunda en disco (.agency_settings.json)
+    deletePersistentAgencySettings(key);
+    deletePersistentAgencySettings(key.toLowerCase());
+    if (key.toLowerCase() === "carmax" || key === "tenant-carmax-001") {
+      deletePersistentAgencySettings("carmax");
+      deletePersistentAgencySettings("tenant-carmax-001");
+      deletePersistentAgencySettings("00000000-0000-0000-0000-000000000000");
+    }
+
+    // 4. Limpieza en memoria del servidor
+    await clearServerAgencyCache(key);
+    await clearServerAgencyCache(key.toLowerCase());
+    if (key.toLowerCase() === "carmax" || key === "tenant-carmax-001") {
+      await clearServerAgencyCache("carmax");
+      await clearServerAgencyCache("tenant-carmax-001");
     }
 
     revalidatePath("/superadmin/agencies");
@@ -450,12 +668,32 @@ export async function deleteAgency(agencyId: string) {
   }
 }
 
+
+
 export async function switchTenantSessionAction(agencyId: string, subdomain: string, agencyName: string) {
   try {
+    const supabaseAdmin = getAdminClient();
+    let targetEmail = `admin@${subdomain}.n-autos.com`;
+    let targetName = `Superadmin (${agencyName})`;
+
+    if (supabaseAdmin) {
+      const { data: adminUser } = await supabaseAdmin
+        .from("users")
+        .select("email, name")
+        .eq("agency_id", agencyId)
+        .limit(1)
+        .maybeSingle();
+
+      if (adminUser?.email) {
+        targetEmail = adminUser.email;
+        targetName = adminUser.name || targetName;
+      }
+    }
+
     const sessionRes = await registerUserSession({
       id: `user-superadmin-${agencyId}`,
-      email: `admin@${subdomain}.n-autos.com`,
-      name: `Superadmin (${agencyName})`,
+      email: targetEmail,
+      name: targetName,
       role: "admin",
       agency_id: agencyId,
     });
@@ -469,5 +707,6 @@ export async function switchTenantSessionAction(agencyId: string, subdomain: str
     return { success: false, error: err.message || "Error al cambiar de organización." };
   }
 }
+
 
 

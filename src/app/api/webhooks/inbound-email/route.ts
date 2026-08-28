@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     //   "created_at": "2023-09-22T00:00:00Z",
     //   "data": {
     //     "from": "user@example.com",
-    //     "to": ["inbox@n-sistemas.com"],
+    //     "to": ["inbox@n-autos.com"],
     //     "subject": "Hello",
     //     "text": "Hello world",
     //     "html": "<p>Hello world</p>"

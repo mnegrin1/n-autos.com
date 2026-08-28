@@ -11,11 +11,12 @@ export default async function IntegrationsPage({
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
   const user = await getCurrentUser();
-  const agencyId = user?.agency_id || "00000000-0000-0000-0000-000000000000";
+  const isDemoUser = !user || user.email === "mauricio@automotora.com";
+  const agencyId = user?.agency_id || (isDemoUser ? "00000000-0000-0000-0000-000000000000" : "");
 
-  const stockVehicles = await getVehicles(agencyId);
-  const integrations = await getIntegrations(agencyId);
-  const publications = await getVehiclePublications(agencyId);
+  const stockVehicles = agencyId ? await getVehicles(agencyId) : [];
+  const integrations = (agencyId ? await getIntegrations(agencyId) : {}) as any;
+  const publications = agencyId ? await getVehiclePublications(agencyId) : [];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>

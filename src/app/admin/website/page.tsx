@@ -1,5 +1,6 @@
 import { getVehicles } from "@/actions/autoActions";
 import { getPrimaryAgency } from "@/actions/agencyActions";
+import { getCurrentUser } from "@/actions/authActions";
 import WebsiteClient from "./WebsiteClient";
 
 export const dynamic = "force-dynamic";
@@ -10,9 +11,13 @@ export const metadata = {
 };
 
 export default async function WebsitePage() {
-  const agency = await getPrimaryAgency();
-  const agencyId = agency?.id || "00000000-0000-0000-0000-000000000000";
-  const vehicles = await getVehicles(agencyId);
+  const currentUser = await getCurrentUser();
+  const isDemoUser = !currentUser || currentUser.email === "mauricio@automotora.com";
+  const agencyId = currentUser?.agency_id || (isDemoUser ? "00000000-0000-0000-0000-000000000000" : null);
+
+  const agency = await getPrimaryAgency(agencyId || undefined);
+  const targetVehiclesAgencyId = agency?.id || agencyId;
+  const vehicles = targetVehiclesAgencyId ? await getVehicles(targetVehiclesAgencyId) : [];
 
   return (
     <WebsiteClient

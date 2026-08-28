@@ -12,7 +12,7 @@ export default async function VehicleDetailPage({
   const agency = await getAgencyBySlug(agencySlug);
   const vehicle = await getVehicleById(vehicleId);
 
-  if (!vehicle) {
+  if (!vehicle || (agency?.id && vehicle.agency_id && vehicle.agency_id !== agency.id)) {
     notFound();
   }
 

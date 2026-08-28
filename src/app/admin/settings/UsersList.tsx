@@ -12,7 +12,14 @@ interface UserType {
   role: string;
 }
 
-export default function UsersList({ agencyId, initialUsers }: { agencyId: string, initialUsers: UserType[] }) {
+interface CurrentUserType {
+  id: string;
+  name?: string;
+  email?: string;
+  role?: string;
+}
+
+export default function UsersList({ agencyId, initialUsers, currentUser }: { agencyId: string, initialUsers: UserType[], currentUser?: CurrentUserType }) {
   const [users, setUsers] = useState<UserType[]>(initialUsers);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -129,6 +136,53 @@ export default function UsersList({ agencyId, initialUsers }: { agencyId: string
 
       {/* Lista de Usuarios */}
       <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+
+        {/* Cuenta Activa del Administrador */}
+        {currentUser && (
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "1rem 1.5rem",
+            backgroundColor: "rgba(16, 185, 129, 0.07)",
+            border: "1.5px solid rgba(16, 185, 129, 0.35)",
+            borderRadius: "12px"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+              <div style={{ backgroundColor: "rgba(16, 185, 129, 0.2)", padding: "0.75rem", borderRadius: "50%", color: "#10b981" }}>
+                <User size={20} />
+              </div>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <p style={{ fontWeight: "700", margin: 0 }}>{currentUser.name || "Administrador"}</p>
+                  <span style={{
+                    fontSize: "0.7rem",
+                    fontWeight: 700,
+                    color: "#10b981",
+                    backgroundColor: "rgba(16, 185, 129, 0.15)",
+                    padding: "2px 8px",
+                    borderRadius: "10px",
+                    border: "1px solid rgba(16, 185, 129, 0.3)"
+                  }}>Tu cuenta</span>
+                </div>
+                <p style={{ fontSize: "0.85rem", opacity: 0.7, margin: 0 }}>
+                  {currentUser.email || "mauricio@automotora.com"} &bull;
+                  <span style={{ color: "#10b981", fontWeight: 600 }}> Administrador</span>
+                </p>
+              </div>
+            </div>
+            <span style={{
+              fontSize: "0.78rem",
+              fontWeight: 600,
+              color: "#10b981",
+              backgroundColor: "rgba(16, 185, 129, 0.1)",
+              padding: "0.3rem 0.8rem",
+              borderRadius: "8px",
+              border: "1px solid rgba(16, 185, 129, 0.25)"
+            }}>Acceso Total</span>
+          </div>
+        )}
+
         {users.map((user) => (
           <div key={user.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "1rem 1.5rem", backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", borderRadius: "12px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
@@ -137,7 +191,7 @@ export default function UsersList({ agencyId, initialUsers }: { agencyId: string
               </div>
               <div>
                 <p style={{ fontWeight: "600", margin: 0 }}>{user.name}</p>
-                <p style={{ fontSize: "0.85rem", opacity: 0.7, margin: 0 }}>{user.email} • {user.role === "agent" ? "Agente de Ventas" : user.role}</p>
+                <p style={{ fontSize: "0.85rem", opacity: 0.7, margin: 0 }}>{user.email} &bull; {user.role === "agent" ? "Agente de Ventas" : user.role === "manager" ? "Gerente" : user.role === "admin" ? "Administrador" : user.role}</p>
               </div>
             </div>
             <button 
@@ -152,8 +206,11 @@ export default function UsersList({ agencyId, initialUsers }: { agencyId: string
             </button>
           </div>
         ))}
-        {users.length === 0 && (
+        {users.length === 0 && !currentUser && (
           <p style={{ textAlign: "center", opacity: 0.5, padding: "2rem" }}>No hay usuarios ni empleados registrados.</p>
+        )}
+        {users.length === 0 && currentUser && (
+          <p style={{ textAlign: "center", opacity: 0.5, padding: "1rem", fontSize: "0.85rem" }}>No hay empleados adicionales registrados. Invitá a tu equipo usando el formulario de arriba.</p>
         )}
       </div>
 
@@ -205,7 +262,7 @@ export default function UsersList({ agencyId, initialUsers }: { agencyId: string
             <div style={{ padding: "1.75rem" }}>
               <div style={{ backgroundColor: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "14px", padding: "1.25rem", marginBottom: "1.5rem" }}>
                 <div style={{ fontSize: "0.82rem", color: "#64748b", display: "flex", flexDirection: "column", gap: "0.3rem", borderBottom: "1px solid #e2e8f0", paddingBottom: "0.75rem", marginBottom: "1rem" }}>
-                  <div><strong>De:</strong> Plataforma CRM &lt;notificaciones@n-sistemas.com&gt;</div>
+                  <div><strong>De:</strong> Plataforma CRM &lt;notificaciones@n-autos.com&gt;</div>
                   <div><strong>Para:</strong> {invitedUser.name} &lt;{invitedUser.email}&gt;</div>
                   <div><strong>Asunto:</strong> Invitación para unirte al equipo de ventas de la automotora</div>
                 </div>

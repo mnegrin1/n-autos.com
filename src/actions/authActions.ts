@@ -4,7 +4,8 @@ import { cookies } from "next/headers";
 import { supabase } from "@/lib/supabase";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { createSignedToken, verifySignedToken } from "@/lib/sessionToken";
-import { sendPasswordResetEmail } from "@/actions/emailActions";
+import { sendPasswordResetEmail, sendSuperAdminInvitationEmail } from "@/actions/emailActions";
+import { getUserPasswordHash, setUserPasswordHash } from "@/lib/persistentUserStore";
 
 // In-memory store fallback para códigos OTP de recuperación en entorno demo/desarrollo si la DB no está disponible
 const demoResetStore = new Map<string, { code: string; expiresAt: number }>();
@@ -32,11 +33,12 @@ export async function login(email: string, password?: string) {
   }
 
   const cleanEmail = email.toLowerCase().trim();
+  const client = supabaseAdmin || supabase;
   let user: any = null;
   let error: any = null;
 
   try {
-    const res = await (supabase.from("users") as any)
+    const res = await (client.from("users") as any)
       .select("*")
       .ilike("email", cleanEmail)
       .maybeSingle();
@@ -47,37 +49,49 @@ export async function login(email: string, password?: string) {
     error = err;
   }
 
-  // Fallback para ambiente de prueba si no existe la tabla/usuario en desarrollo
-  if (error || !user) {
-    const namePart = cleanEmail.split("@")[0].replace(/[._-]/g, " ");
-    const formattedName = namePart
-      .split(" ")
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(" ");
-    const userSlug = cleanEmail.replace(/[^a-z0-9]/g, "-");
+  const isSuperAdminEmail = cleanEmail === "mauricio.negrin@n-sistemas.com";
+  const inputHash = await hashPassword(password.trim());
+  const storedHash = getUserPasswordHash(cleanEmail) || user?.password_hash || demoPasswordStore.get(cleanEmail);
 
-    user = {
-      id: "user-" + userSlug,
-      email: cleanEmail,
-      name: formattedName || "Usuario Demo",
-      role: "admin",
-      agency_id: "agency-" + userSlug,
-    };
-
-    // Verificar contraseña demo en memoria
-    const inputHash = await hashPassword(password.trim());
-    const storedDemoHash = demoPasswordStore.get(cleanEmail);
-
-    if (storedDemoHash && storedDemoHash !== inputHash) {
-      return { success: false, error: "Contraseña incorrecta." };
-    }
-  } else {
-    // Si el usuario tiene password_hash guardado en Supabase, verificarlo
-    if (user.password_hash) {
-      const inputHash = await hashPassword(password.trim());
-      if (user.password_hash !== inputHash) {
+  if (!user) {
+    // Si el usuario no existe en la base de datos de Supabase:
+    // Verificar si existe una contraseña guardada previamente en almacenamiento persistente o memoria
+    if (storedHash) {
+      if (storedHash !== inputHash) {
         return { success: false, error: "Contraseña incorrecta." };
       }
+      const namePart = cleanEmail.split("@")[0].replace(/[._-]/g, " ");
+      const formattedName = namePart
+        .split(" ")
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ");
+      const userSlug = cleanEmail.replace(/[^a-z0-9]/g, "-");
+
+      user = {
+        id: "user-" + userSlug,
+        email: cleanEmail,
+        name: isSuperAdminEmail ? "Mauricio Negrin" : (formattedName || "Usuario Demo"),
+        role: isSuperAdminEmail ? "superadmin" : "admin",
+        agency_id: isSuperAdminEmail ? "00000000-0000-0000-0000-000000000000" : cleanEmail === "mauricionegrinmogni1@gmail.com" ? "7bdc2014-f7e0-44c3-a8b4-33152937bfa6" : "agency-" + userSlug,
+      };
+    } else {
+      return { success: false, error: "Correo electrónico o contraseña incorrectos." };
+    }
+  } else {
+    // Si el usuario existe en Supabase DB:
+    if (storedHash) {
+      if (storedHash !== inputHash) {
+        return { success: false, error: "Contraseña incorrecta." };
+      }
+    } else {
+      return {
+        success: false,
+        error: "La cuenta no posee una contraseña configurada. Por favor, utiliza la opción '¿Olvidaste tu contraseña?' para establecer tu contraseña.",
+      };
+    }
+
+    if (isSuperAdminEmail) {
+      user.role = "superadmin";
     }
   }
 
@@ -89,9 +103,9 @@ export async function login(email: string, password?: string) {
   const sessionData = {
     id: user.id,
     email: user.email,
-    name: user.name,
-    role: user.role || "admin",
-    agency_id: user.agency_id || "agency-demo",
+    name: user.name || (isSuperAdminEmail ? "Mauricio Negrin" : "Usuario"),
+    role: isSuperAdminEmail ? "superadmin" : (user.role || "admin"),
+    agency_id: user.agency_id || (isSuperAdminEmail ? "00000000-0000-0000-0000-000000000000" : cleanEmail === "mauricio@automotora.com" ? "00000000-0000-0000-0000-000000000000" : cleanEmail === "mauricionegrinmogni1@gmail.com" ? "7bdc2014-f7e0-44c3-a8b4-33152937bfa6" : `agency-${user.id}`),
   };
 
   const token = await createSignedToken(sessionData);
@@ -105,6 +119,38 @@ export async function login(email: string, password?: string) {
   });
 
   return { success: true, user: sessionData };
+}
+
+/**
+ * Server Action especializada para inicio de sesión en el panel exclusivo de Superadmin.
+ * Verifica explícitamente que la cuenta autenticada posea el rol de Superadmin.
+ */
+export async function loginSuperAdmin(email: string, password?: string): Promise<{
+  success: boolean;
+  user?: any;
+  error?: string;
+  isUnauthorizedRole?: boolean;
+}> {
+  const res = await login(email, password);
+  if (!res.success || !res.user) {
+    return { success: false, error: res.error || "Error al iniciar sesión." };
+  }
+
+  const cleanEmail = (res.user.email || "").toLowerCase().trim();
+  const isSuperAdminRole = res.user.role === "superadmin" || res.user.role === "Superadmin";
+  const isSuperAdminEmail = cleanEmail === "mauricio.negrin@n-sistemas.com";
+
+  if (!isSuperAdminRole && !isSuperAdminEmail) {
+    // Limpiar sesión creada por login() ya que este usuario no tiene permisos de Superadmin
+    await logout();
+    return {
+      success: false,
+      isUnauthorizedRole: true,
+      error: "Acceso Denegado: Esta cuenta no posee privilegios globales de Superadministrador. Inicia sesión en el panel de tu automotora.",
+    };
+  }
+
+  return { success: true, user: res.user };
 }
 
 export async function logout() {
@@ -301,6 +347,8 @@ export async function verifyOTPAndResetPassword(
     };
   }
 
+  setUserPasswordHash(cleanEmail, newHash);
+
   return {
     success: true,
     message: "¡Tu contraseña ha sido actualizada con éxito! Ya puedes iniciar sesión con tu nueva contraseña.",
@@ -327,6 +375,7 @@ export async function changePassword(currentPassword: string, newPassword: strin
   const cleanEmail = currentUser.email.toLowerCase().trim();
   const currentInputHash = await hashPassword(currentPassword.trim());
   const newHash = await hashPassword(newPassword.trim());
+  const storedHash = getUserPasswordHash(cleanEmail);
 
   let updated = false;
 
@@ -338,7 +387,7 @@ export async function changePassword(currentPassword: string, newPassword: strin
       .maybeSingle();
 
     if (user) {
-      if (user.password_hash && user.password_hash !== currentInputHash) {
+      if ((user.password_hash && user.password_hash !== currentInputHash) || (storedHash && storedHash !== currentInputHash)) {
         return { success: false, error: "La contraseña actual es incorrecta." };
       }
 
@@ -354,18 +403,186 @@ export async function changePassword(currentPassword: string, newPassword: strin
     console.warn("Error al actualizar contraseña en Supabase DB:", err);
   }
 
-  // Fallback para estado de pruebas demo
+  // Fallback / Guardar siempre en almacenamiento persistente
   if (!updated) {
-    const storedDemoHash = demoPasswordStore.get(cleanEmail);
+    const storedDemoHash = storedHash || demoPasswordStore.get(cleanEmail);
     if (storedDemoHash && storedDemoHash !== currentInputHash) {
       return { success: false, error: "La contraseña actual es incorrecta." };
     }
-    demoPasswordStore.set(cleanEmail, newHash);
     updated = true;
   }
+
+  setUserPasswordHash(cleanEmail, newHash);
 
   return {
     success: true,
     message: "Contraseña modificada correctamente.",
   };
 }
+
+/**
+ * Activa la cuenta de un usuario invitado y establece su nueva contraseña.
+ */
+export async function activateUserAccount({
+  email,
+  code,
+  password,
+  agencyId,
+  name,
+}: {
+  email: string;
+  code?: string;
+  password: string;
+  agencyId?: string;
+  name?: string;
+}) {
+  if (!email || !password || password.length < 6) {
+    return { success: false, error: "La contraseña debe contener al menos 6 caracteres." };
+  }
+
+  const cleanEmail = email.toLowerCase().trim();
+  const passwordHash = await hashPassword(password.trim());
+  const isSuperAdminEmail = cleanEmail === "mauricio.negrin@n-sistemas.com";
+
+  setUserPasswordHash(cleanEmail, passwordHash);
+
+  try {
+    const client = supabaseAdmin || supabase;
+    if (client) {
+      const { data: user } = await (client.from("users") as any)
+        .select("*")
+        .ilike("email", cleanEmail)
+        .maybeSingle();
+
+      if (user) {
+        await (client.from("users") as any)
+          .update({
+            password_hash: passwordHash,
+            reset_code: null,
+            reset_expires_at: null,
+            ...(isSuperAdminEmail ? { role: "superadmin" } : {})
+          })
+          .eq("id", user.id);
+
+        if (supabaseAdmin) {
+          try {
+            await supabaseAdmin.auth.admin.updateUserById(user.id, { password });
+          } catch (e) {
+            console.warn("No se pudo actualizar auth user directamente:", e);
+          }
+        }
+
+        const sessionData = {
+          id: user.id,
+          email: user.email,
+          name: isSuperAdminEmail ? "Mauricio Negrin" : (user.name || name || "Usuario"),
+          role: isSuperAdminEmail ? "superadmin" : (user.role || "admin"),
+          agency_id: isSuperAdminEmail ? "00000000-0000-0000-0000-000000000000" : (user.agency_id || agencyId || `agency-${user.id}`),
+        };
+
+        const token = await createSignedToken(sessionData);
+        const cookieStore = await cookies();
+        cookieStore.set("admin-session", token, {
+          path: "/",
+          httpOnly: false,
+          secure: process.env.NODE_ENV === "production",
+          maxAge: 60 * 60 * 24 * 7,
+        });
+
+        return { success: true, user: sessionData };
+      }
+    }
+  } catch (err) {
+    console.error("Error activando cuenta en Supabase:", err);
+  }
+
+  // Fallback demo
+  demoPasswordStore.set(cleanEmail, passwordHash);
+
+  const fallbackUser = {
+    id: `user-${cleanEmail.replace(/[^a-z0-9]/g, "-")}`,
+    email: cleanEmail,
+    name: isSuperAdminEmail ? "Mauricio Negrin" : (name || "Usuario"),
+    role: isSuperAdminEmail ? "superadmin" : "admin",
+    agency_id: isSuperAdminEmail ? "00000000-0000-0000-0000-000000000000" : (agencyId || `agency-${cleanEmail.replace(/[^a-z0-9]/g, "-")}`),
+  };
+
+  const token = await createSignedToken(fallbackUser);
+  const cookieStore = await cookies();
+  cookieStore.set("admin-session", token, {
+    path: "/",
+    httpOnly: false,
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 24 * 7,
+  });
+
+  return { success: true, user: fallbackUser };
+}
+
+/**
+ * Genera un código de activación y envía un correo electrónico de invitación
+ * para que el superadmin (mauricio.negrin@n-sistemas.com) configure su contraseña.
+ */
+export async function sendSuperAdminPasswordInviteEmailAction(targetEmail: string = "mauricio.negrin@n-sistemas.com") {
+  const cleanEmail = targetEmail.toLowerCase().trim();
+  const activationCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const expiresAtMs = Date.now() + 24 * 60 * 60 * 1000;
+
+  // Registrar en Supabase si el cliente está disponible
+  try {
+    const client = supabaseAdmin || supabase;
+    if (client) {
+      const { data: existingUser } = await (client.from("users") as any)
+        .select("*")
+        .ilike("email", cleanEmail)
+        .maybeSingle();
+
+      if (existingUser) {
+        await (client.from("users") as any)
+          .update({
+            role: "superadmin",
+            reset_code: activationCode,
+            reset_expires_at: new Date(expiresAtMs).toISOString(),
+          })
+          .eq("id", existingUser.id);
+      } else {
+        await (client.from("users") as any)
+          .insert([{
+            id: `user-superadmin-${Date.now()}`,
+            email: cleanEmail,
+            name: "Mauricio Negrin",
+            role: "superadmin",
+            agency_id: "00000000-0000-0000-0000-000000000000",
+            reset_code: activationCode,
+            reset_expires_at: new Date(expiresAtMs).toISOString(),
+          }]);
+      }
+    }
+  } catch (err) {
+    console.warn("Aviso: No se pudo guardar el usuario superadmin en Supabase DB:", err);
+  }
+
+  // Guardar en demo reset store
+  demoResetStore.set(cleanEmail, { code: activationCode, expiresAt: expiresAtMs });
+
+  // Enviar correo vía Resend API
+  const emailRes = await sendSuperAdminInvitationEmail(cleanEmail, activationCode, "Mauricio Negrin");
+
+  if (emailRes.success) {
+    return {
+      success: true,
+      message: `Se ha enviado el correo de configuración de contraseña a ${cleanEmail}. Revisa tu bandeja de entrada.`,
+    };
+  } else {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://admin.n-autos.com";
+    const directLink = `${appUrl}/admin/accept-invite?email=${encodeURIComponent(cleanEmail)}&code=${activationCode}&name=Mauricio%20Negrin&role=superadmin`;
+    return {
+      success: true,
+      demoLink: directLink,
+      error: emailRes.error,
+      message: `Correo enviado a ${cleanEmail}. Si hay problemas de entregabilidad, usa este enlace directo: ${directLink}`,
+    };
+  }
+}
+
+

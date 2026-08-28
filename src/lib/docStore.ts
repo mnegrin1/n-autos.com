@@ -77,7 +77,7 @@ export const DEFAULT_DOC_PAGES: DocPage[] = [
         title: "3. Enlace del Sitio Web y Subdominio",
         description: "Publica tu catálogo web instantáneamente bajo tu nombre de automotora.",
         content: `Tu catálogo web público queda activo de forma inmediata en:
-\`https://tuautomotora.n-sistemas.com\`
+\`https://tuautomotora.n-autos.com\`
 
 Si deseas vincular tu dominio propio (ejemplo: \`www.automotoracarmax.com\`), dirígete al módulo de **Sitio Web > Dominio Personalizado** para ingresar tus registros CNAME o DNS.`,
         loomUrl: "",
@@ -274,7 +274,7 @@ export const DEFAULT_DOC_COMMENTS: DocComment[] = [
     sectionId: "datos-marca-logo",
     authorName: "Mauricio Negrin",
     authorRole: "Super Admin",
-    authorEmail: "admin@n-sistemas.com",
+    authorEmail: "admin@n-autos.com",
     avatarUrl: "",
     content: "¡Hola equipo! En este video muestro detalladamente cómo subir el logo en formato vectorial para que se vea perfecto en monitores Retina y en dispositivos móviles. Cualquier duda me la dejan por aquí.",
     createdAt: "2026-08-08 10:30"
@@ -307,7 +307,7 @@ export const DEFAULT_DOC_COMMENTS: DocComment[] = [
     sectionId: "vinculacion-whatsapp",
     authorName: "Mauricio Negrin",
     authorRole: "Super Admin",
-    authorEmail: "admin@n-sistemas.com",
+    authorEmail: "admin@n-autos.com",
     avatarUrl: "",
     content: "¡Hola Carlos! Sí, en el plan Multi-Sucursal puedes vincular un número de WhatsApp independiente por cada sucursal.",
     createdAt: "2026-08-09 09:20"
@@ -363,7 +363,7 @@ export function getActiveUserSessionInfo() {
   const isSuperAdmin =
     role === "superadmin" ||
     role === "super_admin" ||
-    email.includes("admin@n-sistemas.com") ||
+    email.includes("admin@n-autos.com") ||
     email.includes("mauricio") ||
     session.isSuperAdmin === true;
 

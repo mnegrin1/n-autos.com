@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import * as xlsx from "xlsx";
 import { FileSpreadsheet, Upload, Check, AlertCircle, Download, X, Loader2 } from "lucide-react";
 import { createVehicle } from "@/actions/autoActions";
 
@@ -48,9 +47,10 @@ export default function VehicleExcelImporterModal({
     setImportedCount(null);
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
         const bstr = evt.target?.result;
+        const xlsx = await import("xlsx");
         const workbook = xlsx.read(bstr, { type: "binary" });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
@@ -173,7 +173,7 @@ export default function VehicleExcelImporterModal({
     }, 1800);
   };
 
-  const downloadExcelTemplate = () => {
+  const downloadExcelTemplate = async () => {
     const templateData = [
       ["Marca", "Modelo", "Año", "Kms", "Precio", "Moneda", "Transmision", "Combustible", "Color", "Matricula"],
       ["Toyota", "Corolla Cross 1.8", 2022, 35000, 28900, "USD", "Automatica", "Hibrido", "Gris", "SAB1234"],
@@ -181,6 +181,7 @@ export default function VehicleExcelImporterModal({
       ["Volkswagen", "Nivus Highline 200 TSI", 2023, 15000, 25900, "USD", "Automatica", "Nafta", "Negro", "AA123BB"],
     ];
 
+    const xlsx = await import("xlsx");
     const ws = xlsx.utils.aoa_to_sheet(templateData);
     const wb = xlsx.utils.book_new();
     xlsx.utils.book_append_sheet(wb, ws, "Plantilla_Vehiculos");

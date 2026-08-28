@@ -4,9 +4,12 @@ import styles from "./portal.module.css";
 import { getAgencyBySlug } from "@/actions/agencyActions";
 import WhatsAppFloatingButton from "./WhatsAppFloatingButton";
 import ZoomScript from "./ZoomScript";
-import VisitorThemeToggle from "./VisitorThemeToggle";
 import PortalFaviconScript from "./PortalFaviconScript";
 import SubdomainUnavailableView from "./SubdomainUnavailableView";
+import PortalThemeToggle from "./PortalThemeToggle";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function generateMetadata({
   params,
@@ -66,59 +69,70 @@ export default async function PortalLayout({
   }
 
   const agencyName = agency?.name || agencySlug.replace(/-/g, " ").toUpperCase();
-  const primaryColor = agency?.primary_color || "#10b981"; // default emerald green for auto
-  const secondaryColor = agency?.secondary_color || "#059669";
   const whatsappPhone = agency?.whatsapp || "+598 99 123 456";
   const cleanWhatsappPhone = whatsappPhone.replace(/\D/g, "");
-  
+
+  const activePrimary = agency?.primary_color || "#10b981";
+  const fontFamilyName = agency?.font_family || "Inter";
+
+  const fontCssMap: Record<string, string> = {
+    "Inter": "'Inter', sans-serif",
+    "Plus Jakarta Sans": "'Plus Jakarta Sans', sans-serif",
+    "Manrope": "'Manrope', sans-serif",
+    "Outfit": "'Outfit', sans-serif",
+    "Playfair Display": "'Playfair Display', serif",
+    "Roboto": "'Roboto', sans-serif",
+  };
+  const fontCss = fontCssMap[fontFamilyName] || "'Inter', sans-serif";
+
   return (
-    <div className={styles.portalWrapper}>
+    <div className={styles.portalWrapper} style={{ fontFamily: fontCss }}>
       {/* Dynamic Favicon & Title Script */}
       <PortalFaviconScript logoUrl={agency?.logo_url || ""} agencyName={agencyName} />
 
-      {/* Google Fonts Preconnect and Links */}
+      {/* Google Fonts para la selección del cliente */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@400;600;700;900&family=Space+Grotesk:ital,wght@0,500;0,700;1,700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Plus+Jakarta+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
 
       {/* Client component to apply zoom */}
       <ZoomScript />
 
-      {/* Dynamic Styling for Branding Colors */}
+      {/* Dynamic Styling para Branding, Colores y Fuentes */}
       <style dangerouslySetInnerHTML={{ __html: `
         :root {
-          --primary: ${primaryColor};
-          --primary-hover: ${secondaryColor};
-          --secondary: ${secondaryColor};
-          --primary-light: ${secondaryColor}15;
-          --font-family: 'Inter', sans-serif;
+          --portal-primary: ${activePrimary};
+          --portal-primary-hover: ${activePrimary}dd;
+          --portal-primary-light: ${activePrimary}1a;
+          --portal-font-family: ${fontCss};
+          --primary: ${activePrimary};
+          --primary-hover: ${activePrimary}dd;
         }
-        body, button, html, input, select, textarea {
-          font-family: var(--font-family);
+        body {
+          font-family: ${fontCss};
         }
       `}} />
 
       {/* Header Banner de la Automotora */}
       <header className={styles.navbar}>
         <div className={styles.navContainer}>
-          <Link href={`/portal/${agencySlug}`} className={styles.logo} style={{ display: "flex", alignItems: "center", gap: "0.75rem", textDecoration: "none" }}>
+          <Link href="/" className={styles.logo} style={{ display: "flex", alignItems: "center", gap: "0.75rem", textDecoration: "none" }}>
             {agency?.logo_url ? (
-              <img src={agency.logo_url} alt={agencyName || "Logo"} style={{ height: "42px", maxWidth: "150px", objectFit: "contain", borderRadius: "6px" }} />
-            ) : !agencyName ? (
-              <span style={{ fontSize: "1.3rem" }}>🚗</span>
+              <img src={agency.logo_url} alt={agencyName || "Logo"} style={{ height: "42px", maxWidth: "160px", objectFit: "contain", borderRadius: "6px" }} />
             ) : null}
             {agencyName ? (
-              <span style={{ fontWeight: 800, fontSize: "1.25rem", letterSpacing: "-0.02em" }}>{agencyName}</span>
+              <span style={{ fontWeight: 800, fontSize: "1.25rem", letterSpacing: "-0.02em", color: "#ffffff" }}>{agencyName}</span>
             ) : !agency?.logo_url ? (
-              <span style={{ fontWeight: 800, fontSize: "1.25rem", letterSpacing: "-0.02em" }}>Automotora VIP</span>
+              <span style={{ fontWeight: 800, fontSize: "1.25rem", letterSpacing: "-0.02em", color: "#ffffff" }}>Automotora VIP</span>
             ) : null}
           </Link>
 
           <nav className={styles.navLinks}>
-            <Link href={`/portal/${agencySlug}#inicio`}>Inicio</Link>
-            <Link href={`/portal/${agencySlug}#vehiculos`}>Catálogo</Link>
-            <Link href={`/portal/${agencySlug}#nosotros`}>Sobre Nosotros</Link>
-            <Link href={`/portal/${agencySlug}#contacto`}>Contacto</Link>
+            <Link href="#inicio">Inicio</Link>
+            <Link href="#vehiculos">Catálogo</Link>
+            <Link href="#nosotros">Sobre Nosotros</Link>
+            <Link href="#contacto">Contacto</Link>
+            <PortalThemeToggle />
             
             <a 
               href={`https://wa.me/${cleanWhatsappPhone}?text=${encodeURIComponent(`Hola ${agencyName}, me gustaría consultar sobre su catálogo de vehículos.`)}`} 
@@ -129,10 +143,10 @@ export default async function PortalLayout({
               <svg className={styles.whatsappIcon} viewBox="0 0 448 512" fill="currentColor" style={{ width: "16px", height: "16px" }}>
                 <path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7 .9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z" />
               </svg>
-              <span className={styles.whatsappNumber}>{whatsappPhone}</span>
+              <span className={styles.whatsappNumber}>
+                {whatsappPhone}
+              </span>
             </a>
-
-            <VisitorThemeToggle />
           </nav>
         </div>
       </header>
@@ -148,14 +162,14 @@ export default async function PortalLayout({
             <p>{agency?.footer_text || "Tu concesionario de confianza. Vehículos seleccionados con certificación de origen, garantía y la mejor atención personalizada."}</p>
           </div>
           <div className={styles.footerLinks}>
-            <Link href={`/portal/${agencySlug}#inicio`}>Inicio</Link>
-            <Link href={`/portal/${agencySlug}#vehiculos`}>Catálogo</Link>
-            <Link href={`/portal/${agencySlug}#nosotros`}>Nosotros</Link>
-            <Link href={`/portal/${agencySlug}#contacto`}>Contacto</Link>
+            <Link href="#inicio">Inicio</Link>
+            <Link href="#vehiculos">Catálogo</Link>
+            <Link href="#nosotros">Nosotros</Link>
+            <Link href="#contacto">Contacto</Link>
           </div>
         </div>
         <div className={styles.footerBottom}>
-          <p>&copy; {new Date().getFullYear()} {agencyName}. Todos los derechos reservados. Desarrollado por CRM Automotores.</p>
+          <p>&copy; {new Date().getFullYear()} {agencyName}. Todos los derechos reservados.</p>
         </div>
       </footer>
       
@@ -166,3 +180,4 @@ export default async function PortalLayout({
     </div>
   );
 }
+

@@ -201,18 +201,26 @@ export default function SuperAdminAgencies() {
 
     try {
       const res = await deleteAgency(agency.id);
-      if (res.success) {
-        deleteRegisteredAgency(agency.id);
-        setAgencies(prev => prev.filter(a => a.id !== agency.id));
-        if (selectedAgency?.id === agency.id) {
-          setSelectedAgency(null);
-        }
-      } else {
-        alert(res.error || "Error al eliminar la organización.");
+      await deleteAgency(agency.subdomain);
+      if (agency.subdomain.toLowerCase() === "carmax") {
+        await deleteAgency("tenant-carmax-001");
+      }
+
+      deleteRegisteredAgency(agency.id);
+      deleteRegisteredAgency(agency.subdomain);
+      if (agency.subdomain.toLowerCase() === "carmax") {
+        deleteRegisteredAgency("carmax");
+        deleteRegisteredAgency("tenant-carmax-001");
+      }
+
+      setAgencies(prev => prev.filter(a => a.id !== agency.id && a.subdomain.toLowerCase() !== agency.subdomain.toLowerCase()));
+      if (selectedAgency?.id === agency.id || selectedAgency?.subdomain === agency.subdomain) {
+        setSelectedAgency(null);
       }
     } catch (err: any) {
       alert("Error al eliminar la organización: " + (err.message || "Error desconocido"));
     }
+
   };
 
   // Handle Create Organization Form Submit
@@ -226,6 +234,7 @@ export default function SuperAdminAgencies() {
     const formData = new FormData(e.currentTarget);
     const name = formData.get("name") as string;
     const subdomain = formData.get("subdomain") as string;
+    const adminName = (formData.get("admin_name") as string)?.trim() || "Administrador";
     const email = formData.get("email") as string;
 
     try {
@@ -239,10 +248,11 @@ export default function SuperAdminAgencies() {
           agencyId: newAgencyId,
           agencyName: name,
           subdomain,
-          adminName: "Admin",
+          adminName: adminName,
           adminEmail: email,
           planName: "Agencia 360°"
         });
+
 
         const newAgencyObj: Agency = {
           id: newAgencyId,
@@ -542,7 +552,9 @@ export default function SuperAdminAgencies() {
                       <Globe size={14} style={{ opacity: 0.6 }} />
                       <code>{agency.subdomain}</code>
                       <a 
-                        href={`/portal/${agency.subdomain}`} 
+                        href={typeof window !== "undefined" && window.location.hostname.endsWith(".localhost") 
+                          ? `http://${agency.subdomain}.localhost:3000` 
+                          : `https://${agency.subdomain}.n-autos.com`} 
                         target="_blank" 
                         rel="noreferrer"
                         onClick={(e) => e.stopPropagation()}
@@ -551,6 +563,7 @@ export default function SuperAdminAgencies() {
                       >
                         <ExternalLink size={13} />
                       </a>
+
                     </div>
                   </td>
                   <td style={{ padding: "1rem 0" }}>
@@ -1067,10 +1080,17 @@ export default function SuperAdminAgencies() {
                   </div>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>Email Administrador</label>
-                  <input required name="email" type="email" placeholder="admin@automotors.com" style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", outline: "none" }} />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                    <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>Nombre del Administrador</label>
+                    <input required name="admin_name" type="text" placeholder="Ej: Mauricio Negrin" style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", outline: "none" }} />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                    <label style={{ fontSize: "0.85rem", fontWeight: 600 }}>Email Administrador</label>
+                    <input required name="email" type="email" placeholder="admin@automotors.com" style={{ padding: "0.75rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", outline: "none" }} />
+                  </div>
                 </div>
+
 
                 <div style={{ backgroundColor: "rgba(37, 99, 235, 0.08)", border: "1px solid rgba(37, 99, 235, 0.2)", padding: "0.85rem", borderRadius: "8px", fontSize: "0.82rem", color: "var(--text-color)", display: "flex", gap: "0.5rem", alignItems: "flex-start" }}>
                   <Mail size={16} style={{ color: "#2563eb", flexShrink: 0, marginTop: "2px" }} />

@@ -15,6 +15,11 @@ import {
   deleteLandingInquiry,
   LandingInquiry
 } from "@/lib/inquiryStore";
+import { 
+  fetchLandingInquiriesAction,
+  updateInquiryStatusAction, 
+  deleteInquiryAction 
+} from "@/actions/inquiryActions";
 import { processApprovedBrandingRequest } from "@/actions/brandingRequestActions";
 import { updateTenantAgencyName } from "@/lib/tenantStore";
 import { addRegisteredTenant } from "@/lib/superadminStore";
@@ -54,13 +59,68 @@ export default function SuperAdminRequestsPage() {
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
-    setInquiries(getLandingInquiries());
-    const unsubInq = subscribeInquiries(() => setInquiries(getLandingInquiries()));
+    const loadAllInquiries = async () => {
+      if (document.hidden) return;
+
+      const localInqs = getLandingInquiries();
+      
+      let apiInqs: LandingInquiry[] = [];
+      try {
+        const res = await fetch("/api/landing-inquiries", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.inquiries)) {
+            apiInqs = data.inquiries;
+          }
+        }
+      } catch (e) {}
+
+      if (apiInqs.length === 0) {
+        try {
+          const actionInqs = await fetchLandingInquiriesAction();
+          if (Array.isArray(actionInqs) && actionInqs.length > 0) {
+            apiInqs = actionInqs as LandingInquiry[];
+          }
+        } catch (e) {}
+      }
+
+      // Combinar consultas sin duplicar por ID
+      const map = new Map<string, LandingInquiry>();
+
+      const addDeduplicated = (item: LandingInquiry) => {
+        if (!item || !item.id) return;
+        if (!map.has(item.id)) {
+          map.set(item.id, item);
+        }
+      };
+
+      apiInqs.forEach(addDeduplicated);
+      localInqs.forEach(addDeduplicated);
+      
+      setInquiries(Array.from(map.values()));
+    };
+
+    loadAllInquiries();
+    const interval = setInterval(loadAllInquiries, 15000);
+
+    const handleFocusOrVisibility = () => {
+      if (!document.hidden) {
+        loadAllInquiries();
+      }
+    };
+
+    window.addEventListener("focus", handleFocusOrVisibility);
+    document.addEventListener("visibilitychange", handleFocusOrVisibility);
+
+    const unsubInq = subscribeInquiries(() => loadAllInquiries());
 
     setRequests(getBrandingRequests());
     const unsubBrand = subscribeBrandingRequestStore(() => setRequests(getBrandingRequests()));
 
     return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocusOrVisibility);
+      document.removeEventListener("visibilitychange", handleFocusOrVisibility);
       unsubInq();
       unsubBrand();
     };
@@ -374,7 +434,16 @@ export default function SuperAdminRequestsPage() {
                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                       <select
                         value={inq.status}
-                        onChange={(e) => updateInquiryStatus(inq.id, e.target.value as any)}
+                        onChange={(e) => {
+                          const newStatus = e.target.value as any;
+                          updateInquiryStatus(inq.id, newStatus);
+                          updateInquiryStatusAction(inq.id, newStatus);
+                          fetch("/api/landing-inquiries", {
+                            method: "PUT",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ id: inq.id, status: newStatus })
+                          }).catch(() => null);
+                        }}
                         style={{
                           padding: "0.4rem 0.75rem",
                           borderRadius: "8px",
@@ -404,6 +473,12 @@ export default function SuperAdminRequestsPage() {
                         onClick={() => {
                           if (confirm(`¿Eliminar la consulta de "${inq.agencyName}"?`)) {
                             deleteLandingInquiry(inq.id);
+                            deleteInquiryAction(inq.id);
+                            fetch("/api/landing-inquiries", {
+                              method: "DELETE",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ id: inq.id })
+                            }).catch(() => null);
                           }
                         }}
                         style={{

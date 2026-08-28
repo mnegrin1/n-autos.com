@@ -24,43 +24,7 @@ export interface SupportTicket {
 
 const SUPPORT_STORAGE_KEY = "n_sistemas_support_tickets_v1";
 
-const INITIAL_TICKETS: SupportTicket[] = [
-  {
-    id: "ticket-101",
-    userEmail: "mauricio@automotora.com",
-    userName: "Mauricio Negrin",
-    agencyName: "Test-Automotora",
-    subject: "Consulta sobre integración con WhatsApp",
-    status: "in_progress",
-    createdAt: "2026-07-24T14:30:00Z",
-    updatedAt: "2026-07-25T07:10:00Z",
-    unreadSuperadmin: true,
-    unreadUser: false,
-    messages: [
-      {
-        id: "msg-1",
-        sender: "user",
-        senderName: "Mauricio Negrin",
-        message: "Hola, quisiera saber cómo vincular el número de WhatsApp oficial de mi automotora para el Inbox.",
-        timestamp: "2026-07-24 14:30"
-      },
-      {
-        id: "msg-2",
-        sender: "superadmin",
-        senderName: "Superadmin",
-        message: "¡Hola Mauricio! Puedes configurarlo ingresando a Configuración > Integraciones. Si precisas asistencia guiada dime y lo agendamos.",
-        timestamp: "2026-07-24 15:00"
-      },
-      {
-        id: "msg-3",
-        sender: "user",
-        senderName: "Mauricio Negrin",
-        message: "Excelente, ¡muchas gracias! Ya lo estoy revisando.",
-        timestamp: "2026-07-25 07:10"
-      }
-    ]
-  }
-];
+const INITIAL_TICKETS: SupportTicket[] = [];
 
 type Listener = () => void;
 const listeners: Set<Listener> = new Set();
@@ -80,9 +44,9 @@ export function getSupportTickets(): SupportTicket[] {
   if (typeof window === "undefined") return INITIAL_TICKETS;
   try {
     const saved = localStorage.getItem(SUPPORT_STORAGE_KEY);
-    if (saved) {
+    if (saved !== null) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
@@ -91,6 +55,13 @@ export function getSupportTickets(): SupportTicket[] {
   }
   return INITIAL_TICKETS;
 }
+
+export function deleteSupportTicket(ticketId: string): void {
+  const current = getSupportTickets();
+  const updated = current.filter(t => t.id !== ticketId);
+  saveSupportTickets(updated);
+}
+
 
 export function saveSupportTickets(tickets: SupportTicket[]): void {
   if (typeof window !== "undefined") {

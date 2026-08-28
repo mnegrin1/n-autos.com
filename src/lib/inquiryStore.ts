@@ -14,30 +14,7 @@ export interface LandingInquiry {
 
 const INQUIRIES_STORAGE_KEY = "n_autos_landing_inquiries_v1";
 
-export const DEFAULT_INQUIRIES: LandingInquiry[] = [
-  {
-    id: "inq-101",
-    agencyName: "Automotores del Este",
-    userName: "Gonzalo Rodríguez",
-    userEmail: "gonzalo@automotoresdeleste.uy",
-    phone: "099 123 456",
-    message: "Hola, queremos montar nuestro portal web y conectar el CRM con WhatsApp. ¿Podrían coordinar una demo?",
-    status: "pending",
-    createdAt: new Date(Date.now() - 3600000 * 2).toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }),
-    subdomain: "deleste"
-  },
-  {
-    id: "inq-100",
-    agencyName: "Car Plaza Uruguay",
-    userName: "Lucía Méndez",
-    userEmail: "lucia@carplaza.com.uy",
-    phone: "098 765 432",
-    message: "Buenas tardes, nos interesa conocer el plan de agencia y la integración automática con MercadoLibre.",
-    status: "contacted",
-    createdAt: new Date(Date.now() - 3600000 * 26).toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }),
-    subdomain: "carplaza"
-  }
-];
+export const DEFAULT_INQUIRIES: LandingInquiry[] = [];
 
 type InquiryListener = () => void;
 const listeners: Set<InquiryListener> = new Set();
@@ -57,9 +34,9 @@ export function getLandingInquiries(): LandingInquiry[] {
   if (typeof window === "undefined") return DEFAULT_INQUIRIES;
   try {
     const saved = localStorage.getItem(INQUIRIES_STORAGE_KEY);
-    if (saved) {
+    if (saved !== null) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
@@ -68,6 +45,7 @@ export function getLandingInquiries(): LandingInquiry[] {
   }
   return DEFAULT_INQUIRIES;
 }
+
 
 export function addLandingInquiry(inquiry: {
   agencyName: string;

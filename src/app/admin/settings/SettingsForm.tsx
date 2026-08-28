@@ -33,28 +33,29 @@ interface SettingsFormProps {
   initialIntegrations?: any[];
   initialPublications?: any[];
   initialUsers?: any[];
+  currentUser?: { id: string; name?: string; email?: string; role?: string };
   appId?: string;
   appUrl?: string;
   errorMsg?: string;
   successMsg?: string;
 }
 
-type SettingsTab = "integrations" | "profile" | "domains" | "appearance" | "users" | "security";
+type SettingsTab = "profile" | "integrations" | "domains" | "appearance" | "users" | "security";
 
 const TABS: { id: SettingsTab; label: string; icon: any; title: string; description: string }[] = [
+  {
+    id: "profile",
+    label: "Branding",
+    icon: Palette,
+    title: "Identidad de Marca",
+    description: "Administra el nombre de la automotora, contacto directo de WhatsApp y color de marca."
+  },
   {
     id: "integrations",
     label: "Integraciones",
     icon: Globe,
     title: "Integraciones y Portales",
     description: "Sincroniza tus publicaciones automáticamente con MercadoLibre y otros portales."
-  },
-  {
-    id: "profile",
-    label: "Perfil Comercial",
-    icon: SettingsIcon,
-    title: "Información Comercial y Marca",
-    description: "Administra el nombre de la automotora, contacto directo de WhatsApp y color de marca."
   },
   {
     id: "domains",
@@ -66,7 +67,7 @@ const TABS: { id: SettingsTab; label: string; icon: any; title: string; descript
   {
     id: "appearance",
     label: "Apariencia CRM",
-    icon: Palette,
+    icon: SettingsIcon,
     title: "Preferencias del Panel de Control",
     description: "Personaliza el tema visual, patrón de fondo y nivel de zoom para tu comodidad."
   },
@@ -92,12 +93,13 @@ export default function SettingsForm({
   initialIntegrations = [],
   initialPublications = [],
   initialUsers = [],
+  currentUser,
   appId = "",
   appUrl = "http://localhost:3000",
   errorMsg,
   successMsg
 }: SettingsFormProps) {
-  const [activeTab, setActiveTab] = useState<SettingsTab>("integrations");
+  const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
 
   const [agency, setAgency] = useState<Agency>(initialAgency);
   const [name, setName] = useState(agency.name);
@@ -131,10 +133,10 @@ export default function SettingsForm({
   });
   const [bgPattern, setBgPattern] = useState(() => {
     if (typeof window !== "undefined") {
-      const p = localStorage.getItem("crm-bg-pattern") || "solid";
+      const p = localStorage.getItem("crm-bg-pattern") || "topography";
       return p === "emerald" ? "gradient" : p;
     }
-    return "solid";
+    return "topography";
   });
   const [bgPatternColor, setBgPatternColor] = useState(() => {
     if (typeof window !== "undefined") {
@@ -573,7 +575,7 @@ export default function SettingsForm({
           {/* 6. Organización */}
           {activeTab === "users" && (
             <div>
-              <UsersList agencyId={agency.id} initialUsers={initialUsers} />
+              <UsersList agencyId={agency.id} initialUsers={initialUsers} currentUser={currentUser} />
             </div>
           )}
 

@@ -5,7 +5,6 @@ import styles from "./crm.module.css";
 import { updateAutoLeadStatus, deleteAutoLead, createAutoLead, bulkCreateAutoLeads, bulkAddTagsToLeads, bulkRemoveTagsFromLeads, updateAutoLeadTags, createGlobalTagAction, renameGlobalTagAction, deleteGlobalTagAction } from "@/actions/autoActions";
 import { getVehicles } from "@/actions/autoActions";
 import { Phone, Mail, User, Plus, Trash2, Calendar, MessageSquare, X, Search, Upload, Tag as TagIcon, Check, Filter, Edit2, Eye } from "lucide-react";
-import * as xlsx from "xlsx";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useRef } from "react";
 import ComposeEmailModal from "@/components/ComposeEmailModal";
@@ -93,6 +92,7 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
     reader.onload = async (evt) => {
       try {
         const bstr = evt.target?.result;
+        const xlsx = await import("xlsx");
         const workbook = xlsx.read(bstr, { type: "binary" });
         const wsname = workbook.SheetNames[0];
         const ws = workbook.Sheets[wsname];
@@ -200,7 +200,8 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
   const handleOpenAddModal = async () => {
     setShowAddModal(true);
     try {
-      const res = await getVehicles("00000000-0000-0000-0000-000000000000");
+      const targetAgencyId = currentUser?.agency_id || "00000000-0000-0000-0000-000000000000";
+      const res = await getVehicles(targetAgencyId);
       setVehicles(res);
       // Vehicle is optional, so we can default to empty ("")
       setNewLeadForm(prev => ({ ...prev, vehicleId: "" }));

@@ -29,6 +29,7 @@ export default function LoginClient() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
+      document.title = "n-autos.com | Iniciar Sesión";
       const params = new URLSearchParams(window.location.search);
       const err = params.get("error");
       if (err === "google_not_configured") {
@@ -163,80 +164,25 @@ export default function LoginClient() {
       />
 
       <div className={styles.loginCard}>
-        <div
-          className={styles.brand}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "0.5rem",
-            marginBottom: "1.25rem",
-          }}
-        >
-          <div style={{ textAlign: "center" }}>
-            <h1
-              style={{
-                fontSize: "2rem",
-                fontWeight: 800,
-                color: "var(--text-color)",
-                marginTop: "0.5rem",
-                letterSpacing: "-0.02em",
-              }}
-            >
-              Tu <span style={{ color: "#10b981" }}>Automotora</span>
-            </h1>
-            <p style={{ fontSize: "0.85rem", opacity: 0.7, marginTop: "0.25rem" }}>
-              Plataforma de Gestión Automotriz
-            </p>
+        <div className={styles.brand}>
+          <div className={styles.logo}>
+            <span className={styles.logoMain}>n-autos</span>
+            <span className={styles.logoDot}>.com</span>
           </div>
+          <p className={styles.brandSubtitle}>
+            Plataforma de Gestión Automotriz
+          </p>
         </div>
 
         {/* Notificaciones globales */}
         {error && <div className={styles.errorBox}>{error}</div>}
-        {successMsg && (
-          <div
-            style={{
-              backgroundColor: "rgba(16, 185, 129, 0.12)",
-              border: "1px solid #10b981",
-              color: "#10b981",
-              padding: "0.75rem 1rem",
-              borderRadius: "8px",
-              fontSize: "0.85rem",
-              fontWeight: 600,
-              lineHeight: 1.4,
-              textAlign: "center",
-            }}
-          >
-            {successMsg}
-          </div>
-        )}
+        {successMsg && <div className={styles.successBox}>{successMsg}</div>}
 
         {/* VISTA 1: INICIO DE SESIÓN */}
         {viewMode === "login" && (
           <>
             {/* Botón de Iniciar Sesión con Google */}
-            <a
-              href="/api/auth/google-login"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "0.75rem",
-                width: "100%",
-                padding: "0.75rem 1rem",
-                borderRadius: "8px",
-                backgroundColor: "#ffffff",
-                color: "#3c4043",
-                border: "1px solid #dadce0",
-                fontWeight: 600,
-                fontSize: "0.95rem",
-                cursor: "pointer",
-                textDecoration: "none",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-                transition: "all 0.2s ease",
-                marginBottom: "0.5rem",
-              }}
-            >
+            <a href="/api/auth/google-login" className={styles.googleBtn}>
               <svg width="20" height="20" viewBox="0 0 24 24">
                 <path
                   fill="#4285F4"
@@ -258,27 +204,10 @@ export default function LoginClient() {
               Continuar con Google
             </a>
 
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                margin: "0.75rem 0 1rem",
-                color: "var(--text-color)",
-                opacity: 0.5,
-              }}
-            >
-              <div style={{ flex: 1, height: "1px", backgroundColor: "currentColor" }} />
-              <span
-                style={{
-                  padding: "0 0.75rem",
-                  fontSize: "0.75rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                }}
-              >
-                o con correo
-              </span>
-              <div style={{ flex: 1, height: "1px", backgroundColor: "currentColor" }} />
+            <div className={styles.divider}>
+              <div className={styles.dividerLine} />
+              <span className={styles.dividerText}>o con correo</span>
+              <div className={styles.dividerLine} />
             </div>
 
             <form onSubmit={handleSubmit} className={styles.form}>
@@ -291,7 +220,7 @@ export default function LoginClient() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   className={styles.input}
-                  placeholder="ejemplo@automotora.com"
+                  placeholder="ejemplo@n-autos.com"
                 />
               </div>
 
@@ -309,18 +238,10 @@ export default function LoginClient() {
                     onClick={() => {
                       setError("");
                       setSuccessMsg("");
-                      setResetEmail(email || "mauricio@automotora.com");
+                      setResetEmail(email);
                       setViewMode("forgot-email");
                     }}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#10b981",
-                      fontSize: "0.8rem",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      padding: 0,
-                    }}
+                    className={styles.forgotBtn}
                   >
                     ¿Olvidaste tu contraseña?
                   </button>
@@ -339,30 +260,11 @@ export default function LoginClient() {
               <button
                 type="submit"
                 disabled={loading}
-                className="btn-primary"
-                style={{
-                  marginTop: "0.5rem",
-                  backgroundColor: "#10b981",
-                  border: "none",
-                  padding: "0.75rem",
-                  borderRadius: "8px",
-                  color: "#ffffff",
-                  fontWeight: 700,
-                  fontSize: "0.95rem",
-                  cursor: "pointer",
-                }}
+                className={styles.submitBtn}
               >
                 {loading ? "Iniciando Sesión..." : "Ingresar al Panel"}
               </button>
             </form>
-
-            <div className={styles.demoHelp}>
-              <strong>Acceso de Demostración:</strong>
-              <br />
-              Email: <code>mauricio@automotora.com</code>
-              <br />
-              Contraseña: <code>admin</code>
-            </div>
           </>
         )}
 
@@ -370,7 +272,7 @@ export default function LoginClient() {
         {viewMode === "forgot-email" && (
           <form onSubmit={handleRequestOTP} className={styles.form}>
             <div style={{ textAlign: "center", marginBottom: "0.5rem" }}>
-              <h2 style={{ fontSize: "1.2rem", fontWeight: 700, color: "var(--text-color)" }}>
+              <h2 style={{ fontSize: "1.2rem", fontWeight: 700, color: "#f3f4f6" }}>
                 Recuperación de Contraseña
               </h2>
               <p style={{ fontSize: "0.85rem", opacity: 0.7, marginTop: "0.25rem" }}>
@@ -387,24 +289,14 @@ export default function LoginClient() {
                 onChange={(e) => setResetEmail(e.target.value)}
                 required
                 className={styles.input}
-                placeholder="ejemplo@automotora.com"
+                placeholder="ejemplo@n-autos.com"
               />
             </div>
 
             <button
               type="submit"
               disabled={resetLoading}
-              style={{
-                marginTop: "0.5rem",
-                backgroundColor: "#10b981",
-                border: "none",
-                padding: "0.75rem",
-                borderRadius: "8px",
-                color: "#ffffff",
-                fontWeight: 700,
-                fontSize: "0.95rem",
-                cursor: "pointer",
-              }}
+              className={styles.submitBtn}
             >
               {resetLoading ? "Enviando Código..." : "Enviar Código de Recuperación"}
             </button>
@@ -418,7 +310,7 @@ export default function LoginClient() {
               style={{
                 background: "none",
                 border: "none",
-                color: "var(--text-color)",
+                color: "#f3f4f6",
                 opacity: 0.7,
                 fontSize: "0.85rem",
                 cursor: "pointer",
@@ -435,7 +327,7 @@ export default function LoginClient() {
         {viewMode === "forgot-otp" && (
           <form onSubmit={handleVerifyAndReset} className={styles.form}>
             <div style={{ textAlign: "center", marginBottom: "0.5rem" }}>
-              <h2 style={{ fontSize: "1.2rem", fontWeight: 700, color: "var(--text-color)" }}>
+              <h2 style={{ fontSize: "1.2rem", fontWeight: 700, color: "#f3f4f6" }}>
                 Ingresa tu Código de Verificación
               </h2>
               <p style={{ fontSize: "0.85rem", opacity: 0.7, marginTop: "0.25rem" }}>
@@ -448,7 +340,7 @@ export default function LoginClient() {
                 style={{
                   backgroundColor: "rgba(16, 185, 129, 0.1)",
                   border: "1px dashed #10b981",
-                  color: "var(--text-color)",
+                  color: "#f3f4f6",
                   padding: "0.6rem 0.8rem",
                   borderRadius: "8px",
                   fontSize: "0.8rem",
@@ -509,17 +401,7 @@ export default function LoginClient() {
             <button
               type="submit"
               disabled={resetLoading}
-              style={{
-                marginTop: "0.5rem",
-                backgroundColor: "#10b981",
-                border: "none",
-                padding: "0.75rem",
-                borderRadius: "8px",
-                color: "#ffffff",
-                fontWeight: 700,
-                fontSize: "0.95rem",
-                cursor: "pointer",
-              }}
+              className={styles.submitBtn}
             >
               {resetLoading ? "Actualizando..." : "Restablecer Contraseña"}
             </button>
@@ -538,14 +420,7 @@ export default function LoginClient() {
                   setError("");
                   setViewMode("forgot-email");
                 }}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "#10b981",
-                  fontSize: "0.8rem",
-                  cursor: "pointer",
-                  padding: 0,
-                }}
+                className={styles.forgotBtn}
               >
                 Reenviar código
               </button>
@@ -559,7 +434,7 @@ export default function LoginClient() {
                 style={{
                   background: "none",
                   border: "none",
-                  color: "var(--text-color)",
+                  color: "#f3f4f6",
                   opacity: 0.7,
                   fontSize: "0.8rem",
                   cursor: "pointer",

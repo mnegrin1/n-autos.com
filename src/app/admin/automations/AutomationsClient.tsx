@@ -1,63 +1,32 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { 
   Zap, 
-  GitFork, 
   Plus, 
-  Play, 
-  Pause, 
   Trash2, 
-  Check, 
   X, 
   Clock, 
   Mail, 
   Tag as TagIcon, 
-  ArrowRight, 
-  Sliders, 
-  ChevronRight, 
   UserCheck,
   MessageSquare,
-  ArrowUp,
-  ArrowDown,
   Edit3,
-  CheckCircle2,
-  AlertCircle,
   Search,
-  Sparkles,
-  Filter,
-  Layers,
-  Info
+  CheckCircle2
 } from "lucide-react";
 import { 
   AutomationRule, 
-  RuleActionItem,
-  AutomationWorkflow, 
-  WorkflowStep,
   createAutomationRuleAction, 
   toggleAutomationRuleAction, 
-  deleteAutomationRuleAction,
-  saveWorkflowAction,
-  deleteWorkflowAction 
+  deleteAutomationRuleAction
 } from "@/actions/automationActions";
-import { createGlobalTagAction } from "@/actions/autoActions";
 import { 
   PRESET_AUTOMATIONS, 
   PRESET_CATEGORIES, 
   PresetAutomation 
 } from "@/data/presetAutomations";
-
-export interface StackedAction {
-  id: string;
-  type: "send_email" | "send_message" | "add_tag" | "notify_agent";
-  value: string;
-  details: {
-    subject?: string;
-    body?: string;
-    channel?: "WhatsApp" | "SMS";
-    tag?: string;
-  };
-}
+import styles from "./automations.module.css";
 
 interface Agent {
   id: string;
@@ -68,7 +37,6 @@ interface Agent {
 
 interface AutomationsClientProps {
   initialRules: AutomationRule[];
-  initialWorkflows: AutomationWorkflow[];
   availableTags: string[];
   initialAgents: Agent[];
   currentUser: any;
@@ -76,2262 +44,595 @@ interface AutomationsClientProps {
 
 export default function AutomationsClient({ 
   initialRules, 
-  initialWorkflows, 
   availableTags, 
   initialAgents,
   currentUser 
 }: AutomationsClientProps) {
-  const [activeSubTab, setActiveSubTab] = useState<"presets" | "rules" | "workflows">("presets");
+  const [activeTab, setActiveTab] = useState<"catalog" | "active">("catalog");
   const [rules, setRules] = useState<AutomationRule[]>(initialRules);
-  const [workflows, setWorkflows] = useState<AutomationWorkflow[]>(initialWorkflows);
 
-  // Estados para el Catálogo de Automatizaciones Predeterminadas
-  const [presetSearch, setPresetSearch] = useState("");
-  const [presetCategory, setPresetCategory] = useState<string>("Todas");
-  const [tagsList, setTagsList] = useState<string[]>(availableTags);
-  const [presetSelectedTags, setPresetSelectedTags] = useState<Record<string, string>>(() => {
-    const initialMap: Record<string, string> = {};
-    PRESET_AUTOMATIONS.forEach(p => {
-      initialMap[p.id] = p.defaultTag || (availableTags[0] || "General");
-    });
-    return initialMap;
-  });
-  const [creatingNewTagForPreset, setCreatingNewTagForPreset] = useState<Record<string, boolean>>({});
-  const [newTagNameInput, setNewTagNameInput] = useState<Record<string, string>>({});
-  const [isCreatingTag, setIsCreatingTag] = useState(false);
-  const [hoveredInfoId, setHoveredInfoId] = useState<string | null>(null);
+  // Filtros del catálogo
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("Todas");
 
-  // Estados para Modal de Nueva Regla (Friendly + Stacked + Side Drawer)
+  // Modal para regla personalizada / edición
   const [showRuleModal, setShowRuleModal] = useState(false);
-  const [newRuleName, setNewRuleName] = useState("");
-  const [newRuleTrigger, setNewRuleTrigger] = useState("tag_added");
-  const [newRuleTriggerVal, setNewRuleTriggerVal] = useState(availableTags[0] || "Inversor");
-  
-  // Lista apilada de acciones de la regla
-  const [stackedActions, setStackedActions] = useState<StackedAction[]>([
-    {
-      id: "action-1",
-      type: "send_email",
-      value: "Correo de bienvenida",
-      details: {
-        subject: "¡Gracias por contactarnos!",
-        body: "Hola {{nombre}}, recibimos tu solicitud y te enviamos la información."
-      }
-    }
-  ]);
-
-  // ID de la acción que se está editando en la barra lateral derecha (para send_email o send_message)
-  const [editingActionId, setEditingActionId] = useState<string | null>(null);
-
-  // Estados para el Editor de Flujo (Workflow Visual Builder)
-  const [selectedWorkflow, setSelectedWorkflow] = useState<AutomationWorkflow | null>(null);
-  const [editingWorkflow, setEditingWorkflow] = useState<AutomationWorkflow | null>(null);
-  const [editingStepId, setEditingStepId] = useState<string | null>(null);
-
-  const [showWorkflowModal, setShowWorkflowModal] = useState(false);
-  const [newFlowName, setNewFlowName] = useState("");
-  const [newFlowDesc, setNewFlowDesc] = useState("");
-  const [newFlowTag, setNewFlowTag] = useState(availableTags[0] || "Lead Nuevo");
+  const [editingRule, setEditingRule] = useState<AutomationRule | null>(null);
+  const [ruleName, setRuleName] = useState("");
+  const [ruleTrigger, setRuleTrigger] = useState("lead_created");
+  const [ruleTriggerVal, setRuleTriggerVal] = useState(availableTags[0] || "Lead Nuevo");
+  const [ruleTagVal, setRuleTagVal] = useState(availableTags[0] || "Lead Nuevo");
+  const [ruleActionType, setRuleActionType] = useState<"send_email" | "send_message" | "add_tag" | "notify_agent">("send_message");
+  const [ruleActionVal, setRuleActionVal] = useState("Mensaje de bienvenida por WhatsApp");
+  const [ruleActionDetails, setRuleActionDetails] = useState<{ body?: string; subject?: string; channel?: "WhatsApp" | "SMS"; tag?: string }>({
+    channel: "WhatsApp",
+    body: "¡Hola {{nombre}}! Gracias por contactar a nuestra automotora. ¿Buscás algún vehículo o modelo en particular? Dejanos tu consulta y un asesor te responderá a la brevedad."
+  });
 
   const [isPending, startTransition] = useTransition();
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
 
-  // Handlers para Automatizaciones Predeterminadas
-  const handleCreateTagForPreset = async (presetId: string) => {
-    const tagName = (newTagNameInput[presetId] || "").trim();
-    if (!tagName) {
-      alert("Por favor ingresa un nombre para la etiqueta.");
-      return;
-    }
-
-    setIsCreatingTag(true);
-    const res = await createGlobalTagAction(tagName, currentUser?.agency_id);
-    setIsCreatingTag(false);
-
-    if (res.success) {
-      setTagsList(prev => Array.from(new Set([...prev, tagName])).sort());
-      setPresetSelectedTags(prev => ({ ...prev, [presetId]: tagName }));
-      setCreatingNewTagForPreset(prev => ({ ...prev, [presetId]: false }));
-      setNewTagNameInput(prev => ({ ...prev, [presetId]: "" }));
-      showToast(`Etiqueta '${tagName}' creada y seleccionada.`);
-    } else {
-      alert(res.error || "Error al crear la etiqueta");
-    }
+  // Helper para notificaciones temporales
+  const showNotice = (msg: string) => {
+    setStatusNotice(msg);
+    setTimeout(() => setStatusNotice(null), 3500);
   };
 
-  const handleTogglePresetAutomation = async (preset: PresetAutomation) => {
-    const existingRule = rules.find(r => r.name === preset.title);
+  // Handler para activar/desactivar preset del catálogo
+  const handleTogglePreset = (preset: PresetAutomation, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
 
-    if (existingRule) {
-      await handleToggleRule(existingRule.id, existingRule.is_active);
-      showToast(existingRule.is_active ? `Automatización '${preset.title}' pausada.` : `Automatización '${preset.title}' activada.`);
-    } else {
-      const selectedTag = presetSelectedTags[preset.id] || preset.defaultTag;
-      
-      const configuredActions: StackedAction[] = preset.actions.map(a => {
-        if (a.type === "add_tag") {
-          return {
-            ...a,
-            details: { ...a.details, tag: selectedTag },
-            value: `Etiqueta '${selectedTag}'`
-          };
+    const existing = rules.find(
+      r => r.name.toLowerCase().trim() === preset.title.toLowerCase().trim() ||
+           r.trigger_event === preset.trigger_event
+    );
+
+    startTransition(async () => {
+      if (existing) {
+        const newStatus = !existing.is_active;
+        const res = await toggleAutomationRuleAction(existing.id, newStatus);
+        if (res.success) {
+          setRules(prev => prev.map(r => r.id === existing.id ? { ...r, is_active: newStatus } : r));
+          showNotice(`Automatización ${newStatus ? "activada" : "desactivada"}`);
+        } else {
+          alert("Error al actualizar el estado de la automatización.");
         }
-        return a;
-      });
+      } else {
+        const defaultMsg = preset.defaultMessage || "¡Hola {{nombre}}! Gracias por contactar a nuestra automotora. ¿Buscás algún vehículo o modelo en particular? Dejanos tu consulta y un asesor te responderá a la brevedad.";
+        const defaultTag = preset.defaultTag || availableTags[0] || "Lead Nuevo";
 
-      startTransition(async () => {
-        const res = await createAutomationRuleAction({
+        const newRuleData: Partial<AutomationRule> = {
           agency_id: currentUser?.agency_id,
           name: preset.title,
           trigger_event: preset.trigger_event,
-          trigger_value: selectedTag,
+          trigger_value: defaultTag,
           action_type: preset.default_action_type,
           action_value: preset.default_action_label,
-          actions: configuredActions,
-          is_active: true
-        });
-
-        if (res.success && res.data) {
-          const createdRule: AutomationRule = {
-            ...(res.data as AutomationRule),
-            actions: configuredActions
-          };
-          setRules(prev => [createdRule, ...prev]);
-          showToast(`¡Automatización '${preset.title}' activada con éxito!`);
-        } else {
-          alert(res.error || "Error al activar la automatización.");
-        }
-      });
-    }
-  };
-
-  // Handlers para Acciones Apilables
-  const handleAddAction = () => {
-    const newId = `action-${Date.now()}`;
-    const newAction: StackedAction = {
-      id: newId,
-      type: "send_email",
-      value: "Correo de bienvenida",
-      details: {
-        subject: "Información adicional",
-        body: "Hola {{nombre}}, te adjuntamos los detalles requeridos."
-      }
-    };
-    setStackedActions(prev => [...prev, newAction]);
-    setEditingActionId(newId);
-  };
-
-  const handleRemoveAction = (actionId: string) => {
-    if (stackedActions.length <= 1) {
-      alert("La regla debe contener al menos una acción.");
-      return;
-    }
-    setStackedActions(prev => prev.filter(a => a.id !== actionId));
-    if (editingActionId === actionId) {
-      setEditingActionId(null);
-    }
-  };
-
-  const handleActionTypeChange = (actionId: string, newType: StackedAction['type']) => {
-    setStackedActions(prev => prev.map(a => {
-      if (a.id !== actionId) return a;
-      const details = { ...a.details };
-      let value = a.value;
-
-      if (newType === 'send_email') {
-        if (!details.subject) details.subject = "Correo de seguimiento";
-        if (!details.body) details.body = "Hola {{nombre}}, enviamos esta información.";
-        value = `Correo: ${details.subject}`;
-      } else if (newType === 'send_message') {
-        if (!details.channel) details.channel = "WhatsApp";
-        if (!details.body) details.body = "Hola {{nombre}}, ¿cómo estás? Te contactamos de la automotora.";
-        value = `Mensaje ${details.channel}`;
-      } else if (newType === 'add_tag') {
-        details.tag = availableTags[0] || 'Interesado';
-        value = `Etiqueta '${details.tag}'`;
-      } else if (newType === 'notify_agent') {
-        value = "Notificar vendedor";
-      }
-
-      return { ...a, type: newType, value, details };
-    }));
-
-    if (newType === 'send_email' || newType === 'send_message') {
-      setEditingActionId(actionId);
-    } else if (editingActionId === actionId) {
-      setEditingActionId(null);
-    }
-  };
-
-  const handleUpdateActionDetails = (actionId: string, updatedDetails: Partial<StackedAction['details']>, customVal?: string) => {
-    setStackedActions(prev => prev.map(a => {
-      if (a.id !== actionId) return a;
-      const details = { ...a.details, ...updatedDetails };
-      let value = customVal || a.value;
-
-      if (a.type === 'send_email' && details.subject) {
-        value = `Correo: ${details.subject}`;
-      } else if (a.type === 'send_message') {
-        value = `Mensaje ${details.channel || 'WhatsApp'}`;
-      } else if (a.type === 'add_tag' && details.tag) {
-        value = `Etiqueta '${details.tag}'`;
-      }
-
-      return { ...a, details, value };
-    }));
-  };
-
-  // Handlers para Reglas
-  const handleCreateRule = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newRuleName.trim()) {
-      alert("Por favor ingresa un nombre para la regla.");
-      return;
-    }
-    if (stackedActions.length === 0) {
-      alert("Agrega al menos una acción a la regla.");
-      return;
-    }
-
-    const primaryAction = stackedActions[0];
-    const summaryValue = stackedActions.map(a => {
-      if (a.type === 'send_email') return `Correo: ${a.details.subject || a.value}`;
-      if (a.type === 'send_message') return `Mensaje (${a.details.channel || 'WhatsApp'})`;
-      if (a.type === 'add_tag') return `Tag '${a.details.tag || a.value}'`;
-      if (a.type === 'notify_agent') return `Notificar vendedor`;
-      return a.value;
-    }).join(" + ");
-
-    startTransition(async () => {
-      const res = await createAutomationRuleAction({
-        agency_id: currentUser?.agency_id,
-        name: newRuleName.trim(),
-        trigger_event: newRuleTrigger,
-        trigger_value: newRuleTriggerVal,
-        action_type: primaryAction.type,
-        action_value: summaryValue,
-        actions: stackedActions.map(a => ({
-          id: a.id,
-          type: a.type,
-          value: a.value,
-          details: a.details
-        })),
-        is_active: true
-      });
-
-      if (res.success && res.data) {
-        const createdRule: AutomationRule = {
-          ...(res.data as AutomationRule),
-          actions: stackedActions.map(a => ({
-            id: a.id,
-            type: a.type,
-            value: a.value,
-            details: a.details
-          }))
-        };
-        setRules(prev => [createdRule, ...prev]);
-        setShowRuleModal(false);
-        setNewRuleName("");
-        setEditingActionId(null);
-        setStackedActions([
-          {
-            id: `action-${Date.now()}`,
-            type: "send_email",
-            value: "Correo de bienvenida",
-            details: {
-              subject: "¡Gracias por contactarnos!",
-              body: "Hola {{nombre}}, recibimos tu solicitud y te enviamos la información."
+          actions: [
+            {
+              id: "act-1",
+              type: preset.default_action_type,
+              value: preset.default_action_label,
+              details: {
+                channel: "WhatsApp",
+                body: defaultMsg,
+                tag: defaultTag
+              }
             }
-          }
-        ]);
-        showToast("Regla creada exitosamente.");
+          ],
+          is_active: true
+        };
+
+        const res = await createAutomationRuleAction(newRuleData as any);
+        if (res.success && (res.data || (res as any).rule)) {
+          const created = res.data || (res as any).rule;
+          setRules(prev => [created, ...prev]);
+          showNotice(`"${preset.title}" activada correctamente`);
+        } else {
+          alert("Error al crear la automatización.");
+        }
       }
     });
   };
 
-  const handleToggleRule = async (ruleId: string, currentActive: boolean) => {
-    const nextActive = !currentActive;
-    setRules(prev => prev.map(r => r.id === ruleId ? { ...r, is_active: nextActive } : r));
-    await toggleAutomationRuleAction(ruleId, nextActive);
+  // Handler para alternar estado de una regla en "Activas"
+  const handleToggleRule = (rule: AutomationRule, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+
+    startTransition(async () => {
+      const newStatus = !rule.is_active;
+      const res = await toggleAutomationRuleAction(rule.id, newStatus);
+      if (res.success) {
+        setRules(prev => prev.map(r => r.id === rule.id ? { ...r, is_active: newStatus } : r));
+        showNotice(`Automatización ${newStatus ? "activada" : "desactivada"}`);
+      } else {
+        alert("Error al actualizar regla.");
+      }
+    });
   };
 
-  const handleDeleteRule = async (ruleId: string) => {
-    if (!confirm("¿Estás seguro de eliminar esta regla de automatización?")) return;
-    setRules(prev => prev.filter(r => r.id !== ruleId));
-    await deleteAutomationRuleAction(ruleId);
-    showToast("Regla eliminada.");
+  // Handler para eliminar una regla
+  const handleDeleteRule = (ruleId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!confirm("¿Estás seguro de eliminar esta automatización?")) return;
+    startTransition(async () => {
+      const res = await deleteAutomationRuleAction(ruleId);
+      if (res.success) {
+        setRules(prev => prev.filter(r => r.id !== ruleId));
+        showNotice("Automatización eliminada");
+      } else {
+        alert("Error al eliminar automatización.");
+      }
+    });
   };
 
-  // Handlers para Flujos / Workflows
-  const handleCreateWorkflow = async (e: React.FormEvent) => {
+  // Abrir modal de creación/edición de regla existente
+  const handleOpenRuleModal = (rule?: AutomationRule) => {
+    if (rule) {
+      setEditingRule(rule);
+      setRuleName(rule.name);
+      setRuleTrigger(rule.trigger_event);
+      setRuleTriggerVal(rule.trigger_value || availableTags[0] || "");
+
+      const firstAction = rule.actions && rule.actions[0];
+      setRuleActionType((rule.action_type as any) || "send_message");
+      setRuleActionVal(rule.action_value || "Mensaje de WhatsApp");
+      setRuleTagVal(firstAction?.details?.tag || rule.trigger_value || availableTags[0] || "Lead Nuevo");
+      setRuleActionDetails({
+        channel: "WhatsApp",
+        body: firstAction?.details?.body || "¡Hola {{nombre}}! Gracias por contactar a nuestra automotora. ¿Buscás algún vehículo en particular?",
+        tag: firstAction?.details?.tag || rule.trigger_value || "Lead Nuevo"
+      });
+    } else {
+      setEditingRule(null);
+      setRuleName("");
+      setRuleTrigger("lead_created");
+      setRuleTriggerVal(availableTags[0] || "Lead Nuevo");
+      setRuleTagVal(availableTags[0] || "Lead Nuevo");
+      setRuleActionType("send_message");
+      setRuleActionVal("WhatsApp de Bienvenida");
+      setRuleActionDetails({
+        channel: "WhatsApp",
+        body: "¡Hola {{nombre}}! Gracias por contactar a nuestra automotora. ¿Buscás algún vehículo o modelo en particular? Dejanos tu consulta y un asesor te responderá a la brevedad.",
+        tag: availableTags[0] || "Lead Nuevo"
+      });
+    }
+    setShowRuleModal(true);
+  };
+
+  // Abrir modal para configurar/editar un Preset del catálogo al hacer clic sobre la fila
+  const handleOpenPresetModal = (preset: PresetAutomation) => {
+    const existing = rules.find(
+      r => r.name.toLowerCase().trim() === preset.title.toLowerCase().trim() ||
+           r.trigger_event === preset.trigger_event
+    );
+
+    if (existing) {
+      handleOpenRuleModal(existing);
+    } else {
+      setEditingRule(null);
+      setRuleName(preset.title);
+      setRuleTrigger(preset.trigger_event);
+      setRuleTriggerVal(preset.defaultTag || availableTags[0] || "Lead Nuevo");
+      setRuleTagVal(preset.defaultTag || availableTags[0] || "Lead Nuevo");
+      setRuleActionType(preset.default_action_type);
+      setRuleActionVal(preset.default_action_label);
+      setRuleActionDetails({
+        channel: "WhatsApp",
+        body: preset.defaultMessage || "¡Hola {{nombre}}! Gracias por contactar a nuestra automotora. ¿Buscás algún vehículo o modelo en particular? Dejanos tu consulta y un asesor te responderá a la brevedad.",
+        tag: preset.defaultTag || "Lead Nuevo"
+      });
+      setShowRuleModal(true);
+    }
+  };
+
+  // Guardar regla personalizada o edición de preset
+  const handleSaveRule = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newFlowName.trim()) return;
-
-    const initialSteps: WorkflowStep[] = [
-      {
-        id: `step-${Date.now()}-1`,
-        type: "trigger",
-        title: `Disparador: Tag '${newFlowTag}'`,
-        description: `Se activa cuando un contacto recibe la etiqueta '${newFlowTag}'`,
-        config: { trigger_type: "tag_added", tag: newFlowTag }
-      },
-      {
-        id: `step-${Date.now()}-2`,
-        type: "action",
-        title: "Enviar Email de Saludo",
-        description: "Envia mensaje de bienvenida automático",
-        config: { 
-          action_kind: "send_email", 
-          subject: "¡Hola! Gracias por contactarnos", 
-          body: "Hola {{nombre}}, nos alegramos de saludarte..." 
-        }
-      }
-    ];
-
-    const newFlow: AutomationWorkflow = {
-      id: `flow-${Date.now()}`,
-      agency_id: currentUser?.agency_id,
-      name: newFlowName.trim(),
-      description: newFlowDesc.trim() || "Flujo automático personalizado",
-      trigger_tag: newFlowTag,
-      steps: initialSteps,
-      is_active: true,
-      enrolled_contacts_count: 0,
-      created_at: new Date().toISOString()
-    };
-
-    startTransition(async () => {
-      const res = await saveWorkflowAction(newFlow);
-      if (res.success) {
-        setWorkflows(prev => [newFlow, ...prev]);
-        setSelectedWorkflow(newFlow);
-        setEditingWorkflow(JSON.parse(JSON.stringify(newFlow)));
-        setShowWorkflowModal(false);
-        setNewFlowName("");
-        setNewFlowDesc("");
-        showToast("Nuevo Flujo creado exitosamente.");
-      }
-    });
-  };
-
-  // Agregar nuevo paso dinámico al flujo con configuración básica predeterminada
-  const handleAddStepToWorkflow = (kind: 'send_email' | 'send_message' | 'assign_tag' | 'remove_tag' | 'assign_agent' | 'delay' | 'condition') => {
-    if (!editingWorkflow) return;
-
-    let newStep: WorkflowStep;
-    const stepNum = editingWorkflow.steps.length + 1;
-    const newId = `step-${Date.now()}`;
-
-    switch (kind) {
-      case 'send_email':
-        newStep = {
-          id: newId,
-          type: 'action',
-          title: `Paso ${stepNum}: Enviar Email`,
-          description: "Envia correo automático personalizado",
-          config: { 
-            action_kind: 'send_email', 
-            subject: "Catálogo e Información de Interés", 
-            body: "Hola {{nombre}}, adjunto la información solicitada." 
-          }
-        };
-        break;
-      case 'send_message':
-        newStep = {
-          id: newId,
-          type: 'action',
-          title: `Paso ${stepNum}: Enviar Mensaje WhatsApp`,
-          description: "Envia mensaje rápido al cliente",
-          config: { 
-            action_kind: 'send_message', 
-            message_type: 'whatsapp',
-            body: "Hola {{nombre}}, ¿cómo estás? Te escribimos para darte seguimiento." 
-          }
-        };
-        break;
-      case 'assign_tag':
-        newStep = {
-          id: newId,
-          type: 'action',
-          title: `Paso ${stepNum}: Asignar Tag '${availableTags[0] || 'Interesado'}'`,
-          description: "Agrega etiqueta al contacto",
-          config: { 
-            action_kind: 'assign_tag', 
-            tag: availableTags[0] || 'Interesado' 
-          }
-        };
-        break;
-      case 'remove_tag':
-        newStep = {
-          id: newId,
-          type: 'action',
-          title: `Paso ${stepNum}: Quitar Tag '${availableTags[0] || 'Inactivo'}'`,
-          description: "Remueve etiqueta del contacto",
-          config: { 
-            action_kind: 'remove_tag', 
-            tag: availableTags[0] || 'Inactivo' 
-          }
-        };
-        break;
-      case 'assign_agent':
-        const defaultAgent = initialAgents[0] || { id: 'agent-1', name: 'Mauricio Negrin' };
-        newStep = {
-          id: newId,
-          type: 'action',
-          title: `Paso ${stepNum}: Asignar a ${defaultAgent.name}`,
-          description: "Asigna agente comercial responsable del lead",
-          config: { 
-            action_kind: 'assign_agent', 
-            agent_id: defaultAgent.id,
-            agent_name: defaultAgent.name 
-          }
-        };
-        break;
-      case 'delay':
-        newStep = {
-          id: newId,
-          type: 'delay',
-          title: `Paso ${stepNum}: Esperar 24 Horas`,
-          description: "Pausa el flujo durante un período de tiempo",
-          config: { 
-            delay_amount: 24, 
-            delay_unit: 'hours' 
-          }
-        };
-        break;
-      case 'condition':
-        newStep = {
-          id: newId,
-          type: 'condition',
-          title: `Paso ${stepNum}: Condición ¿Tiene tag '${availableTags[0] || 'VIP'}'?`,
-          description: "Evalúa condición para bifurcar el recorrido",
-          config: { 
-            condition_type: 'has_tag', 
-            tag: availableTags[0] || 'VIP',
-            yes_label: "Cumple la condición",
-            no_label: "No cumple"
-          }
-        };
-        break;
+    if (!ruleName.trim()) {
+      alert("Por favor ingresa un nombre para la automatización.");
+      return;
     }
 
-    const updated = {
-      ...editingWorkflow,
-      steps: [...editingWorkflow.steps, newStep]
-    };
-
-    setEditingWorkflow(updated);
-    setEditingStepId(newId);
-  };
-
-  const handleUpdateStepConfig = (stepId: string, updatedConfig: Record<string, any>, customTitle?: string, customDesc?: string) => {
-    if (!editingWorkflow) return;
-
-    const updatedSteps = editingWorkflow.steps.map(s => {
-      if (s.id !== stepId) return s;
-
-      let title = customTitle || s.title;
-      let description = customDesc || s.description;
-
-      // Generación dinámica de títulos según la configuración
-      if (s.type === 'trigger') {
-        title = `Disparador: Tag '${updatedConfig.tag || 'Lead Nuevo'}'`;
-        description = `Se activa cuando un contacto recibe el tag '${updatedConfig.tag || 'Lead Nuevo'}'`;
-      } else if (s.type === 'delay') {
-        const unit = updatedConfig.delay_unit === 'days' ? 'Días' : updatedConfig.delay_unit === 'minutes' ? 'Minutos' : 'Horas';
-        title = `Esperar ${updatedConfig.delay_amount || 1} ${unit}`;
-        description = `Pausa el flujo durante ${updatedConfig.delay_amount || 1} ${unit.toLowerCase()}`;
-      } else if (s.type === 'condition') {
-        title = `Condición: ¿Tiene tag '${updatedConfig.tag || 'VIP'}'?`;
-        description = `Bifurca si el contacto tiene la etiqueta '${updatedConfig.tag || 'VIP'}'`;
-      } else if (s.type === 'action') {
-        const kind = updatedConfig.action_kind;
-        if (kind === 'send_email') {
-          title = `Enviar Email: ${updatedConfig.subject || 'Sin asunto'}`;
-          description = `Correo: "${updatedConfig.subject || ''}"`;
-        } else if (kind === 'send_message') {
-          title = `Enviar Mensaje WhatsApp`;
-          description = `WhatsApp: "${(updatedConfig.body || '').substring(0, 35)}..."`;
-        } else if (kind === 'assign_tag') {
-          title = `Asignar Tag '${updatedConfig.tag || ''}'`;
-          description = `Agrega la etiqueta '${updatedConfig.tag || ''}' al contacto`;
-        } else if (kind === 'remove_tag') {
-          title = `Quitar Tag '${updatedConfig.tag || ''}'`;
-          description = `Remueve la etiqueta '${updatedConfig.tag || ''}' del contacto`;
-        } else if (kind === 'assign_agent') {
-          title = `Asignar Agente: ${updatedConfig.agent_name || 'Vendedor'}`;
-          description = `Asigna el prospecto al vendedor ${updatedConfig.agent_name || ''}`;
-        }
-      }
-
-      return {
-        ...s,
-        title,
-        description,
-        config: { ...s.config, ...updatedConfig }
+    startTransition(async () => {
+      const updatedDetails = {
+        ...ruleActionDetails,
+        tag: ruleTagVal
       };
-    });
 
-    setEditingWorkflow({
-      ...editingWorkflow,
-      steps: updatedSteps
-    });
-  };
+      if (editingRule) {
+        setRules(prev => prev.map(r => r.id === editingRule.id ? {
+          ...r,
+          name: ruleName,
+          trigger_event: ruleTrigger,
+          trigger_value: ruleTagVal,
+          action_type: ruleActionType,
+          action_value: ruleActionVal,
+          actions: [
+            {
+              id: "act-edit",
+              type: ruleActionType,
+              value: ruleActionVal,
+              details: updatedDetails
+            }
+          ]
+        } : r));
+        showNotice("Automatización actualizada");
+      } else {
+        const newRuleData: Partial<AutomationRule> = {
+          agency_id: currentUser?.agency_id,
+          name: ruleName,
+          trigger_event: ruleTrigger,
+          trigger_value: ruleTagVal,
+          action_type: ruleActionType,
+          action_value: ruleActionVal,
+          actions: [
+            {
+              id: "act-" + Date.now(),
+              type: ruleActionType,
+              value: ruleActionVal,
+              details: updatedDetails
+            }
+          ],
+          is_active: true
+        };
 
-  const handleMoveStep = (idx: number, direction: 'up' | 'down') => {
-    if (!editingWorkflow) return;
-    const steps = [...editingWorkflow.steps];
-    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
-    if (targetIdx <= 0 || targetIdx >= steps.length) return; // No mover antes del Trigger (índice 0)
-
-    const temp = steps[idx];
-    steps[idx] = steps[targetIdx];
-    steps[targetIdx] = temp;
-
-    setEditingWorkflow({
-      ...editingWorkflow,
-      steps
-    });
-  };
-
-  const handleDeleteStepFromWorkflow = (stepId: string) => {
-    if (!editingWorkflow) return;
-    const updated = {
-      ...editingWorkflow,
-      steps: editingWorkflow.steps.filter(s => s.id !== stepId)
-    };
-    setEditingWorkflow(updated);
-    if (editingStepId === stepId) setEditingStepId(null);
-  };
-
-  const handleSaveWorkflowEdits = async () => {
-    if (!editingWorkflow) return;
-    startTransition(async () => {
-      const res = await saveWorkflowAction(editingWorkflow);
-      if (res.success) {
-        setWorkflows(prev => prev.map(w => w.id === editingWorkflow.id ? editingWorkflow : w));
-        setSelectedWorkflow(editingWorkflow);
-        showToast("Flujo guardado con éxito.");
+        const res = await createAutomationRuleAction(newRuleData as any);
+        if (res.success && (res.data || (res as any).rule)) {
+          const created = res.data || (res as any).rule;
+          setRules(prev => [created, ...prev]);
+          showNotice("Nueva automatización guardada y activada");
+        } else {
+          alert("Error al guardar la regla.");
+        }
       }
+      setShowRuleModal(false);
     });
   };
 
-  const handleDeleteWorkflow = async (flowId: string) => {
-    if (!confirm("¿Estás seguro de eliminar este Flujo de Trabajo?")) return;
-    setWorkflows(prev => prev.filter(w => w.id !== flowId));
-    if (selectedWorkflow?.id === flowId) {
-      setSelectedWorkflow(null);
-      setEditingWorkflow(null);
+  // Filtrado de presets
+  const filteredPresets = useMemo(() => {
+    return PRESET_AUTOMATIONS.filter(p => {
+      const matchCat = selectedCategory === "Todas" || p.category === selectedCategory;
+      const q = searchQuery.toLowerCase().trim();
+      const matchSearch = !q || p.title.toLowerCase().includes(q) || p.description.toLowerCase().includes(q);
+      return matchCat && matchSearch;
+    });
+  }, [selectedCategory, searchQuery]);
+
+  // Reglas activas filtradas
+  const activeRulesList = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return rules;
+    return rules.filter(r => r.name.toLowerCase().includes(q) || (r.trigger_event && r.trigger_event.toLowerCase().includes(q)));
+  }, [rules, searchQuery]);
+
+  // Color de fondo para íconos
+  const getIconBgColor = (iconType: string) => {
+    switch (iconType) {
+      case "clock": return "#2563eb"; // Azul
+      case "message": return "#10b981"; // Verde Emerald
+      case "tag": return "#b45309"; // Ámbar/Marrón
+      case "user": return "#7c3aed"; // Violeta
+      case "zap": return "#f97316"; // Naranja
+      case "mail":
+      default: return "#06b6d4"; // Cian
     }
-    await deleteWorkflowAction(flowId);
-    showToast("Flujo eliminado.");
   };
 
-  const showToast = (msg: string) => {
-    setStatusNotice(msg);
-    setTimeout(() => setStatusNotice(null), 3000);
+  const renderIcon = (iconType: string) => {
+    switch (iconType) {
+      case "clock": return <Clock style={{ width: "24px", height: "24px" }} />;
+      case "message": return <MessageSquare style={{ width: "24px", height: "24px" }} />;
+      case "tag": return <TagIcon style={{ width: "24px", height: "24px" }} />;
+      case "user": return <UserCheck style={{ width: "24px", height: "24px" }} />;
+      case "zap": return <Zap style={{ width: "24px", height: "24px" }} />;
+      case "mail":
+      default: return <Mail style={{ width: "24px", height: "24px" }} />;
+    }
   };
 
   return (
-    <div style={{ width: "100%", display: "flex", flexDirection: "column" }}>
-      {/* UNIFIED SINGLE BLOCK CONTAINER OVER BACKGROUND */}
-      <div style={{
-        backgroundColor: "var(--surface-color)",
-        border: "1px solid var(--border-color)",
-        borderRadius: "16px",
-        overflow: "hidden",
-        boxShadow: "var(--shadow-sm)"
-      }}>
-        {/* Banner Superior Unificado */}
-        <div style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "1.25rem",
-          padding: "1.5rem",
-          backgroundColor: "var(--surface-color)",
-          borderBottom: "1px solid var(--border-color)"
-        }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+    <div className={styles.wrapper}>
+      {/* Notification Toast */}
+      {statusNotice && (
+        <div className={styles.toast}>
+          <CheckCircle2 style={{ width: "20px", height: "20px", color: "#10b981" }} />
+          <span>{statusNotice}</span>
+        </div>
+      )}
+
+      {/* Main Solid Container */}
+      <div className={styles.container}>
+        {/* Header */}
+        <div className={styles.header}>
           <div>
-            <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 800, display: "flex", alignItems: "center", gap: "0.6rem" }}>
-              <Zap size={24} style={{ color: "var(--primary)" }} /> Motor de Automatizaciones
-            </h1>
-            <p style={{ marginTop: "0.25rem", opacity: 0.75, fontSize: "0.88rem" }}>
-              Crea reglas automáticas y flujos de trabajo interactivos paso a paso para potenciar tus ventas.
+            <h1 className={styles.title}>Automatizaciones</h1>
+            <p className={styles.subtitle}>
+              Activa mensajes de bienvenida y reglas de etiquetado para responder al instante a tus prospectos.
             </p>
           </div>
+          <button
+            className={styles.createBtn}
+            onClick={() => handleOpenRuleModal()}
+          >
+            <Plus style={{ width: "16px", height: "16px" }} />
+            <span>Crear Automatización</span>
+          </button>
+        </div>
 
-          {activeSubTab === "workflows" ? (
+        {/* Subtabs & Search */}
+        <div className={styles.subtabsNav}>
+          <div className={styles.tabsGroup}>
             <button
-              onClick={() => setShowWorkflowModal(true)}
-              className="btn-primary"
-              style={{
-                padding: "0.6rem 1.1rem",
-                fontWeight: 700,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem"
-              }}
+              className={`${styles.tabBtn} ${activeTab === "catalog" ? styles.activeTabBtn : ""}`}
+              onClick={() => setActiveTab("catalog")}
             >
-              <Plus size={18} /> Nuevo Flujo
+              Catálogo ({PRESET_AUTOMATIONS.length})
             </button>
-          ) : (
             <button
-              onClick={() => setShowRuleModal(true)}
-              className="btn-primary"
-              style={{
-                padding: "0.6rem 1.1rem",
-                fontWeight: 700,
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem"
-              }}
+              className={`${styles.tabBtn} ${activeTab === "active" ? styles.activeTabBtn : ""}`}
+              onClick={() => setActiveTab("active")}
             >
-              <Plus size={18} /> Nueva Regla
-            </button>
-          )}
-        </div>
-
-        {/* Subpestañas de Automatización Unificadas en el Banner - Texto Limpio */}
-        <div style={{ display: "flex", gap: "1.5rem", borderTop: "1px solid var(--border-color)", paddingTop: "1rem", marginTop: "1rem" }}>
-          <button
-            type="button"
-            onClick={() => setActiveSubTab("presets")}
-            style={{
-              background: "none",
-              border: "none",
-              borderBottom: activeSubTab === "presets" ? "2px solid var(--primary)" : "2px solid transparent",
-              color: activeSubTab === "presets" ? "var(--primary)" : "var(--text-color)",
-              fontWeight: activeSubTab === "presets" ? 700 : 500,
-              fontSize: "0.9rem",
-              padding: "0.4rem 0.2rem",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.45rem",
-              transition: "all 0.15s ease",
-              opacity: activeSubTab === "presets" ? 1 : 0.7
-            }}
-          >
-            <Sparkles size={15} /> Catálogo ({PRESET_AUTOMATIONS.length})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setActiveSubTab("rules");
-              setSelectedWorkflow(null);
-            }}
-            style={{
-              background: "none",
-              border: "none",
-              borderBottom: activeSubTab === "rules" ? "2px solid var(--primary)" : "2px solid transparent",
-              color: activeSubTab === "rules" ? "var(--primary)" : "var(--text-color)",
-              fontWeight: activeSubTab === "rules" ? 700 : 500,
-              fontSize: "0.9rem",
-              padding: "0.4rem 0.2rem",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.45rem",
-              transition: "all 0.15s ease",
-              opacity: activeSubTab === "rules" ? 1 : 0.7
-            }}
-          >
-            <Zap size={15} /> Reglas ({rules.length})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveSubTab("workflows")}
-            style={{
-              background: "none",
-              border: "none",
-              borderBottom: activeSubTab === "workflows" ? "2px solid var(--primary)" : "2px solid transparent",
-              color: activeSubTab === "workflows" ? "var(--primary)" : "var(--text-color)",
-              fontWeight: activeSubTab === "workflows" ? 700 : 500,
-              fontSize: "0.9rem",
-              padding: "0.4rem 0.2rem",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.45rem",
-              transition: "all 0.15s ease",
-              opacity: activeSubTab === "workflows" ? 1 : 0.7
-            }}
-          >
-            <GitFork size={15} /> Flujos ({workflows.length})
-          </button>
-        </div>
-      </div>
-
-      <div style={{ padding: "1.5rem" }}>
-
-      {statusNotice && (
-        <div style={{
-          backgroundColor: "rgba(34, 197, 94, 0.15)",
-          border: "1px solid #22c55e",
-          color: "#15803d",
-          padding: "0.75rem 1rem",
-          borderRadius: "8px",
-          marginBottom: "1.25rem",
-          fontWeight: 600,
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem",
-          fontSize: "0.9rem"
-        }}>
-          <CheckCircle2 size={18} /> {statusNotice}
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* VISTA 0: CATÁLOGO DE AUTOMATIZACIONES PREDETERMINADAS (21 PRESETS EN LISTA) */}
-      {/* ========================================================================= */}
-      {activeSubTab === "presets" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-          {/* Barra de Búsqueda y Filtros de Categoría */}
-          <div style={{
-            backgroundColor: "var(--surface-color)",
-            border: "1px solid var(--border-color)",
-            borderRadius: "10px",
-            padding: "1.1rem 1.25rem",
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.85rem",
-            boxShadow: "var(--shadow-sm)"
-          }}>
-            {/* Input de Búsqueda */}
-            <div style={{ position: "relative", width: "100%" }}>
-              <Search
-                size={18}
-                style={{
-                  position: "absolute",
-                  left: "1rem",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "var(--text-muted)"
-                }}
-              />
-              <input
-                type="text"
-                placeholder="Buscar automatizaciones por nombre, palabra clave, tag o disparador..."
-                value={presetSearch}
-                onChange={(e) => setPresetSearch(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "0.7rem 1rem 0.7rem 2.75rem",
-                  borderRadius: "8px",
-                  border: "1px solid var(--border-color)",
-                  backgroundColor: "var(--bg-color)",
-                  color: "var(--text-color)",
-                  fontSize: "0.92rem",
-                  outline: "none"
-                }}
-              />
-              {presetSearch && (
-                <button
-                  type="button"
-                  onClick={() => setPresetSearch("")}
-                  style={{
-                    position: "absolute",
-                    right: "0.75rem",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    background: "none",
-                    border: "none",
-                    color: "var(--text-muted)",
-                    cursor: "pointer",
-                    padding: "0.2rem"
-                  }}
-                >
-                  <X size={16} />
-                </button>
-              )}
-            </div>
-
-            {/* Filtros por Categoría */}
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--text-muted)", marginRight: "0.25rem", display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                <Filter size={14} /> Categoría:
+              <span>Activas</span>
+              <span className={`${styles.counterBadge} ${rules.filter(r => r.is_active).length > 0 ? styles.counterBadgeActive : ""}`}>
+                {rules.filter(r => r.is_active).length}
               </span>
-              {PRESET_CATEGORIES.map(cat => {
-                const isSelected = presetCategory === cat;
-                const count = cat === "Todas" 
-                  ? PRESET_AUTOMATIONS.length 
-                  : PRESET_AUTOMATIONS.filter(p => p.category === cat).length;
+            </button>
+          </div>
+
+          <div className={styles.searchBox}>
+            <Search className={styles.searchIcon} />
+            <input
+              type="text"
+              placeholder="Buscar automatización..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={styles.searchInput}
+            />
+          </div>
+        </div>
+
+        {/* Category Pills (Only on Catalog) */}
+        {activeTab === "catalog" && (
+          <div className={styles.categoryGroup}>
+            {PRESET_CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`${styles.categoryPill} ${selectedCategory === cat ? styles.activeCategoryPill : ""}`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* CATALOG LIST VIEW */}
+        {activeTab === "catalog" && (
+          <div className={styles.list}>
+            {filteredPresets.length === 0 ? (
+              <div style={{ padding: "4rem 0", textAlign: "center", color: "#9ca3af" }}>
+                <Search style={{ width: "32px", height: "32px", margin: "0 auto 0.5rem", opacity: 0.5 }} />
+                <p style={{ fontSize: "0.875rem" }}>No se encontraron automatizaciones para tu búsqueda.</p>
+              </div>
+            ) : (
+              filteredPresets.map((preset) => {
+                const matchedRule = rules.find(
+                  r => r.name.toLowerCase().trim() === preset.title.toLowerCase().trim() ||
+                       r.trigger_event === preset.trigger_event
+                );
+                const isOn = matchedRule ? matchedRule.is_active : false;
 
                 return (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setPresetCategory(cat)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      borderBottom: isSelected ? "2px solid var(--primary)" : "2px solid transparent",
-                      color: isSelected ? "var(--primary)" : "var(--text-color)",
-                      fontSize: "0.825rem",
-                      fontWeight: isSelected ? 700 : 500,
-                      cursor: "pointer",
-                      padding: "0.2rem 0.4rem",
-                      transition: "all 0.15s ease",
-                      opacity: isSelected ? 1 : 0.7
-                    }}
+                  <div 
+                    key={preset.id} 
+                    className={styles.listItem}
+                    onClick={() => handleOpenPresetModal(preset)}
+                    title="Haz clic para configurar o editar esta regla"
                   >
-                    {cat} ({count})
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Indicador de Resultados */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 0.25rem" }}>
-            <span style={{ fontSize: "0.85rem", fontWeight: 600, opacity: 0.85, display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              <Sparkles size={15} style={{ color: "var(--primary)" }} />
-              Mostrando {PRESET_AUTOMATIONS.filter(preset => {
-                const matchesCategory = presetCategory === "Todas" || preset.category === presetCategory;
-                const searchLower = presetSearch.toLowerCase().trim();
-                const matchesSearch = !searchLower || 
-                  preset.title.toLowerCase().includes(searchLower) ||
-                  preset.description.toLowerCase().includes(searchLower) ||
-                  preset.category.toLowerCase().includes(searchLower) ||
-                  preset.trigger_event_label.toLowerCase().includes(searchLower) ||
-                  (presetSelectedTags[preset.id] || preset.defaultTag).toLowerCase().includes(searchLower);
-                return matchesCategory && matchesSearch;
-              }).length} de {PRESET_AUTOMATIONS.length} automatizaciones listas
-            </span>
-          </div>
-
-          {/* Lista de Automatizaciones Predeterminadas */}
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.75rem"
-          }}>
-            {PRESET_AUTOMATIONS.filter(preset => {
-              const matchesCategory = presetCategory === "Todas" || preset.category === presetCategory;
-              const searchLower = presetSearch.toLowerCase().trim();
-              const matchesSearch = !searchLower || 
-                preset.title.toLowerCase().includes(searchLower) ||
-                preset.description.toLowerCase().includes(searchLower) ||
-                preset.category.toLowerCase().includes(searchLower) ||
-                preset.trigger_event_label.toLowerCase().includes(searchLower) ||
-                (presetSelectedTags[preset.id] || preset.defaultTag).toLowerCase().includes(searchLower);
-              return matchesCategory && matchesSearch;
-            }).map((preset) => {
-              const existingRule = rules.find(r => r.name === preset.title);
-              const isActive = existingRule ? existingRule.is_active : false;
-              const selectedTag = presetSelectedTags[preset.id] || preset.defaultTag;
-              const isCreatingThisTag = creatingNewTagForPreset[preset.id] || false;
-              const newTagText = newTagNameInput[preset.id] || "";
-
-              // Colores de categoría
-              let categoryBg = "rgba(59, 130, 246, 0.1)";
-              let categoryColor = "#3b82f6";
-              if (preset.category === "Recordatorio de Leads") {
-                categoryBg = "rgba(245, 158, 11, 0.12)";
-                categoryColor = "#d97706";
-              } else if (preset.category === "Etiquetas y Tags") {
-                categoryBg = "rgba(139, 92, 246, 0.12)";
-                categoryColor = "#8b5cf6";
-              } else if (preset.category === "WhatsApp / Mensajería") {
-                categoryBg = "rgba(16, 185, 129, 0.12)";
-                categoryColor = "#10b981";
-              } else if (preset.category === "Post-Venta y Fidelización") {
-                categoryBg = "rgba(6, 182, 212, 0.12)";
-                categoryColor = "#06b6d4";
-              }
-
-              // Ícono de Preset
-              let PresetIcon = Zap;
-              if (preset.iconType === "clock") PresetIcon = Clock;
-              else if (preset.iconType === "tag") PresetIcon = TagIcon;
-              else if (preset.iconType === "message") PresetIcon = MessageSquare;
-              else if (preset.iconType === "user") PresetIcon = UserCheck;
-              else if (preset.iconType === "mail") PresetIcon = Mail;
-
-              return (
-                <div
-                  key={preset.id}
-                  style={{
-                    backgroundColor: "var(--surface-color)",
-                    border: "1px solid var(--border-color)",
-                    borderLeft: isActive ? "3px solid var(--primary)" : "1px solid var(--border-color)",
-                    borderRadius: "8px",
-                    padding: "0.85rem 1.1rem",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: "1rem",
-                    flexWrap: "wrap",
-                    transition: "all 0.15s ease"
-                  }}
-                >
-                  {/* Columna Izquierda: Categoría, Título ultra-limpio con (i) icono de Hover */}
-                  <div style={{ flex: "1 1 320px", display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-                      <span style={{
-                        fontSize: "0.72rem",
-                        fontWeight: 700,
-                        color: categoryColor,
-                        backgroundColor: categoryBg,
-                        padding: "0.2rem 0.6rem",
-                        borderRadius: "12px",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "0.3rem"
-                      }}>
-                        <PresetIcon size={12} /> {preset.category}
-                      </span>
-
-                      <h3 style={{ margin: 0, fontSize: "0.92rem", fontWeight: 700, lineHeight: 1.3 }}>
-                        {preset.title}
-                      </h3>
-
-                      {/* ÍCONO DE AYUDA (i) CON HOVER POP-UP EMERGENTE */}
-                      <div 
-                        style={{ position: "relative", display: "inline-flex", alignItems: "center" }}
-                        onMouseEnter={() => setHoveredInfoId(preset.id)}
-                        onMouseLeave={() => setHoveredInfoId(null)}
-                      >
-                        <button
-                          type="button"
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "var(--primary)",
-                            opacity: 0.85,
-                            cursor: "pointer",
-                            padding: "2px",
-                            display: "flex",
-                            alignItems: "center",
-                            borderRadius: "50%"
-                          }}
-                          title="Ver ejemplo y detalles"
-                        >
-                          <Info size={15} />
-                        </button>
-
-                        {/* Pop-up emergente de Hover al pasar el cursor */}
-                        {hoveredInfoId === preset.id && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              bottom: "calc(100% + 8px)",
-                              left: "0",
-                              width: "300px",
-                              backgroundColor: "var(--surface-color)",
-                              border: "1px solid var(--border-color)",
-                              borderRadius: "10px",
-                              padding: "0.85rem 1rem",
-                              boxShadow: "0 10px 25px rgba(0, 0, 0, 0.25)",
-                              zIndex: 1000,
-                              pointerEvents: "none"
-                            }}
-                          >
-                            <div style={{ fontSize: "0.78rem", fontWeight: 700, marginBottom: "0.35rem", display: "flex", alignItems: "center", gap: "0.35rem", color: "var(--primary)" }}>
-                              <Info size={13} /> Ejemplo & Funcionamiento:
-                            </div>
-                            <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.8rem", lineHeight: 1.4, opacity: 0.9 }}>
-                              {preset.description}
-                            </p>
-                            <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: "0.35rem", fontSize: "0.74rem", opacity: 0.8, display: "flex", flexDirection: "column", gap: "0.15rem" }}>
-                              <span><strong>⚡ Disparador:</strong> {preset.trigger_event_label}</span>
-                              <span><strong>🎯 Acción:</strong> {preset.default_action_label}</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      <span style={{
-                        fontSize: "0.72rem",
-                        fontWeight: 600,
-                        color: isActive ? "#16a34a" : "var(--text-muted)",
-                        opacity: 0.85,
-                        marginLeft: "auto"
-                      }}>
-                        {isActive ? "✓ Activa" : existingRule ? "Pausada" : "Disponible"}
-                      </span>
-                    </div>
-
-                    {/* Resumen ultra-sintético */}
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.76rem", opacity: 0.8 }}>
-                      <span>⚡ {preset.trigger_event_label} ➔ {preset.default_action_label}</span>
-                    </div>
-                  </div>
-
-                  {/* Columna Central: Selector de Etiquetas de Texto Limpio */}
-                  {preset.usesTag ? (
-                    <div style={{ flex: "0 0 210px", minWidth: "180px", display: "flex", flexDirection: "column", gap: "0.2rem" }}>
-                      <label style={{ fontSize: "0.72rem", fontWeight: 600, color: "var(--text-muted)" }}>
-                        {preset.tagFieldLabel}:
-                      </label>
-
-                      {isCreatingThisTag ? (
-                        <div style={{ display: "flex", gap: "0.3rem", alignItems: "center" }}>
-                          <input
-                            type="text"
-                            placeholder="Nuevo tag..."
-                            value={newTagText}
-                            onChange={(e) => setNewTagNameInput(prev => ({ ...prev, [preset.id]: e.target.value }))}
-                            style={{
-                              flex: 1,
-                              padding: "0.3rem 0.5rem",
-                              borderRadius: "4px",
-                              border: "1px solid var(--primary)",
-                              fontSize: "0.8rem",
-                              backgroundColor: "var(--bg-color)",
-                              color: "var(--text-color)"
-                            }}
-                            autoFocus
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleCreateTagForPreset(preset.id)}
-                            disabled={isCreatingTag}
-                            className="btn-text"
-                            style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--primary)", padding: "0.2rem 0.4rem" }}
-                          >
-                            Guardar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setCreatingNewTagForPreset(prev => ({ ...prev, [preset.id]: false }))}
-                            style={{ background: "none", border: "none", color: "var(--text-color)", cursor: "pointer", padding: "0.2rem" }}
-                          >
-                            <X size={13} />
-                          </button>
-                        </div>
-                      ) : (
-                        <div style={{ display: "flex", gap: "0.35rem", alignItems: "center" }}>
-                          <select
-                            value={selectedTag}
-                            onChange={(e) => {
-                              if (e.target.value === "__NEW__") {
-                                setCreatingNewTagForPreset(prev => ({ ...prev, [preset.id]: true }));
-                              } else {
-                                setPresetSelectedTags(prev => ({ ...prev, [preset.id]: e.target.value }));
-                              }
-                            }}
-                            style={{
-                              flex: 1,
-                              padding: "0.3rem 0.45rem",
-                              borderRadius: "4px",
-                              border: "1px solid var(--border-color)",
-                              fontSize: "0.78rem",
-                              fontWeight: 600,
-                              backgroundColor: "var(--bg-color)",
-                              color: "var(--text-color)"
-                            }}
-                          >
-                            {tagsList.map(tag => (
-                              <option key={tag} value={tag}>{tag}</option>
-                            ))}
-                            <option value="__NEW__">+ Crear etiqueta...</option>
-                          </select>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div style={{ flex: "0 0 210px" }} />
-                  )}
-
-                  {/* Columna Derecha: Botón de Acción de Texto con Subrayado al Hover */}
-                  <div style={{ flex: "0 0 160px", display: "flex", justifyContent: "flex-end" }}>
-                    <button
-                      type="button"
-                      onClick={() => handleTogglePresetAutomation(preset)}
-                      className="btn-text"
-                      style={{
-                        background: "none",
-                        border: "none",
-                        fontWeight: 700,
-                        fontSize: "0.85rem",
-                        cursor: "pointer",
-                        color: isActive ? "var(--danger, #ef4444)" : "var(--primary)",
-                        textDecoration: "underline",
-                        textUnderlineOffset: "3px",
-                        padding: "0.4rem 0.5rem",
-                        transition: "all 0.15s ease",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "0.35rem"
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.opacity = "0.75";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.opacity = "1";
-                      }}
-                    >
-                      {isActive ? "Pausar automatización" : "Activar automatización"}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* VISTA 1: REGLAS (Rules) */}
-      {/* ========================================================================= */}
-      {activeSubTab === "rules" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-          {/* Tarjeta Informativa / Métricas de Reglas */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: "1rem",
-            marginBottom: "0.5rem"
-          }}>
-            <div style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", borderRadius: "10px", padding: "1rem 1.25rem" }}>
-              <span style={{ fontSize: "0.8rem", opacity: 0.75, fontWeight: 600, textTransform: "uppercase" }}>Reglas Activas</span>
-              <div style={{ fontSize: "1.5rem", fontWeight: 800, marginTop: "0.2rem", color: "var(--primary)" }}>
-                {rules.filter(r => r.is_active).length} / {rules.length}
-              </div>
-            </div>
-
-            <div style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", borderRadius: "10px", padding: "1rem 1.25rem" }}>
-              <span style={{ fontSize: "0.8rem", opacity: 0.75, fontWeight: 600, textTransform: "uppercase" }}>Ejecuciones Totales</span>
-              <div style={{ fontSize: "1.5rem", fontWeight: 800, marginTop: "0.2rem" }}>
-                {rules.reduce((acc, r) => acc + (r.executions_count || 0), 0)}
-              </div>
-            </div>
-          </div>
-
-          {/* Lista de Reglas */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            {rules.map((rule) => (
-              <div
-                key={rule.id}
-                style={{
-                  backgroundColor: "var(--surface-color)",
-                  border: "1px solid var(--border-color)",
-                  borderRadius: "12px",
-                  padding: "1.25rem 1.5rem",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "1.5rem",
-                  boxShadow: "var(--shadow-sm)",
-                  opacity: rule.is_active ? 1 : 0.65,
-                  transition: "all 0.2s"
-                }}
-              >
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                    <span style={{ fontWeight: 700, fontSize: "0.98rem" }}>{rule.name}</span>
-                    <span style={{
-                      fontSize: "0.75rem",
-                      fontWeight: 600,
-                      color: rule.is_active ? "#16a34a" : "var(--text-muted)",
-                      opacity: 0.85
-                    }}>
-                      • {rule.is_active ? "Activa" : "Pausada"}
-                    </span>
-                  </div>
-
-                  {/* Diagrama Texto Limpio DISPARADOR -> ACCIONES */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap", fontSize: "0.82rem", opacity: 0.85 }}>
-                    <span style={{ color: "var(--text-color)" }}>
-                      <strong>Si:</strong> {rule.trigger_event === 'tag_added' ? `Tag '${rule.trigger_value}'` : rule.trigger_value || rule.trigger_event}
-                    </span>
-                    <span>➔</span>
-                    <span style={{ color: "var(--text-color)" }}>
-                      <strong>Entonces:</strong> {rule.actions && rule.actions.length > 0 ? rule.actions.map(act => (
-                        act.type === 'send_email' ? (act.details?.subject || act.value || "Email") :
-                        act.type === 'send_message' ? (`Mensaje (${act.details?.channel || 'WhatsApp'})`) :
-                        act.type === 'add_tag' ? (`Tag '${act.details?.tag || act.value}'`) :
-                        (act.value || "Acción")
-                      )).join(", ") : (rule.action_value || rule.action_type)}
-                    </span>
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: "1.25rem" }}>
-                  <div style={{ textAlign: "right", fontSize: "0.8rem", opacity: 0.7 }}>
-                    <div><strong>{rule.executions_count || 0}</strong> ejecuciones</div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleToggleRule(rule.id, rule.is_active)}
-                    className="btn-text"
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: rule.is_active ? "var(--text-color)" : "var(--primary)",
-                      fontWeight: 600,
-                      fontSize: "0.825rem",
-                      textDecoration: "underline",
-                      textUnderlineOffset: "3px",
-                      cursor: "pointer",
-                      padding: "0.3rem 0.4rem"
-                    }}
-                  >
-                    {rule.is_active ? "Pausar" : "Activar"}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteRule(rule.id)}
-                    className="btn-text"
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "var(--danger, #ef4444)",
-                      fontWeight: 600,
-                      fontSize: "0.825rem",
-                      textDecoration: "underline",
-                      textUnderlineOffset: "3px",
-                      cursor: "pointer",
-                      padding: "0.3rem 0.4rem"
-                    }}
-                    title="Eliminar regla"
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              </div>
-            ))}
-
-            {rules.length === 0 && (
-              <div style={{ padding: "3rem", textAlign: "center", backgroundColor: "var(--surface-color)", borderRadius: "12px", border: "1px solid var(--border-color)", opacity: 0.6 }}>
-                No tienes reglas de automatización configuradas. Haz clic en <strong>"Nueva Regla"</strong> para crear tu primera regla IF/THEN.
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* VISTA 2: FLUJOS / WORKFLOWS (Flow) */}
-      {/* ========================================================================= */}
-      {activeSubTab === "workflows" && (
-        <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: "1.5rem", alignItems: "start" }}>
-          {/* Columna Izquierda: Lista de Flujos */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-            <span style={{ fontSize: "0.85rem", fontWeight: 800, textTransform: "uppercase", opacity: 0.7 }}>
-              Tus Flujos ({workflows.length})
-            </span>
-
-            {workflows.map((flow) => {
-              const isSelected = selectedWorkflow?.id === flow.id;
-
-              return (
-                <div
-                  key={flow.id}
-                  onClick={() => {
-                    setSelectedWorkflow(flow);
-                    setEditingWorkflow(JSON.parse(JSON.stringify(flow)));
-                    setEditingStepId(null);
-                  }}
-                  style={{
-                    backgroundColor: isSelected ? "var(--surface-color)" : "var(--bg-color)",
-                    border: "1px solid",
-                    borderColor: isSelected ? "var(--primary)" : "var(--border-color)",
-                    borderRadius: "10px",
-                    padding: "1rem",
-                    cursor: "pointer",
-                    transition: "all 0.2s",
-                    boxShadow: isSelected ? "var(--shadow-sm)" : "none"
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontWeight: 700, fontSize: "0.95rem", color: isSelected ? "var(--primary)" : "var(--text-color)" }}>
-                      {flow.name}
-                    </span>
-                    <ChevronRight size={16} style={{ opacity: isSelected ? 1 : 0.4, color: isSelected ? "var(--primary)" : "inherit" }} />
-                  </div>
-
-                  <p style={{ margin: "0.35rem 0 0.5rem 0", fontSize: "0.78rem", opacity: 0.75, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                    {flow.description}
-                  </p>
-
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.75rem" }}>
-                    <span style={{ backgroundColor: "rgba(128,128,128,0.15)", padding: "0.15rem 0.5rem", borderRadius: "4px", fontWeight: 600 }}>
-                      {flow.steps.length} pasos
-                    </span>
-                    <span style={{ color: flow.is_active ? "#16a34a" : "inherit", fontWeight: 600 }}>
-                      {flow.is_active ? "● Activo" : "○ Inactivo"}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-
-            {workflows.length === 0 && (
-              <div style={{ padding: "1.5rem", textAlign: "center", fontSize: "0.85rem", opacity: 0.6 }}>
-                No hay flujos creados.
-              </div>
-            )}
-          </div>
-
-          {/* Columna Derecha: Diagramador / Builder Interactivo del Flujo Seleccionado */}
-          {editingWorkflow ? (
-            <div style={{
-              backgroundColor: "var(--surface-color)",
-              border: "1px solid var(--border-color)",
-              borderRadius: "12px",
-              padding: "1.5rem",
-              display: "flex",
-              flexDirection: "column",
-              gap: "1.5rem"
-            }}>
-              {/* Header del Editor de Flujo */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: "1rem" }}>
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <input
-                      type="text"
-                      value={editingWorkflow.name}
-                      onChange={(e) => setEditingWorkflow({ ...editingWorkflow, name: e.target.value })}
-                      style={{
-                        fontSize: "1.2rem",
-                        fontWeight: 800,
-                        border: "none",
-                        backgroundColor: "transparent",
-                        color: "var(--text-color)",
-                        outline: "none",
-                        borderBottom: "1px dashed var(--primary)"
-                      }}
-                    />
-                    <button
-                      onClick={() => setEditingWorkflow({ ...editingWorkflow, is_active: !editingWorkflow.is_active })}
-                      style={{
-                        backgroundColor: editingWorkflow.is_active ? "rgba(34, 197, 94, 0.15)" : "rgba(128,128,128,0.15)",
-                        color: editingWorkflow.is_active ? "#15803d" : "var(--text-color)",
-                        border: `1px solid ${editingWorkflow.is_active ? "#22c55e" : "var(--border-color)"}`,
-                        padding: "0.2rem 0.6rem",
-                        borderRadius: "12px",
-                        fontSize: "0.75rem",
-                        fontWeight: 700,
-                        cursor: "pointer"
-                      }}
-                    >
-                      {editingWorkflow.is_active ? "Activo" : "Pausado"}
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    value={editingWorkflow.description || ""}
-                    placeholder="Descripción corta del flujo..."
-                    onChange={(e) => setEditingWorkflow({ ...editingWorkflow, description: e.target.value })}
-                    style={{
-                      fontSize: "0.85rem",
-                      opacity: 0.75,
-                      border: "none",
-                      backgroundColor: "transparent",
-                      color: "var(--text-color)",
-                      outline: "none",
-                      width: "100%",
-                      marginTop: "0.25rem"
-                    }}
-                  />
-                </div>
-
-                <div style={{ display: "flex", gap: "0.5rem" }}>
-                  <button
-                    onClick={() => handleDeleteWorkflow(editingWorkflow.id)}
-                    style={{
-                      backgroundColor: "transparent",
-                      border: "1px solid var(--danger, #ef4444)",
-                      color: "var(--danger, #ef4444)",
-                      padding: "0.5rem 0.85rem",
-                      borderRadius: "6px",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      fontSize: "0.85rem"
-                    }}
-                  >
-                    Eliminar
-                  </button>
-
-                  <button
-                    onClick={handleSaveWorkflowEdits}
-                    style={{
-                      backgroundColor: "var(--primary)",
-                      color: "#ffffff",
-                      border: "none",
-                      padding: "0.55rem 1.25rem",
-                      borderRadius: "6px",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      fontSize: "0.85rem",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.35rem"
-                    }}
-                    disabled={isPending}
-                  >
-                    <Check size={16} /> Guardar Cambios
-                  </button>
-                </div>
-              </div>
-
-              {/* Diagrama Visual de Pasos (Paso 1 -> Paso 2 -> Paso 3) */}
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1rem", padding: "1rem 0" }}>
-                {editingWorkflow.steps.map((step, idx) => {
-                  const isTrigger = step.type === 'trigger';
-                  const isDelay = step.type === 'delay';
-                  const isCondition = step.type === 'condition';
-                  const isAction = step.type === 'action';
-                  const actionKind = step.config?.action_kind || 'send_email';
-                  const isEditingThisStep = editingStepId === step.id;
-
-                  return (
-                    <div key={step.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", maxWidth: "560px" }}>
-                      {/* Línea conectora vertical entre pasos */}
-                      {idx > 0 && (
-                        <div style={{ width: "2px", height: "24px", backgroundColor: "var(--primary)", opacity: 0.5, margin: "2px 0" }} />
-                      )}
-
-                      {/* Tarjeta del Paso en el Flujo */}
+                    <div className={styles.itemLeft}>
                       <div
-                        style={{
-                          width: "100%",
-                          backgroundColor: isTrigger ? "var(--primary-light)" : "var(--bg-color)",
-                          border: `1.5px solid ${isTrigger ? "var(--primary)" : isCondition ? "#eab308" : isDelay ? "#a855f7" : "var(--border-color)"}`,
-                          borderRadius: "12px",
-                          padding: "1.1rem 1.25rem",
-                          position: "relative",
-                          boxShadow: isEditingThisStep ? "0 0 0 2px var(--primary)" : "var(--shadow-sm)",
-                          transition: "all 0.2s"
-                        }}
+                        className={styles.iconSquare}
+                        style={{ backgroundColor: getIconBgColor(preset.iconType) }}
                       >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                            {isTrigger && <Zap size={17} style={{ color: "var(--primary)" }} />}
-                            {isDelay && <Clock size={17} style={{ color: "#a855f7" }} />}
-                            {isCondition && <GitFork size={17} style={{ color: "#eab308" }} />}
-                            {isAction && actionKind === 'send_email' && <Mail size={17} style={{ color: "#16a34a" }} />}
-                            {isAction && actionKind === 'send_message' && <MessageSquare size={17} style={{ color: "#25d366" }} />}
-                            {isAction && (actionKind === 'assign_tag' || actionKind === 'remove_tag') && <TagIcon size={17} style={{ color: "#3b82f6" }} />}
-                            {isAction && actionKind === 'assign_agent' && <UserCheck size={17} style={{ color: "#ec4899" }} />}
+                        {renderIcon(preset.iconType)}
+                      </div>
 
-                            <span style={{ fontWeight: 700, fontSize: "0.95rem" }}>{step.title}</span>
-                          </div>
-
-                          <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                            {/* Botones de Reordenamiento UP/DOWN */}
-                            {!isTrigger && idx > 1 && (
-                              <button
-                                onClick={() => handleMoveStep(idx, 'up')}
-                                style={{ background: "none", border: "none", color: "var(--text-color)", cursor: "pointer", opacity: 0.6, padding: "0.2rem" }}
-                                title="Mover arriba"
-                              >
-                                <ArrowUp size={14} />
-                              </button>
-                            )}
-                            {!isTrigger && idx < editingWorkflow.steps.length - 1 && (
-                              <button
-                                onClick={() => handleMoveStep(idx, 'down')}
-                                style={{ background: "none", border: "none", color: "var(--text-color)", cursor: "pointer", opacity: 0.6, padding: "0.2rem" }}
-                                title="Mover abajo"
-                              >
-                                <ArrowDown size={14} />
-                              </button>
-                            )}
-
-                            {/* Botón Editar Parámetros */}
-                            <button
-                              onClick={() => setEditingStepId(isEditingThisStep ? null : step.id)}
-                              style={{
-                                backgroundColor: isEditingThisStep ? "var(--primary)" : "rgba(128,128,128,0.12)",
-                                color: isEditingThisStep ? "#ffffff" : "var(--text-color)",
-                                border: "none",
-                                borderRadius: "6px",
-                                padding: "0.25rem 0.5rem",
-                                fontSize: "0.75rem",
-                                fontWeight: 700,
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "0.25rem"
-                              }}
-                            >
-                              <Edit3 size={13} /> {isEditingThisStep ? "Cerrar" : "Editar"}
-                            </button>
-
-                            {!isTrigger && (
-                              <button
-                                onClick={() => handleDeleteStepFromWorkflow(step.id)}
-                                style={{ background: "none", border: "none", color: "var(--danger, #ef4444)", cursor: "pointer", opacity: 0.7, padding: "0.25rem" }}
-                                title="Remover paso"
-                              >
-                                <Trash2 size={15} />
-                              </button>
-                            )}
-                          </div>
+                      <div className={styles.itemContent}>
+                        <div className={styles.itemTitleRow}>
+                          <h3 className={styles.itemTitle}>{preset.title}</h3>
+                          {isOn ? (
+                            <span className={styles.statusOn}>(On)</span>
+                          ) : (
+                            <span className={styles.statusOff}>(Off)</span>
+                          )}
                         </div>
-
-                        <p style={{ margin: "0.35rem 0 0 0", fontSize: "0.82rem", opacity: 0.75 }}>
-                          {step.description}
-                        </p>
-
-                        {/* PANEL DE CONFIGURACIÓN INLINE (Formulario de Parámetros del Paso) */}
-                        {isEditingThisStep && (
-                          <div style={{
-                            marginTop: "1rem",
-                            paddingTop: "0.85rem",
-                            borderTop: "1px dashed var(--border-color)",
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "0.75rem"
-                          }}>
-                            {/* Editor para TRIGGER */}
-                            {isTrigger && (
-                              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                                <label style={{ fontSize: "0.8rem", fontWeight: 700 }}>Tag Inicial de Disparo:</label>
-                                <select
-                                  value={step.config?.tag || availableTags[0]}
-                                  onChange={(e) => handleUpdateStepConfig(step.id, { tag: e.target.value })}
-                                  style={{ padding: "0.5rem", borderRadius: "6px", border: "1px solid var(--border-color)", backgroundColor: "var(--surface-color)", color: "var(--text-color)" }}
-                                >
-                                  {availableTags.map(t => <option key={t} value={t}>{t}</option>)}
-                                </select>
-                              </div>
-                            )}
-
-                            {/* Editor para ACTION */}
-                            {isAction && (
-                              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-                                <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-                                  <label style={{ fontSize: "0.8rem", fontWeight: 700 }}>Tipo de Acción:</label>
-                                  <select
-                                    value={actionKind}
-                                    onChange={(e) => handleUpdateStepConfig(step.id, { action_kind: e.target.value })}
-                                    style={{ padding: "0.5rem", borderRadius: "6px", border: "1px solid var(--border-color)", backgroundColor: "var(--surface-color)", color: "var(--text-color)" }}
-                                  >
-                                    <option value="send_email">📧 Enviar Email</option>
-                                    <option value="send_message">💬 Enviar Mensaje WhatsApp</option>
-                                    <option value="assign_tag">🏷️ Asignar Tag</option>
-                                    <option value="remove_tag">🚫 Quitar Tag</option>
-                                    <option value="assign_agent">👤 Asignar Agente Comercial</option>
-                                  </select>
-                                </div>
-
-                                {actionKind === 'send_email' && (
-                                  <>
-                                    <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
-                                      <label style={{ fontSize: "0.78rem", fontWeight: 600 }}>Asunto del Correo:</label>
-                                      <input
-                                        type="text"
-                                        value={step.config?.subject || ''}
-                                        placeholder="Ej: Catálogo de Vehículos"
-                                        onChange={(e) => handleUpdateStepConfig(step.id, { subject: e.target.value })}
-                                        style={{ padding: "0.45rem", borderRadius: "6px", border: "1px solid var(--border-color)", backgroundColor: "var(--surface-color)", color: "var(--text-color)", fontSize: "0.85rem" }}
-                                      />
-                                    </div>
-                                    <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
-                                      <label style={{ fontSize: "0.78rem", fontWeight: 600 }}>Cuerpo del Mensaje (Soporta {"{{nombre}}"}):</label>
-                                      <textarea
-                                        rows={3}
-                                        value={step.config?.body || ''}
-                                        placeholder="Hola {{nombre}}, queríamos informarte..."
-                                        onChange={(e) => handleUpdateStepConfig(step.id, { body: e.target.value })}
-                                        style={{ padding: "0.45rem", borderRadius: "6px", border: "1px solid var(--border-color)", backgroundColor: "var(--surface-color)", color: "var(--text-color)", fontSize: "0.85rem" }}
-                                      />
-                                    </div>
-                                  </>
-                                )}
-
-                                {actionKind === 'send_message' && (
-                                  <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
-                                    <label style={{ fontSize: "0.78rem", fontWeight: 600 }}>Texto del Mensaje WhatsApp:</label>
-                                    <textarea
-                                      rows={3}
-                                      value={step.config?.body || ''}
-                                      placeholder="Hola {{nombre}}, te contactamos desde Tu Automotora..."
-                                      onChange={(e) => handleUpdateStepConfig(step.id, { body: e.target.value })}
-                                      style={{ padding: "0.45rem", borderRadius: "6px", border: "1px solid var(--border-color)", backgroundColor: "var(--surface-color)", color: "var(--text-color)", fontSize: "0.85rem" }}
-                                    />
-                                  </div>
-                                )}
-
-                                {(actionKind === 'assign_tag' || actionKind === 'remove_tag') && (
-                                  <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
-                                    <label style={{ fontSize: "0.78rem", fontWeight: 600 }}>Seleccionar Tag:</label>
-                                    <select
-                                      value={step.config?.tag || availableTags[0]}
-                                      onChange={(e) => handleUpdateStepConfig(step.id, { tag: e.target.value })}
-                                      style={{ padding: "0.45rem", borderRadius: "6px", border: "1px solid var(--border-color)", backgroundColor: "var(--surface-color)", color: "var(--text-color)" }}
-                                    >
-                                      {availableTags.map(t => <option key={t} value={t}>{t}</option>)}
-                                    </select>
-                                  </div>
-                                )}
-
-                                {actionKind === 'assign_agent' && (
-                                  <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
-                                    <label style={{ fontSize: "0.78rem", fontWeight: 600 }}>Seleccionar Agente Comercial:</label>
-                                    <select
-                                      value={step.config?.agent_id || (initialAgents[0]?.id || '')}
-                                      onChange={(e) => {
-                                        const selectedAgent = initialAgents.find(a => a.id === e.target.value);
-                                        handleUpdateStepConfig(step.id, { 
-                                          agent_id: e.target.value,
-                                          agent_name: selectedAgent ? selectedAgent.name : 'Agente'
-                                        });
-                                      }}
-                                      style={{ padding: "0.45rem", borderRadius: "6px", border: "1px solid var(--border-color)", backgroundColor: "var(--surface-color)", color: "var(--text-color)" }}
-                                    >
-                                      {initialAgents.map(a => (
-                                        <option key={a.id} value={a.id}>{a.name} ({a.email})</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Editor para DELAY */}
-                            {isDelay && (
-                              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
-                                <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
-                                  <label style={{ fontSize: "0.78rem", fontWeight: 600 }}>Tiempo de Espera:</label>
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    value={step.config?.delay_amount || 24}
-                                    onChange={(e) => handleUpdateStepConfig(step.id, { delay_amount: parseInt(e.target.value) || 1 })}
-                                    style={{ padding: "0.45rem", borderRadius: "6px", border: "1px solid var(--border-color)", backgroundColor: "var(--surface-color)", color: "var(--text-color)" }}
-                                  />
-                                </div>
-
-                                <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
-                                  <label style={{ fontSize: "0.78rem", fontWeight: 600 }}>Unidad de Tiempo:</label>
-                                  <select
-                                    value={step.config?.delay_unit || 'hours'}
-                                    onChange={(e) => handleUpdateStepConfig(step.id, { delay_unit: e.target.value })}
-                                    style={{ padding: "0.45rem", borderRadius: "6px", border: "1px solid var(--border-color)", backgroundColor: "var(--surface-color)", color: "var(--text-color)" }}
-                                  >
-                                    <option value="hours">Horas</option>
-                                    <option value="days">Días</option>
-                                    <option value="minutes">Minutos</option>
-                                  </select>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Editor para CONDITION */}
-                            {isCondition && (
-                              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                                <label style={{ fontSize: "0.78rem", fontWeight: 600 }}>Evaluar si el contacto tiene la etiqueta:</label>
-                                <select
-                                  value={step.config?.tag || availableTags[0]}
-                                  onChange={(e) => handleUpdateStepConfig(step.id, { tag: e.target.value })}
-                                  style={{ padding: "0.45rem", borderRadius: "6px", border: "1px solid var(--border-color)", backgroundColor: "var(--surface-color)", color: "var(--text-color)" }}
-                                >
-                                  {availableTags.map(t => <option key={t} value={t}>{t}</option>)}
-                                </select>
-                              </div>
-                            )}
-                          </div>
-                        )}
+                        <p className={styles.itemDesc}>{preset.description}</p>
                       </div>
                     </div>
-                  );
-                })}
 
-                {/* Botones para Agregar Nuevos Pasos al Diagrama */}
-                <div style={{
-                  marginTop: "1.25rem",
-                  padding: "1.25rem",
-                  border: "2px dashed var(--border-color)",
-                  borderRadius: "12px",
-                  width: "100%",
-                  maxWidth: "560px",
-                  textAlign: "center",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: "0.75rem",
-                  backgroundColor: "rgba(128,128,128,0.03)"
-                }}>
-                  <span style={{ fontSize: "0.8rem", fontWeight: 800, opacity: 0.8, letterSpacing: "0.05em" }}>
-                    + AGREGAR SIGUIENTE PASO AL FLUJO
-                  </span>
-
-                  <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "center" }}>
-                    <button
-                      onClick={() => handleAddStepToWorkflow('send_email')}
-                      style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", padding: "0.45rem 0.75rem", borderRadius: "6px", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "0.35rem" }}
-                    >
-                      <Mail size={14} style={{ color: "#16a34a" }} /> + Email
-                    </button>
-
-                    <button
-                      onClick={() => handleAddStepToWorkflow('send_message')}
-                      style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", padding: "0.45rem 0.75rem", borderRadius: "6px", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "0.35rem" }}
-                    >
-                      <MessageSquare size={14} style={{ color: "#25d366" }} /> + Mensaje (WhatsApp)
-                    </button>
-
-                    <button
-                      onClick={() => handleAddStepToWorkflow('assign_tag')}
-                      style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", padding: "0.45rem 0.75rem", borderRadius: "6px", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "0.35rem" }}
-                    >
-                      <TagIcon size={14} style={{ color: "#3b82f6" }} /> + Tag
-                    </button>
-
-                    <button
-                      onClick={() => handleAddStepToWorkflow('assign_agent')}
-                      style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", padding: "0.45rem 0.75rem", borderRadius: "6px", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "0.35rem" }}
-                    >
-                      <UserCheck size={14} style={{ color: "#ec4899" }} /> + Asignar Agente
-                    </button>
-
-                    <button
-                      onClick={() => handleAddStepToWorkflow('delay')}
-                      style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", padding: "0.45rem 0.75rem", borderRadius: "6px", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "0.35rem" }}
-                    >
-                      <Clock size={14} style={{ color: "#a855f7" }} /> + Pausa / Delay
-                    </button>
-
-                    <button
-                      onClick={() => handleAddStepToWorkflow('condition')}
-                      style={{ backgroundColor: "var(--surface-color)", border: "1px solid var(--border-color)", padding: "0.45rem 0.75rem", borderRadius: "6px", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "0.35rem" }}
-                    >
-                      <GitFork size={14} style={{ color: "#eab308" }} /> + Condición (If/Else)
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div style={{ padding: "3rem", textAlign: "center", backgroundColor: "var(--surface-color)", borderRadius: "12px", border: "1px solid var(--border-color)", opacity: 0.6 }}>
-              Selecciona o crea un flujo de la izquierda para diagramar y editar sus pasos.
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* MODAL 1: NUEVA REGLA (FRIENDLY + ESQUINAS RECTAS + ARROW + STACKED + DRAWER) */}
-      {/* ========================================================================= */}
-      {showRuleModal && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: "rgba(0,0,0,0.65)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          zIndex: 1000,
-          backdropFilter: "blur(4px)"
-        }}>
-          {(() => {
-            const activeEditingAction = stackedActions.find(a => a.id === editingActionId);
-
-            return (
-              <div style={{
-                backgroundColor: "var(--surface-color)",
-                border: "none",
-                borderRadius: 0,
-                padding: "1.75rem",
-                width: "95%",
-                maxWidth: activeEditingAction ? "980px" : "680px",
-                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
-                transition: "all 0.25s ease-in-out",
-                maxHeight: "90vh",
-                overflowY: "auto"
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.85rem", marginBottom: "1.25rem" }}>
-                  <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 800, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                    <Zap size={20} style={{ color: "var(--primary)" }} /> Nueva Regla
-                  </h3>
-                  <button
-                    onClick={() => {
-                      setShowRuleModal(false);
-                      setEditingActionId(null);
-                    }}
-                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-color)", opacity: 0.7 }}
-                  >
-                    <X size={20} />
-                  </button>
-                </div>
-
-                <form onSubmit={handleCreateRule} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-                  {/* Nombre de la Regla */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
-                    <label style={{ fontSize: "0.85rem", fontWeight: 700 }}>Nombre de la regla</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ej: Bienvenida a nuevo lead"
-                      value={newRuleName}
-                      onChange={(e) => setNewRuleName(e.target.value)}
-                      style={{
-                        padding: "0.65rem 0.85rem",
-                        borderRadius: 0,
-                        border: "1px solid var(--border-color)",
-                        backgroundColor: "var(--bg-color)",
-                        color: "var(--text-color)",
-                        fontSize: "0.9rem"
-                      }}
-                    />
-                  </div>
-
-                  {/* Disparador -> Flecha -> Acciones Stackeadas -> Drawer Lateral */}
-                  <div style={{
-                    display: "grid",
-                    gridTemplateColumns: activeEditingAction ? "1fr auto 1.1fr 310px" : "1fr auto 1.1fr",
-                    gap: "1.1rem",
-                    alignItems: "start"
-                  }}>
-                    {/* 1. DISPARADOR (IZQUIERDA) */}
-                    <div style={{
-                      backgroundColor: "var(--bg-color)",
-                      padding: "1.1rem",
-                      borderRadius: 0,
-                      border: "none",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "0.85rem"
-                    }}>
-                      <label style={{ fontSize: "0.82rem", fontWeight: 800, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                        Disparador
-                      </label>
-
-                      <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-                        <span style={{ fontSize: "0.78rem", opacity: 0.7, fontWeight: 600 }}>Evento</span>
-                        <select
-                          value={newRuleTrigger}
-                          onChange={(e) => setNewRuleTrigger(e.target.value)}
-                          style={{
-                            padding: "0.55rem 0.75rem",
-                            borderRadius: 0,
-                            border: "1px solid var(--border-color)",
-                            backgroundColor: "var(--surface-color)",
-                            color: "var(--text-color)",
-                            fontSize: "0.85rem"
-                          }}
-                        >
-                          <option value="tag_added">Etiqueta agregada</option>
-                          <option value="lead_created">Nuevo lead</option>
-                          <option value="sale_registered">Venta realizada</option>
-                        </select>
-                      </div>
-
-                      {newRuleTrigger === 'tag_added' && (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-                          <span style={{ fontSize: "0.78rem", opacity: 0.7, fontWeight: 600 }}>Etiqueta</span>
-                          <select
-                            value={newRuleTriggerVal}
-                            onChange={(e) => setNewRuleTriggerVal(e.target.value)}
-                            style={{
-                              padding: "0.55rem 0.75rem",
-                              borderRadius: 0,
-                              border: "1px solid var(--border-color)",
-                              backgroundColor: "var(--surface-color)",
-                              color: "var(--text-color)",
-                              fontSize: "0.85rem"
-                            }}
-                          >
-                            {availableTags.map(t => (
-                              <option key={t} value={t}>{t}</option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 2. FLECHA AL MEDIO -> */}
-                    <div style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      alignSelf: "center",
-                      padding: "0.4rem"
-                    }}>
-                      <ArrowRight size={26} style={{ color: "var(--primary)" }} />
-                    </div>
-
-                    {/* 3. ACCIONES APILADAS (DERECHA) */}
-                    <div style={{
-                      backgroundColor: "var(--bg-color)",
-                      padding: "1.1rem",
-                      borderRadius: 0,
-                      border: "none",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "0.85rem"
-                    }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <label style={{ fontSize: "0.82rem", fontWeight: 800, color: "#16a34a", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                          Acciones
-                        </label>
-                        <span style={{ fontSize: "0.75rem", opacity: 0.6 }}>{stackedActions.length} apilada(s)</span>
-                      </div>
-
-                      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", maxHeight: "320px", overflowY: "auto" }}>
-                        {stackedActions.map((act) => {
-                          const isEditingThis = editingActionId === act.id;
-                          const isMessageOrEmail = act.type === 'send_email' || act.type === 'send_message';
-
-                          return (
-                            <div
-                              key={act.id}
-                              style={{
-                                backgroundColor: "var(--surface-color)",
-                                border: isEditingThis ? "1px solid var(--primary)" : "none",
-                                borderRadius: 0,
-                                padding: "0.75rem",
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: "0.5rem"
-                              }}
-                            >
-                              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                <select
-                                  value={act.type}
-                                  onChange={(e) => handleActionTypeChange(act.id, e.target.value as any)}
-                                  style={{
-                                    flex: 1,
-                                    padding: "0.45rem",
-                                    borderRadius: 0,
-                                    border: "1px solid var(--border-color)",
-                                    backgroundColor: "var(--bg-color)",
-                                    color: "var(--text-color)",
-                                    fontSize: "0.83rem",
-                                    fontWeight: 600
-                                  }}
-                                >
-                                  <option value="send_email">Correo electrónico</option>
-                                  <option value="send_message">Mensaje (WhatsApp/SMS)</option>
-                                  <option value="add_tag">Agregar etiqueta</option>
-                                  <option value="notify_agent">Notificar vendedor</option>
-                                </select>
-
-                                {stackedActions.length > 1 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveAction(act.id)}
-                                    style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: "0.2rem" }}
-                                    title="Eliminar acción"
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
-                                )}
-                              </div>
-
-                              {/* Si es tag */}
-                              {act.type === 'add_tag' && (
-                                <select
-                                  value={act.details.tag || availableTags[0]}
-                                  onChange={(e) => handleUpdateActionDetails(act.id, { tag: e.target.value }, `Etiqueta '${e.target.value}'`)}
-                                  style={{
-                                    padding: "0.45rem",
-                                    borderRadius: 0,
-                                    border: "1px solid var(--border-color)",
-                                    backgroundColor: "var(--bg-color)",
-                                    color: "var(--text-color)",
-                                    fontSize: "0.8rem"
-                                  }}
-                                >
-                                  {availableTags.map(t => (
-                                    <option key={t} value={t}>{t}</option>
-                                  ))}
-                                </select>
-                              )}
-
-                              {/* Si es email o mensaje, botón para desplegar barra a la derecha */}
-                              {isMessageOrEmail && (
-                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", marginTop: "0.2rem" }}>
-                                  <div style={{ fontSize: "0.78rem", opacity: 0.8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                                    {act.type === 'send_email' ? (
-                                      <span><Mail size={12} style={{ display: "inline", marginRight: 4 }} />{act.details.subject || "Sin asunto"}</span>
-                                    ) : (
-                                      <span><MessageSquare size={12} style={{ display: "inline", marginRight: 4, color: "#25D366" }} />{act.details.channel || "WhatsApp"}</span>
-                                    )}
-                                  </div>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditingActionId(isEditingThis ? null : act.id)}
-                                    style={{
-                                      backgroundColor: isEditingThis ? "var(--primary)" : "transparent",
-                                      color: isEditingThis ? "#ffffff" : "var(--primary)",
-                                      border: "1px solid var(--primary)",
-                                      borderRadius: 0,
-                                      padding: "0.25rem 0.65rem",
-                                      fontSize: "0.75rem",
-                                      fontWeight: 700,
-                                      cursor: "pointer",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: "0.3rem"
-                                    }}
-                                  >
-                                    <Sliders size={12} /> {isEditingThis ? "Editando..." : "Editar"}
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-
+                    <div className={styles.itemRight}>
                       <button
                         type="button"
-                        onClick={handleAddAction}
-                        style={{
-                          backgroundColor: "transparent",
-                          border: "1px dashed var(--border-color)",
-                          borderRadius: 0,
-                          padding: "0.55rem",
-                          color: "var(--text-color)",
-                          fontSize: "0.82rem",
-                          fontWeight: 700,
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "0.4rem"
-                        }}
+                        onClick={(e) => handleTogglePreset(preset, e)}
+                        disabled={isPending}
+                        className={`${styles.switchToggle} ${isOn ? styles.switchToggleOn : ""}`}
+                        role="switch"
+                        aria-checked={isOn}
+                        title={isOn ? "Desactivar automatización" : "Activar automatización"}
                       >
-                        <Plus size={15} /> Añadir acción
+                        <span className={`${styles.switchThumb} ${isOn ? styles.switchThumbOn : ""}`} />
                       </button>
                     </div>
-
-                    {/* 4. BARRA A LA DERECHA PARA EDITAR EMAIL O MENSAJE */}
-                    {activeEditingAction && (
-                      <div style={{
-                        backgroundColor: "var(--bg-color)",
-                        border: "none",
-                        padding: "1.1rem",
-                        borderRadius: 0,
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "0.85rem"
-                      }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: "0.5rem" }}>
-                          <span style={{ fontSize: "0.85rem", fontWeight: 800, display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                            {activeEditingAction.type === 'send_email' ? (
-                              <><Mail size={16} style={{ color: "var(--primary)" }} /> Correo</>
-                            ) : (
-                              <><MessageSquare size={16} style={{ color: "#25D366" }} /> Mensaje</>
-                            )}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setEditingActionId(null)}
-                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-color)", opacity: 0.7 }}
-                          >
-                            <X size={15} />
-                          </button>
-                        </div>
-
-                        {activeEditingAction.type === 'send_email' ? (
-                          <>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-                              <span style={{ fontSize: "0.78rem", fontWeight: 700 }}>Asunto</span>
-                              <input
-                                type="text"
-                                value={activeEditingAction.details.subject || ""}
-                                onChange={(e) => handleUpdateActionDetails(activeEditingAction.id, { subject: e.target.value })}
-                                placeholder="Ej: Catálogo de Vehículos"
-                                style={{
-                                  padding: "0.5rem",
-                                  borderRadius: 0,
-                                  border: "1px solid var(--border-color)",
-                                  backgroundColor: "var(--surface-color)",
-                                  color: "var(--text-color)",
-                                  fontSize: "0.82rem"
-                                }}
-                              />
-                            </div>
-
-                            <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-                              <span style={{ fontSize: "0.78rem", fontWeight: 700 }}>Mensaje</span>
-                              <textarea
-                                rows={4}
-                                value={activeEditingAction.details.body || ""}
-                                onChange={(e) => handleUpdateActionDetails(activeEditingAction.id, { body: e.target.value })}
-                                placeholder="Hola {{nombre}}, te adjuntamos la información..."
-                                style={{
-                                  padding: "0.5rem",
-                                  borderRadius: 0,
-                                  border: "1px solid var(--border-color)",
-                                  backgroundColor: "var(--surface-color)",
-                                  color: "var(--text-color)",
-                                  fontSize: "0.82rem",
-                                  resize: "vertical"
-                                }}
-                              />
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-                              <span style={{ fontSize: "0.78rem", fontWeight: 700 }}>Canal</span>
-                              <select
-                                value={activeEditingAction.details.channel || "WhatsApp"}
-                                onChange={(e) => handleUpdateActionDetails(activeEditingAction.id, { channel: e.target.value as any })}
-                                style={{
-                                  padding: "0.5rem",
-                                  borderRadius: 0,
-                                  border: "1px solid var(--border-color)",
-                                  backgroundColor: "var(--surface-color)",
-                                  color: "var(--text-color)",
-                                  fontSize: "0.82rem"
-                                }}
-                              >
-                                <option value="WhatsApp">WhatsApp</option>
-                                <option value="SMS">SMS</option>
-                              </select>
-                            </div>
-
-                            <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-                              <span style={{ fontSize: "0.78rem", fontWeight: 700 }}>Mensaje</span>
-                              <textarea
-                                rows={4}
-                                value={activeEditingAction.details.body || ""}
-                                onChange={(e) => handleUpdateActionDetails(activeEditingAction.id, { body: e.target.value })}
-                                placeholder="Hola {{nombre}}, ¿cómo estás? Te escribimos de la automotora..."
-                                style={{
-                                  padding: "0.5rem",
-                                  borderRadius: 0,
-                                  border: "1px solid var(--border-color)",
-                                  backgroundColor: "var(--surface-color)",
-                                  color: "var(--text-color)",
-                                  fontSize: "0.82rem",
-                                  resize: "vertical"
-                                }}
-                              />
-                            </div>
-                          </>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => setEditingActionId(null)}
-                          style={{
-                            backgroundColor: "var(--primary)",
-                            color: "#ffffff",
-                            border: "none",
-                            borderRadius: 0,
-                            padding: "0.5rem",
-                            fontSize: "0.82rem",
-                            fontWeight: 700,
-                            cursor: "pointer",
-                            marginTop: "0.25rem"
-                          }}
-                        >
-                          Listo
-                        </button>
-                      </div>
-                    )}
                   </div>
+                );
+              })
+            )}
+          </div>
+        )}
 
-                  {/* BOTONES INFERIORES */}
-                  <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "0.5rem" }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowRuleModal(false);
-                        setEditingActionId(null);
-                      }}
-                      style={{
-                        backgroundColor: "transparent",
-                        border: "1px solid var(--border-color)",
-                        padding: "0.6rem 1.1rem",
-                        borderRadius: 0,
-                        fontWeight: 600,
-                        color: "var(--text-color)",
-                        cursor: "pointer"
-                      }}
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="submit"
-                      style={{
-                        backgroundColor: "var(--primary)",
-                        color: "#ffffff",
-                        border: "none",
-                        padding: "0.6rem 1.3rem",
-                        borderRadius: 0,
-                        fontWeight: 700,
-                        cursor: "pointer"
-                      }}
-                      disabled={isPending}
-                    >
-                      Guardar Regla
-                    </button>
-                  </div>
-                </form>
+        {/* ACTIVE RULES LIST VIEW */}
+        {activeTab === "active" && (
+          <div className={styles.list}>
+            {activeRulesList.length === 0 ? (
+              <div style={{ padding: "4rem 0", textAlign: "center" }}>
+                <div style={{
+                  width: "48px",
+                  height: "48px",
+                  borderRadius: "14px",
+                  backgroundColor: "var(--surface-hover, #f3f4f6)",
+                  color: "var(--text-color, #9ca3af)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 0.75rem"
+                }}>
+                  <Zap style={{ width: "24px", height: "24px" }} />
+                </div>
+                <h3 style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text-color, #111827)", marginBottom: "0.25rem" }}>
+                  No tienes automatizaciones configuradas
+                </h3>
+                <p style={{ fontSize: "0.875rem", color: "var(--text-color, #6b7280)", opacity: 0.8, marginBottom: "1.25rem" }}>
+                  Explora el catálogo para activar mensajes de bienvenida y reglas de etiquetas.
+                </p>
+                <button
+                  onClick={() => setActiveTab("catalog")}
+                  className={styles.createBtn}
+                >
+                  <span>Ver Catálogo</span>
+                </button>
               </div>
-            );
-          })()}
-        </div>
-      )}
+            ) : (
+              activeRulesList.map((rule) => {
+                const isOn = rule.is_active;
 
-      </div>
+                return (
+                  <div 
+                    key={rule.id} 
+                    className={styles.listItem}
+                    onClick={() => handleOpenRuleModal(rule)}
+                    title="Haz clic para editar esta regla"
+                  >
+                    <div className={styles.itemLeft}>
+                      <div
+                        className={styles.iconSquare}
+                        style={{ backgroundColor: isOn ? "#10b981" : "#9ca3af" }}
+                      >
+                        <Zap style={{ width: "24px", height: "24px" }} />
+                      </div>
+
+                      <div className={styles.itemContent}>
+                        <div className={styles.itemTitleRow}>
+                          <h3 className={styles.itemTitle}>{rule.name}</h3>
+                          {isOn ? (
+                            <span className={styles.statusOn}>(On)</span>
+                          ) : (
+                            <span className={styles.statusOff}>(Off)</span>
+                          )}
+                        </div>
+                        <p className={styles.itemDesc}>
+                          Disparador: <strong>{rule.trigger_event}</strong>
+                          {rule.trigger_value && ` (${rule.trigger_value})`} • Acción: <strong>{rule.action_value || rule.action_type}</strong>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className={styles.itemRight}>
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleRule(rule, e)}
+                        disabled={isPending}
+                        className={`${styles.switchToggle} ${isOn ? styles.switchToggleOn : ""}`}
+                        role="switch"
+                        aria-checked={isOn}
+                        title={isOn ? "Desactivar automatización" : "Activar automatización"}
+                      >
+                        <span className={`${styles.switchThumb} ${isOn ? styles.switchThumbOn : ""}`} />
+                      </button>
+
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleOpenRuleModal(rule); }}
+                        className={styles.actionBtn}
+                        title="Editar"
+                      >
+                        <Edit3 style={{ width: "16px", height: "16px" }} />
+                      </button>
+
+                      <button
+                        onClick={(e) => handleDeleteRule(rule.id, e)}
+                        className={`${styles.actionBtn} ${styles.actionBtnDelete}`}
+                        title="Eliminar"
+                      >
+                        <Trash2 style={{ width: "16px", height: "16px" }} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
       </div>
 
-      {/* ========================================================================= */}
-      {/* MODAL 2: NUEVO FLUJO (WORKFLOW) */}
-      {/* ========================================================================= */}
-      {showWorkflowModal && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: "rgba(0,0,0,0.6)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          zIndex: 1000
-        }}>
-          <div style={{
-            backgroundColor: "var(--surface-color)",
-            border: "1px solid var(--border-color)",
-            borderRadius: "16px",
-            padding: "2rem",
-            width: "90%",
-            maxWidth: "500px",
-            boxShadow: "0 20px 40px rgba(0,0,0,0.3)"
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid var(--border-color)", paddingBottom: "1rem", marginBottom: "1.25rem" }}>
-              <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 800, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <GitFork size={20} style={{ color: "var(--primary)" }} /> Crear Nuevo Flujo de Trabajo
-              </h3>
-              <button onClick={() => setShowWorkflowModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-color)" }}>
-                <X size={20} />
+      {/* MODAL: CREAR / EDITAR REGLA */}
+      {showRuleModal && (
+        <div className={styles.modalOverlay} onClick={() => setShowRuleModal(false)}>
+          <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalHeader}>
+              <h2 className={styles.modalTitle}>
+                {editingRule ? "Editar Automatización" : "Configurar Automatización"}
+              </h2>
+              <button
+                onClick={() => setShowRuleModal(false)}
+                className={styles.closeBtn}
+              >
+                <X style={{ width: "20px", height: "20px" }} />
               </button>
             </div>
 
-            <form onSubmit={handleCreateWorkflow} style={{ display: "flex", flexDirection: "column", gap: "1.1rem" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-                <label style={{ fontSize: "0.85rem", fontWeight: 700 }}>Nombre del Flujo *</label>
+            <form onSubmit={handleSaveRule}>
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>
+                  Nombre de la Automatización
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder="Ej: Secuencia de Bienvenida y Seguimiento"
-                  value={newFlowName}
-                  onChange={(e) => setNewFlowName(e.target.value)}
-                  style={{ padding: "0.65rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}
+                  placeholder="Ej: Saludo automático por WhatsApp"
+                  value={ruleName}
+                  onChange={(e) => setRuleName(e.target.value)}
+                  className={styles.formInput}
                 />
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-                <label style={{ fontSize: "0.85rem", fontWeight: 700 }}>Descripción Lógica</label>
-                <input
-                  type="text"
-                  placeholder="Ej: Envía 2 correos con 24h de diferencia..."
-                  value={newFlowDesc}
-                  onChange={(e) => setNewFlowDesc(e.target.value)}
-                  style={{ padding: "0.65rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}
-                />
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
-                <label style={{ fontSize: "0.85rem", fontWeight: 700 }}>Tag Inicial de Disparo (Trigger Tag)</label>
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>
+                  Evento Disparador (Trigger)
+                </label>
                 <select
-                  value={newFlowTag}
-                  onChange={(e) => setNewFlowTag(e.target.value)}
-                  style={{ padding: "0.65rem", borderRadius: "8px", border: "1px solid var(--border-color)", backgroundColor: "var(--bg-color)", color: "var(--text-color)" }}
+                  value={ruleTrigger}
+                  onChange={(e) => setRuleTrigger(e.target.value)}
+                  className={styles.formSelect}
+                >
+                  <option value="lead_created">Nuevo Lead Registrado</option>
+                  <option value="after_hours_message">Consulta Fuera de Horario Comercial</option>
+                  <option value="tag_added">Cuando se agrega una Etiqueta</option>
+                  <option value="lead_budget_high">Presupuesto Alto / VIP</option>
+                  <option value="meta_ads_lead">Ingreso por Meta Ads</option>
+                  <option value="brand_inquiry">Consulta por Marca Específica</option>
+                  <option value="lead_disqualified">Lead Descalificado</option>
+                </select>
+              </div>
+
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>
+                  Etiqueta a Asignar / Vincular
+                </label>
+                <select
+                  value={ruleTagVal}
+                  onChange={(e) => setRuleTagVal(e.target.value)}
+                  className={styles.formSelect}
                 >
                   {availableTags.map(t => (
                     <option key={t} value={t}>{t}</option>
@@ -2339,20 +640,54 @@ export default function AutomationsClient({
                 </select>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "0.5rem" }}>
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>
+                  Acción Principal
+                </label>
+                <select
+                  value={ruleActionType}
+                  onChange={(e) => setRuleActionType(e.target.value as any)}
+                  className={styles.formSelect}
+                >
+                  <option value="send_message">Enviar Mensaje de Bienvenida (WhatsApp)</option>
+                  <option value="send_email">Enviar Email de Bienvenida</option>
+                  <option value="add_tag">Solo Asignar Etiqueta</option>
+                  <option value="notify_agent">Notificar al Vendedor</option>
+                </select>
+              </div>
+
+              {(ruleActionType === "send_message" || ruleActionType === "send_email") && (
+                <div className={styles.formField}>
+                  <label className={styles.formLabel}>
+                    Mensaje de Bienvenida
+                  </label>
+                  <textarea
+                    rows={4}
+                    value={ruleActionDetails.body || ""}
+                    onChange={(e) => setRuleActionDetails(prev => ({ ...prev, body: e.target.value }))}
+                    placeholder="Escribe el mensaje de saludo para tus clientes..."
+                    className={styles.formTextarea}
+                  />
+                  <p style={{ fontSize: "0.75rem", color: "var(--text-color, #6b7280)", opacity: 0.7, marginTop: "0.35rem" }}>
+                    Puedes usar variables como <code style={{ backgroundColor: "var(--surface-hover, #f3f4f6)", padding: "2px 4px", borderRadius: "4px" }}>{"{{nombre}}"}</code> para personalizar la respuesta.
+                  </p>
+                </div>
+              )}
+
+              <div className={styles.modalFooter}>
                 <button
                   type="button"
-                  onClick={() => setShowWorkflowModal(false)}
-                  style={{ backgroundColor: "transparent", border: "1px solid var(--border-color)", padding: "0.65rem 1.1rem", borderRadius: "8px", fontWeight: 600, color: "var(--text-color)", cursor: "pointer" }}
+                  onClick={() => setShowRuleModal(false)}
+                  className={styles.cancelBtn}
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  style={{ backgroundColor: "var(--primary)", color: "#ffffff", border: "none", padding: "0.65rem 1.25rem", borderRadius: "8px", fontWeight: 700, cursor: "pointer" }}
                   disabled={isPending}
+                  className={styles.createBtn}
                 >
-                  Crear y Diseñar Flujo
+                  {editingRule ? "Guardar Cambios" : "Guardar y Activar"}
                 </button>
               </div>
             </form>

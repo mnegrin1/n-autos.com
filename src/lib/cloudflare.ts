@@ -40,7 +40,7 @@ export async function createCustomHostname(hostname: string): Promise<CustomHost
       ownershipVerification: {
         type: 'cname',
         name: `_cf-custom-hostname.${cleanHostname}`,
-        value: 'fallback.n-sistemas.com',
+        value: 'admin.n-autos.com',
       },
       sslVerification: {
         type: 'cname',
@@ -116,7 +116,7 @@ export async function getCustomHostnameStatus(hostnameId: string): Promise<Custo
       ownershipVerification: {
         type: 'cname',
         name: '_cf-custom-hostname.dominio-simulado.com',
-        value: 'fallback.n-sistemas.com',
+        value: 'admin.n-autos.com',
       },
     };
   }

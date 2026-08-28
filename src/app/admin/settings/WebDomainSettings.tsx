@@ -37,7 +37,7 @@ export default function WebDomainSettings({ agencyId, subdomain }: WebDomainSett
       const res = await updateAgencySettings(agencyId, { subdomain: cleanSubdomain });
       if (res && res.success) {
         setSubdomainVal(cleanSubdomain);
-        setSubdomainSuccessMsg(`¡Subdominio guardado con éxito! Tu sitio web está activo en https://${cleanSubdomain}.n-sistemas.com`);
+        setSubdomainSuccessMsg(`¡Subdominio guardado con éxito! Tu sitio web está activo en https://${cleanSubdomain}.n-autos.com`);
         setTimeout(() => setSubdomainSuccessMsg(""), 5000);
       } else {
         alert(res?.error || "No se pudo actualizar el subdominio.");
@@ -114,7 +114,7 @@ export default function WebDomainSettings({ agencyId, subdomain }: WebDomainSett
     setTimeout(() => setCopiedText(null), 2000);
   };
 
-  const crmUrl = `https://${subdomainVal || "demo"}.n-sistemas.com`;
+  const crmUrl = `https://${subdomainVal || "demo"}.n-autos.com`;
   const isCustomActive = domainInfo?.custom_domain_status === "active";
 
   if (isLoading) {
@@ -170,71 +170,109 @@ export default function WebDomainSettings({ agencyId, subdomain }: WebDomainSett
         </p>
 
         {/* FORMULARIO EDITABLE DE SUBDOMINIO */}
-        <form onSubmit={handleSaveSubdomain} style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flex: 1, minWidth: "260px", backgroundColor: "var(--bg-color)", border: "1px solid var(--border-color)", borderRadius: "10px", padding: "0.6rem 1rem" }}>
-              <span style={{ fontSize: "0.9rem", opacity: 0.6, fontWeight: 600 }}>https://</span>
+        <form onSubmit={handleSaveSubdomain} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div style={{ display: "flex", alignItems: "stretch", gap: "0.75rem", flexWrap: "wrap" }}>
+            
+            {/* Input Box Contenedor Solido */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.4rem",
+              flex: "1 1 300px",
+              maxWidth: "480px",
+              backgroundColor: "var(--bg-color)",
+              border: "1px solid var(--border-color)",
+              borderRadius: "10px",
+              padding: "0.65rem 1rem",
+              boxShadow: "inset 0 1px 3px rgba(0,0,0,0.04)"
+            }}>
+              <span style={{ fontSize: "0.9rem", opacity: 0.6, fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>https://</span>
               <input
                 type="text"
                 required
                 placeholder="tu-automotora"
                 value={subdomainVal}
                 onChange={(e) => setSubdomainVal(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                style={{ background: "transparent", border: "none", color: "var(--text-color)", fontWeight: 700, outline: "none", flex: 1, fontSize: "0.95rem" }}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--text-color)",
+                  fontWeight: 800,
+                  outline: "none",
+                  width: "100%",
+                  minWidth: "60px",
+                  fontSize: "0.95rem"
+                }}
               />
-              <span style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--primary)" }}>.n-sistemas.com</span>
+              <span style={{ fontSize: "0.9rem", fontWeight: 800, color: "var(--primary)", whiteSpace: "nowrap", flexShrink: 0 }}>.n-autos.com</span>
             </div>
 
-            <button
-              type="submit"
-              disabled={isSavingSubdomain}
-              className="btn-primary"
-              style={{ padding: "0.65rem 1.25rem", fontSize: "0.85rem", fontWeight: 700, borderRadius: "10px", display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer" }}
-            >
-              <Save size={16} />
-              {isSavingSubdomain ? "Guardando..." : "Guardar Subdominio"}
-            </button>
+            {/* Grupo de Botones de Accion */}
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+              <button
+                type="submit"
+                disabled={isSavingSubdomain}
+                className="btn-primary"
+                style={{
+                  padding: "0.65rem 1.25rem",
+                  fontSize: "0.85rem",
+                  fontWeight: 700,
+                  borderRadius: "10px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.4rem",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap"
+                }}
+              >
+                <Save size={16} />
+                {isSavingSubdomain ? "Guardando..." : "Guardar Subdominio"}
+              </button>
 
-            <button
-              type="button"
-              onClick={() => handleCopy(crmUrl)}
-              style={{
-                backgroundColor: "transparent",
-                border: "1px solid var(--border-color)",
-                borderRadius: "10px",
-                padding: "0.65rem 1rem",
-                fontSize: "0.85rem",
-                fontWeight: 600,
-                color: copiedText === crmUrl ? "#10b981" : "var(--text-color)",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.4rem",
-              }}
-            >
-              {copiedText === crmUrl ? <Check size={16} /> : <Copy size={16} />}
-              {copiedText === crmUrl ? "Copiado" : "Copiar Enlace"}
-            </button>
+              <button
+                type="button"
+                onClick={() => handleCopy(crmUrl)}
+                style={{
+                  backgroundColor: "var(--surface-hover, transparent)",
+                  border: "1px solid var(--border-color)",
+                  borderRadius: "10px",
+                  padding: "0.65rem 1rem",
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                  color: copiedText === crmUrl ? "#10b981" : "var(--text-color)",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.4rem",
+                  whiteSpace: "nowrap"
+                }}
+              >
+                {copiedText === crmUrl ? <Check size={16} /> : <Copy size={16} />}
+                {copiedText === crmUrl ? "Copiado" : "Copiar Enlace"}
+              </button>
 
-            <a
-              href={crmUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                backgroundColor: "var(--primary)",
-                color: "#ffffff",
-                borderRadius: "10px",
-                padding: "0.65rem 1.1rem",
-                fontSize: "0.85rem",
-                fontWeight: 700,
-                textDecoration: "none",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.4rem",
-              }}
-            >
-              Ver Web <ExternalLink size={16} />
-            </a>
+              <a
+                href={crmUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  backgroundColor: "var(--primary)",
+                  color: "#ffffff",
+                  borderRadius: "10px",
+                  padding: "0.65rem 1.1rem",
+                  fontSize: "0.85rem",
+                  fontWeight: 700,
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.4rem",
+                  whiteSpace: "nowrap"
+                }}
+              >
+                Ver Web <ExternalLink size={16} />
+              </a>
+            </div>
+
           </div>
 
           {subdomainSuccessMsg && (
@@ -268,12 +306,12 @@ export default function WebDomainSettings({ agencyId, subdomain }: WebDomainSett
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.75rem", backgroundColor: "var(--bg-color)", padding: "0.75rem 1rem", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
             <span style={{ fontSize: "0.9rem", fontWeight: 700, fontFamily: "monospace", color: "#3b82f6" }}>
-              https://prueba.n-sistemas.com/admin
+              https://admin.n-autos.com/admin
             </span>
             <div style={{ display: "flex", gap: "0.5rem" }}>
               <button
                 type="button"
-                onClick={() => handleCopy("https://prueba.n-sistemas.com/admin")}
+                onClick={() => handleCopy("https://admin.n-autos.com/admin")}
                 style={{
                   backgroundColor: "transparent",
                   border: "1px solid var(--border-color)",
@@ -518,17 +556,17 @@ export default function WebDomainSettings({ agencyId, subdomain }: WebDomainSett
                   <div style={{ display: "flex", flexDirection: "column" }}>
                     <span style={{ fontSize: "0.7rem", opacity: 0.5, textTransform: "uppercase" }}>Valor / Target</span>
                     <span style={{ fontSize: "0.8rem", fontFamily: "monospace", wordBreak: "break-all" }}>
-                      fallback.n-sistemas.com
+                      admin.n-autos.com
                     </span>
                   </div>
 
                   <button
                     type="button"
-                    onClick={() => handleCopy("fallback.n-sistemas.com")}
+                    onClick={() => handleCopy("admin.n-autos.com")}
                     style={{
                       background: "none",
                       border: "1px solid var(--border-color)",
-                      color: copiedText === "fallback.n-sistemas.com" ? "#10b981" : "var(--text-color)",
+                      color: copiedText === "admin.n-autos.com" ? "#10b981" : "var(--text-color)",
                       borderRadius: "6px",
                       padding: "0.35rem 0.6rem",
                       fontSize: "0.75rem",
@@ -539,8 +577,8 @@ export default function WebDomainSettings({ agencyId, subdomain }: WebDomainSett
                       gap: "0.35rem",
                     }}
                   >
-                    {copiedText === "fallback.n-sistemas.com" ? <Check size={12} /> : <Copy size={12} />}
-                    {copiedText === "fallback.n-sistemas.com" ? "Copiado" : "Copiar"}
+                    {copiedText === "admin.n-autos.com" ? <Check size={12} /> : <Copy size={12} />}
+                    {copiedText === "admin.n-autos.com" ? "Copiado" : "Copiar"}
                   </button>
                 </div>
               </div>

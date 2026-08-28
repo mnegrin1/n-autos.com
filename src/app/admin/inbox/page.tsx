@@ -7,12 +7,13 @@ export const dynamic = "force-dynamic";
 
 export default async function InboxPage() {
   const user = await getCurrentUser();
-  const agencyId = user?.agency_id || "00000000-0000-0000-0000-000000000000";
+  const isDemoUser = !user || user.email === "mauricio@automotora.com";
+  const agencyId = user?.agency_id || (isDemoUser ? "00000000-0000-0000-0000-000000000000" : null);
 
-  const conversations = await getInboxConversations(agencyId);
-  const vehicles = await getVehicles(agencyId);
-  const integrations = await getIntegrations();
-  const leads = await getAutoLeads(agencyId);
+  const conversations = agencyId ? await getInboxConversations(agencyId) : [];
+  const vehicles = agencyId ? await getVehicles(agencyId) : [];
+  const integrations = await getIntegrations(agencyId || undefined);
+  const leads = agencyId ? await getAutoLeads(agencyId) : [];
 
   return (
     <InboxClient 

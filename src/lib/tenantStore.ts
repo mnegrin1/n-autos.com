@@ -25,17 +25,17 @@ export interface TenantSession {
 }
 
 export const DEFAULT_STARTER_TENANT: TenantSession = {
-  agencyId: "tenant-carmax-001",
-  agencyName: "Automotora CarMax Uruguay",
-  subdomain: "carmax",
+  agencyId: "00000000-0000-0000-0000-000000000000",
+  agencyName: "Automotora Demo",
+  subdomain: "demo",
   planId: "agencia-360",
   planName: "Agencia 360°",
   billingCycle: "monthly",
   adminName: "Mauricio Negrin",
-  adminEmail: "admin@carmax.uy",
-  usedVehicles: 14,
+  adminEmail: "mauricio@automotora.com",
+  usedVehicles: 0,
   usedUsers: 1,
-  usedEmailsMonth: 120,
+  usedEmailsMonth: 0,
   createdAt: new Date().toLocaleDateString("es-UY", { day: "2-digit", month: "short", year: "numeric" }),
   dbLocationInfo: {
     agenciesTable: "public.agencies (id, name, subdomain, primary_color, created_at)",
@@ -44,6 +44,7 @@ export const DEFAULT_STARTER_TENANT: TenantSession = {
     schemaVersion: "v2.4 - Multi-tenant RLS Isolation (Supabase)"
   }
 };
+
 
 const TENANT_STORAGE_KEY = "n_sistemas_tenant_session_v1";
 

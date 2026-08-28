@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import styles from "./home.module.css";
 import Link from "next/link";
-import { Search, Fuel, Sparkles, Shield, Zap, Award, SlidersHorizontal, ArrowRight, Phone, MessageSquare, Clock, MapPin, CheckCircle2, Car, Sun, Moon, Mail } from "lucide-react";
+import { Search, Fuel, Shield, Zap, Award, ArrowRight, Phone, MessageSquare, Clock, MapPin, CheckCircle2, Car, Mail, Sparkles, SlidersHorizontal } from "lucide-react";
 
 interface Vehicle {
   id: string;
@@ -54,10 +54,10 @@ interface PortalShowroomClientProps {
 
 export default function PortalShowroomClient({ 
   initialVehicles, 
-  agencySlug, 
+  agencySlug: _agencySlug, 
   agencyName, 
   whatsappPhone = "+598 99 123 456",
-  logoUrl,
+  logoUrl: _logoUrl,
   coverUrl,
   publishSold,
   webTemplate = "standard",
@@ -65,7 +65,7 @@ export default function PortalShowroomClient({
   heroEyebrow = "AUTOMOTORA OFICIAL",
   heroTitle = "Encuentra tu próximo vehículo",
   heroSubtitle = "Unidades seleccionadas que te brindan seguridad, potencia y tranquilidad en cada kilómetro.",
-  footerText = "Tu concesionario de confianza. Vehículos seleccionados con certificación de origen, garantía y la mejor atención personalizada.",
+  footerText: _footerText = "Tu concesionario de confianza. Vehículos seleccionados con certificación de origen, garantía y la mejor atención personalizada.",
   locationAddress = "Av. Principal 1234, Montevideo, Uruguay",
   businessHours = "Lunes a Viernes: 09:00 - 19:00 hs | Sábados: 09:00 - 13:00 hs",
   contactDescription = "¿Tienes alguna duda sobre una unidad o deseas agendar una prueba de manejo? Escríbenos directamente o visita nuestro showroom.",
@@ -89,21 +89,6 @@ export default function PortalShowroomClient({
   const [transmissionTab, setTransmissionTab] = useState<"all" | "automatica" | "manual">("all");
   const [fuelFilter, setFuelFilter] = useState("all");
   const [priceRange, setPriceRange] = useState("all");
-
-  // Visitor Theme State (Light vs Dark)
-  const [visitorTheme, setVisitorTheme] = useState<"dark" | "light">("dark");
-
-  useEffect(() => {
-    const syncTheme = () => {
-      if (typeof window !== "undefined") {
-        const saved = (localStorage.getItem("portal-visitor-theme") as "dark" | "light") || "dark";
-        setVisitorTheme(saved);
-      }
-    };
-    syncTheme();
-    window.addEventListener("portal-theme-changed", syncTheme);
-    return () => window.removeEventListener("portal-theme-changed", syncTheme);
-  }, []);
 
   // Contact form state
   const [contactName, setContactName] = useState("");
@@ -155,7 +140,7 @@ export default function PortalShowroomClient({
     setTimeout(() => setContactSent(false), 5000);
   };
 
-  const coverImage = coverUrl || "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80";
+  const coverImage = coverUrl || "/hero_dealership_drone.jpg";
 
   // Template-specific root class & default accent color mapping
   const TEMPLATE_ACCENTS: Record<string, string> = {
@@ -166,30 +151,30 @@ export default function PortalShowroomClient({
     glassmorphism: "#34d399",
     standard: "#10b981",
   };
-  const accentColor = primaryColor || TEMPLATE_ACCENTS[webTemplate] || "#10b981";
-  const templateClass = styles[`template_${webTemplate}`] || styles.template_standard;
+  const activeTemplate = webTemplate || "standard";
+  const accentColor = primaryColor || TEMPLATE_ACCENTS[activeTemplate] || "#10b981";
+  const templateClass = styles[`template_${activeTemplate}`] || styles.template_standard;
 
   return (
     <div 
-      className={`${styles.homeContainer} tmpl-${webTemplate} ${templateClass} ${visitorTheme === "light" ? styles.visitorLightMode : ""}`}
+      className={`${styles.homeContainer} tmpl-${activeTemplate} ${templateClass}`}
       style={{ '--primary': accentColor } as React.CSSProperties}
     >
-
-
+      
       {/* Background decorations for Glassmorphism & Luxury templates */}
-      {webTemplate === "glassmorphism" && (
+      {activeTemplate === "glassmorphism" && (
         <div className={styles.glassBackgroundGlows}>
           <div className={styles.glowBlob1} />
           <div className={styles.glowBlob2} />
         </div>
       )}
-      
+
       {/* Hero Section */}
       <section 
         id="inicio"
         className={styles.heroSection}
         style={{
-          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.75)), url(${coverImage})`,
+          backgroundImage: `linear-gradient(180deg, rgba(11, 15, 23, 0.75) 0%, rgba(11, 15, 23, 0.92) 100%), url(${coverImage})`,
           backgroundSize: "cover",
           backgroundPosition: "center"
         }}
@@ -198,17 +183,18 @@ export default function PortalShowroomClient({
           {heroEyebrow && (
             <div className={styles.eyebrowWrapper}>
               <span className={styles.heroEyebrow}>
-                {webTemplate === "glassmorphism" && <Sparkles size={14} />}
-                {webTemplate === "luxury" && <Award size={14} />}
-                {webTemplate === "sport" && <Zap size={14} />}
-                {webTemplate === "tech" && <SlidersHorizontal size={14} />}
-                {webTemplate === "editorial" && <Shield size={14} />}
+                {activeTemplate === "glassmorphism" && <Sparkles size={14} />}
+                {activeTemplate === "luxury" && <Award size={14} />}
+                {activeTemplate === "sport" && <Zap size={14} />}
+                {activeTemplate === "tech" && <SlidersHorizontal size={14} />}
+                {activeTemplate === "editorial" && <Shield size={14} />}
+                {activeTemplate === "standard" && <Award size={14} />}
                 {heroEyebrow}
               </span>
             </div>
           )}
 
-          {webTemplate === "luxury" && <div className={styles.goldFiligree} />}
+          {activeTemplate === "luxury" && <div className={styles.goldFiligree} />}
 
           <h1 className={styles.heroTitle}>{heroTitle}</h1>
           <p className={styles.heroSubtitle}>{heroSubtitle}</p>
@@ -288,10 +274,7 @@ export default function PortalShowroomClient({
       <section id="vehiculos" className={styles.featuredSection}>
         <div className={styles.featuredHeader}>
           <div>
-            {webTemplate === "editorial" && <span className={styles.sectionCategoryTag}>CATÁLOGO EXCLUSIVO 2026 // VOL. 01</span>}
-            {webTemplate === "luxury" && <span className={styles.sectionCategoryTag}>COLECCIÓN DE ALTA GAMA</span>}
-            {webTemplate === "sport" && <span className={styles.sectionCategoryTag}>HIGH PERFORMANCE STOCK</span>}
-            {webTemplate === "tech" && <span className={styles.sectionCategoryTag}>FEATURED VEHICLES</span>}
+            <span className={styles.sectionCategoryTag}>CATÁLOGO DE UNIDADES</span>
             <h2>Vehículos Destacados</h2>
           </div>
           <span className={styles.viewAll} style={{ fontSize: "0.95rem" }}>
@@ -301,73 +284,89 @@ export default function PortalShowroomClient({
 
         <div className={styles.vehicleGrid}>
           {filteredActive.length === 0 ? (
-            <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "4rem", opacity: 0.6 }}>
-              No hay vehículos en exhibición que coincidan con la búsqueda.
+            <div className={styles.emptyStateCard} style={{ gridColumn: "1/-1" }}>
+              <div className={styles.emptyStateIconWrapper}>
+                <Car size={36} />
+              </div>
+              <h3 style={{ margin: "0.5rem 0 0.25rem 0", fontSize: "1.25rem", fontWeight: 700 }}>
+                No encontramos vehículos con esa búsqueda
+              </h3>
+              <p style={{ margin: "0 0 1.25rem 0", fontSize: "0.92rem", opacity: 0.8 }}>
+                Prueba ajustando los filtros de transmisión, combustible o rango de precio.
+              </p>
+              {(search || transmissionTab !== "all" || fuelFilter !== "all" || priceRange !== "all") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearch("");
+                    setTransmissionTab("all");
+                    setFuelFilter("all");
+                    setPriceRange("all");
+                  }}
+                  className={styles.resetFiltersBtn}
+                >
+                  <SlidersHorizontal size={14} /> Restablecer Filtros
+                </button>
+              )}
             </div>
           ) : (
-            filteredActive.map((v) => (
-              <Link 
-                href={`/portal/${agencySlug}/${v.id}`} 
-                key={v.id} 
-                className={styles.vehicleCard}
-              >
-                <div className={styles.imageWrapper}>
-                  <img 
-                    src={v.images && v.images[0] ? v.images[0] : "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"} 
-                    alt={`${v.brand} ${v.model}`} 
-                    className={styles.vehicleImage} 
-                  />
-                  <span className={styles.vehicleTypeBadge}>
-                    {v.transmission === "automatica" ? "Automático" : "Manual"}
-                  </span>
-                  {v.status === "reservado" && (
-                    <span className={styles.reservedBadge}>
-                      Reservado
+            filteredActive.map((v) => {
+              const vehicleDetailHref = `/${v.id}`;
+              return (
+                <Link 
+                  href={vehicleDetailHref} 
+                  key={v.id} 
+                  className={styles.vehicleCard}
+                >
+                  <div className={styles.imageWrapper}>
+                    <img 
+                      src={v.images && v.images[0] ? v.images[0] : "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"} 
+                      alt={`${v.brand} ${v.model}`} 
+                      className={styles.vehicleImage} 
+                    />
+                    <span className={styles.vehicleTypeBadge}>
+                      {v.transmission === "automatica" ? "Automático" : "Manual"}
                     </span>
-                  )}
-                  {webTemplate === "luxury" && (
-                    <span className={styles.luxuryTag}>
-                      👑 EXECUTIVE
-                    </span>
-                  )}
-                  {webTemplate === "sport" && (
-                    <span className={styles.sportTag}>
-                      🏎️ SPORT
-                    </span>
-                  )}
-                </div>
+                    {v.status === "reservado" && (
+                      <span className={styles.reservedBadge}>
+                        Reservado
+                      </span>
+                    )}
+                  </div>
 
-                <div className={styles.vehicleInfo}>
-                  <h3 className={styles.vehicleTitle}>{v.brand} {v.model}</h3>
-                  <div className={styles.vehicleSpecs}>
-                    Año: {v.year} | {v.kms.toLocaleString()} km
-                  </div>
-                  <div className={styles.vehicleFeatures}>
-                    <span>⛽ {v.fuel.toUpperCase()}</span>
-                    {v.color && <span>🎨 {v.color}</span>}
-                  </div>
-                  
-                  <div className={styles.cardFooterRow}>
-                    <div className={styles.vehiclePrice}>
-                      {v.currency} {v.price.toLocaleString()}
+                  <div className={styles.vehicleInfo}>
+                    <h3 className={styles.vehicleTitle}>{v.brand} {v.model}</h3>
+                    
+                    <div className={styles.vehicleSpecs}>
+                      Año: {v.year} | {v.kms.toLocaleString()} km
                     </div>
-                    <span className={styles.cardDetailBtn}>
-                      Ver Ficha <ArrowRight size={14} />
-                    </span>
+                    <div className={styles.vehicleFeatures}>
+                      <span>⛽ {v.fuel.toUpperCase()}</span>
+                      {v.color && <span>🎨 {v.color}</span>}
+                    </div>
+                    
+                    <div className={styles.cardFooterRow}>
+                      <div className={styles.vehiclePrice}>
+                        {v.currency} {v.price.toLocaleString()}
+                      </div>
+                      <span className={styles.cardDetailBtn}>
+                        Ver Ficha <ArrowRight size={14} />
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </Link>
-            ))
+                </Link>
+              );
+            })
           )}
         </div>
       </section>
 
       {/* Sold Section */}
       {publishSold && soldVehicles.length > 0 && (
-        <section className={styles.featuredSection} style={{ borderTop: "1px solid var(--border-color)", paddingTop: "3rem", marginTop: "3rem" }}>
+        <section className={styles.featuredSection} style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "3rem", marginTop: "3rem" }}>
           <div className={styles.featuredHeader}>
             <div>
-              {webTemplate === "editorial" && <span className={styles.sectionCategoryTag}>HISTORIAL DE ENTREGAS</span>}
+              <span className={styles.sectionCategoryTag}>HISTORIAL DE ENTREGAS</span>
               <h2>Entregados Recientemente (Vendidos)</h2>
             </div>
             <span className={styles.viewAll} style={{ fontSize: "0.95rem", opacity: 0.7 }}>
@@ -377,17 +376,19 @@ export default function PortalShowroomClient({
 
           <div className={styles.vehicleGrid}>
             {filteredSold.length === 0 ? (
-              <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "4rem", opacity: 0.6 }}>
+              <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "4rem", color: "var(--portal-text-muted, #94a3b8)" }}>
                 No hay vehículos vendidos que coincidan con la búsqueda.
               </div>
             ) : (
-              filteredSold.map((v) => (
-                <Link 
-                  href={`/portal/${agencySlug}/${v.id}`} 
-                  key={v.id} 
-                  className={styles.vehicleCard}
-                  style={{ opacity: 0.8 }}
-                >
+              filteredSold.map((v) => {
+              const vehicleDetailHref = `/${v.id}`;
+                return (
+                  <Link 
+                    href={vehicleDetailHref} 
+                    key={v.id} 
+                    className={styles.vehicleCard}
+                    style={{ opacity: 0.85 }}
+                  >
                   <div className={styles.imageWrapper} style={{ position: "relative", overflow: "hidden" }}>
                     <img 
                       src={v.images && v.images[0] ? v.images[0] : "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&q=80"} 
@@ -432,8 +433,9 @@ export default function PortalShowroomClient({
                       Vendido
                     </div>
                   </div>
-                </Link>
-              ))
+                  </Link>
+                );
+              })
             )}
           </div>
         </section>
@@ -491,29 +493,33 @@ export default function PortalShowroomClient({
                 target="_blank"
                 rel="noopener noreferrer"
                 className={styles.contactDetailItem}
-                style={{ textDecoration: "none", color: "inherit", cursor: "pointer" }}
               >
-                <Phone className={styles.contactDetailIcon} size={20} />
+                <div className={styles.contactDetailIconBadge}>
+                  <Phone className={styles.contactDetailIcon} size={20} />
+                </div>
                 <div>
                   <strong>WhatsApp Oficial ↗</strong>
-                  <p style={{ color: "var(--primary)", fontWeight: 700 }}>{whatsappPhone}</p>
+                  <p className={styles.contactDetailHighlight}>{whatsappPhone}</p>
                 </div>
               </a>
 
               <a 
                 href={`mailto:${contactEmail}`}
                 className={styles.contactDetailItem}
-                style={{ textDecoration: "none", color: "inherit", cursor: "pointer" }}
               >
-                <Mail className={styles.contactDetailIcon} size={20} />
+                <div className={styles.contactDetailIconBadge}>
+                  <Mail className={styles.contactDetailIcon} size={20} />
+                </div>
                 <div>
                   <strong>Correo de Contacto Preferido</strong>
-                  <p style={{ color: "var(--primary)", fontWeight: 700 }}>{contactEmail}</p>
+                  <p className={styles.contactDetailHighlight}>{contactEmail}</p>
                 </div>
               </a>
 
               <div className={styles.contactDetailItem}>
-                <Clock className={styles.contactDetailIcon} size={20} />
+                <div className={styles.contactDetailIconBadge}>
+                  <Clock className={styles.contactDetailIcon} size={20} />
+                </div>
                 <div>
                   <strong>Horarios de Atención</strong>
                   <p>{businessHours}</p>
@@ -521,26 +527,27 @@ export default function PortalShowroomClient({
               </div>
 
               <div className={styles.contactDetailItem}>
-                <MapPin className={styles.contactDetailIcon} size={20} />
+                <div className={styles.contactDetailIconBadge}>
+                  <MapPin className={styles.contactDetailIcon} size={20} />
+                </div>
                 <div>
                   <strong>Ubicación de {agencyName || "la Automotora"}</strong>
                   <p>{locationAddress}</p>
                 </div>
               </div>
+            </div>
 
-              {/* Map Preview Canvas */}
-              <div style={{ borderRadius: "12px", overflow: "hidden", border: "1px solid var(--border-color)", height: "180px", marginTop: "0.5rem" }}>
-                <iframe
-                  width="100%"
-                  height="100%"
-                  frameBorder="0"
-                  scrolling="no"
-                  marginHeight={0}
-                  marginWidth={0}
-                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${longitude - 0.012}%2C${latitude - 0.012}%2C${longitude + 0.012}%2C${latitude + 0.012}&layer=mapnik&marker=${latitude}%2C${longitude}`}
-                  style={{ border: "none", width: "100%", height: "100%" }}
-                />
-              </div>
+            {/* Map Preview Canvas */}
+            <div className={styles.mapCanvasWrapper}>
+              <iframe
+                width="100%"
+                height="100%"
+                frameBorder="0"
+                scrolling="no"
+                src={`https://maps.google.com/maps?q=${latitude},${longitude}&z=15&output=embed`}
+                style={{ border: "none", width: "100%", height: "100%" }}
+                title={`Ubicación de ${agencyName}`}
+              />
             </div>
 
             <a 

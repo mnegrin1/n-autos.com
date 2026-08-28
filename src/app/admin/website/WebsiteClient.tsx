@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Globe, Palette, Car, Eye, EyeOff, Star, ExternalLink, Sparkles, Plus, Search, Check, RefreshCw, CheckCircle2 } from "lucide-react";
+import { Globe, Palette, Car, Eye, EyeOff, Star, Search } from "lucide-react";
 import VisualWebBuilder from "../settings/VisualWebBuilder";
 import { updateAgencySettings } from "@/actions/agencyActions";
 
@@ -27,11 +27,14 @@ interface WebsiteClientProps {
 
 export default function WebsiteClient({ initialAgency, initialVehicles }: WebsiteClientProps) {
   const [agency, setAgency] = useState(initialAgency);
-  const [vehicles, setVehicles] = useState<Vehicle[]>(initialVehicles.map(v => ({
-    ...v,
-    is_published_web: v.is_published_web !== undefined ? v.is_published_web : true,
-    is_featured_web: v.is_featured_web !== undefined ? v.is_featured_web : false
-  })));
+  const [vehicles, setVehicles] = useState<Vehicle[]>(initialVehicles
+    // Filtrar publicaciones huérfanas: vehículos sin datos reales (brand DESCONOCIDO o precio 0)
+    .filter(v => v.brand && v.brand.toUpperCase() !== 'DESCONOCIDO' && v.price > 0)
+    .map(v => ({
+      ...v,
+      is_published_web: v.is_published_web !== undefined ? v.is_published_web : true,
+      is_featured_web: v.is_featured_web !== undefined ? v.is_featured_web : false
+    })));
 
   const [activeTab, setActiveTab] = useState<"builder" | "publications" | "settings">("builder");
   const [autoSavingStatus, setAutoSavingStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -43,11 +46,19 @@ export default function WebsiteClient({ initialAgency, initialVehicles }: Websit
     // BUG4 FIX: Capturar el ID directamente del estado actual antes de cualquier setter
     const currentAgencyId = agency?.id || "00000000-0000-0000-0000-000000000000";
     setAutoSavingStatus("saving");
+    
+    // Garantizar que la plantilla y el color de acento estén siempre presentes en todo guardado
+    const fullPayload = {
+      web_template: updatedFields.web_template || agency?.web_template || "standard",
+      primary_color: updatedFields.primary_color || agency?.primary_color || "#10b981",
+      ...updatedFields,
+    };
+
     // Actualización optimista del estado local
-    setAgency((prev: any) => ({ ...prev, ...updatedFields }));
+    setAgency((prev: any) => ({ ...prev, ...fullPayload }));
     startTransition(async () => {
       try {
-        const res = await updateAgencySettings(currentAgencyId, updatedFields);
+        const res = await updateAgencySettings(currentAgencyId, fullPayload);
         if (res && res.data) {
           setAgency((prev: any) => ({ ...prev, ...res.data }));
         }
@@ -93,12 +104,12 @@ export default function WebsiteClient({ initialAgency, initialVehicles }: Websit
   const publishedCount = vehicles.filter(v => v.is_published_web).length;
   const featuredCount = vehicles.filter(v => v.is_featured_web).length;
 
-  // MEJORA2: En producción apunta al dominio externo; en dev/staging usa la ruta relativa
-  const isDevMode = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname.includes("127.0.0.1"));
-  const publicWebsiteUrl = isDevMode
-    ? `/portal/${agency?.subdomain || "hola"}`
-    : `https://${agency?.subdomain || "demo"}.n-sistemas.com`;
-  const relativePortalUrl = `/portal/${agency?.subdomain || "hola"}`;
+  const isLocalhost = typeof window !== "undefined" && window.location.hostname.endsWith(".localhost");
+  const publicWebsiteUrl = isLocalhost
+    ? `http://${agency?.subdomain || "demo"}.localhost:3000`
+    : `https://${agency?.subdomain || "demo"}.n-autos.com`;
+  const relativePortalUrl = `/portal/${agency?.subdomain || "demo"}`;
+
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", width: "100%" }}>
@@ -131,12 +142,12 @@ export default function WebsiteClient({ initialAgency, initialVehicles }: Websit
           <div>
             <h1 style={{ margin: 0, fontSize: "1.35rem", fontWeight: 800 }}>Página Web & Portal de la Automotora</h1>
             <p style={{ margin: "0.2rem 0 0 0", fontSize: "0.84rem", opacity: 0.75 }}>
-              Sitio web activo en: <strong style={{ color: "var(--primary)" }}>{agency?.subdomain || "demo"}.n-sistemas.com</strong>
+              Sitio web activo en: <strong style={{ color: "var(--primary)" }}>{agency?.subdomain || "demo"}.n-autos.com</strong>
             </p>
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
           <a
             href={publicWebsiteUrl}
             target="_blank"
@@ -152,10 +163,10 @@ export default function WebsiteClient({ initialAgency, initialVehicles }: Websit
               display: "inline-flex",
               alignItems: "center",
               gap: "0.4rem",
-              boxShadow: "0 4px 12px rgba(16, 185, 129, 0.3)"
+              boxShadow: "0 4px 12px rgba(37, 99, 235, 0.3)"
             }}
           >
-            🌐 {agency?.subdomain || "demo"}.n-sistemas.com ↗
+            🌐 Abrir {agency?.subdomain || "mi-automotora"}.n-autos.com ↗
           </a>
           <a
             href={relativePortalUrl}
@@ -165,18 +176,18 @@ export default function WebsiteClient({ initialAgency, initialVehicles }: Websit
               backgroundColor: "var(--surface-color)",
               color: "var(--text-color)",
               border: "1px solid var(--border-color)",
-              padding: "0.65rem 0.95rem",
+              padding: "0.65rem 1rem",
               borderRadius: "999px",
               fontSize: "0.82rem",
-              fontWeight: 600,
+              fontWeight: 700,
               textDecoration: "none",
               display: "inline-flex",
               alignItems: "center",
-              gap: "0.3rem"
+              gap: "0.35rem"
             }}
-            title="Abrir vista local del portal"
+            title="Abrir vista previa directa en la app"
           >
-            👁️ Vista Previa
+            👁️ Vista Previa Directa
           </a>
         </div>
       </div>

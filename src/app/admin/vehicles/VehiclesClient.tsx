@@ -387,9 +387,9 @@ export default function VehiclesClient({ initialVehicles, initialPublishSold }: 
                       >
                         <Calculator size={13} /> Financiación
                       </button>
-                      <Link href={`/portal/demo/${v.id}`} target="_blank" className={styles.actionBtn} style={{ color: "#10b981" }}>
+                      <a href={`https://${tenantSession?.subdomain || "demo"}.n-autos.com/${v.id}`} target="_blank" rel="noopener noreferrer" className={styles.actionBtn} style={{ color: "#10b981" }}>
                         Ver
-                      </Link>
+                      </a>
                       <button className={styles.actionBtn} onClick={() => openEditModal(v)}>
                         Editar
                       </button>

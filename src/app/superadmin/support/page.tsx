@@ -6,6 +6,7 @@ import {
   addMessageToTicket, 
   markTicketAsRead, 
   updateTicketStatus, 
+  deleteSupportTicket,
   subscribeSupport, 
   SupportTicket 
 } from "@/lib/supportStore";
@@ -18,8 +19,10 @@ import {
   User, 
   Building2, 
   Search,
-  Filter
+  Filter,
+  Trash2
 } from "lucide-react";
+
 
 export default function SuperAdminSupport() {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
@@ -277,8 +280,34 @@ export default function SuperAdminSupport() {
                     <option value="in_progress">En Proceso</option>
                     <option value="resolved">Resuelto</option>
                   </select>
+
+                  <button
+
+                    onClick={() => {
+                      if (confirm(`¿Estás seguro de que deseas eliminar permanentemente el ticket "${activeTicket.subject}"?`)) {
+                        deleteSupportTicket(activeTicket.id);
+                        setSelectedTicketId(null);
+                      }
+                    }}
+                    title="Eliminar ticket de soporte"
+                    style={{
+                      background: "rgba(239, 68, 68, 0.12)",
+                      color: "#ef4444",
+                      border: "none",
+                      borderRadius: "8px",
+                      padding: "0.45rem 0.6rem",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginLeft: "0.5rem"
+                    }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
               </div>
+
 
               {/* Mensajes */}
               <div style={{

@@ -187,9 +187,11 @@ export default function MediaUpload({
           style={{ display: "none" }}
         />
         <div className={styles.dropZoneContent}>
-          <span className={styles.icon}>📥</span>
+          <span className={styles.icon}>📸</span>
           <p>{placeholder}</p>
-          <span className={styles.browseBtn}>Seleccionar archivos</span>
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", justifyContent: "center" }}>
+            <span className={styles.browseBtn}>📷 Tomar Fotos o Seleccionar Archivos</span>
+          </div>
         </div>
       </div>
 

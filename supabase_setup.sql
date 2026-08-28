@@ -387,3 +387,26 @@ CREATE TABLE IF NOT EXISTS subdomain_history (
 
 ALTER TABLE subdomain_history ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Permitir lectura publica de historial de subdominios" ON subdomain_history FOR SELECT USING (true);
+
+-- =========================================================================
+-- 12. TABLA DE AUTOMATIZACIONES DE PUBLICACIONES ESTILO MANYCHAT
+-- =========================================================================
+
+CREATE TABLE IF NOT EXISTS auto_publication_automations (
+    id VARCHAR(255) PRIMARY KEY,
+    agency_id UUID REFERENCES agencies(id) ON DELETE CASCADE,
+    publication_id VARCHAR(255),
+    vehicle_id UUID REFERENCES vehicles(id) ON DELETE CASCADE,
+    keywords JSONB DEFAULT '[]'::jsonb,
+    response_text TEXT NOT NULL,
+    delay_minutes NUMERIC(6,2) DEFAULT 0,
+    is_active BOOLEAN DEFAULT true,
+    trigger_count INT DEFAULT 0,
+    channel VARCHAR(50) DEFAULT 'all',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE auto_publication_automations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Gestionar automatizaciones de la propia agencia" ON auto_publication_automations 
+  FOR ALL TO authenticated USING (agency_id = get_auth_user_agency()) WITH CHECK (agency_id = get_auth_user_agency());
+

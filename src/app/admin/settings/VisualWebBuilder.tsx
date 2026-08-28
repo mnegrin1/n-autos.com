@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Monitor, Smartphone, Check, Upload, Image as ImageIcon, Sparkles, CheckCircle2, XCircle, Search, Fuel, Shield, Zap, Award, Car, Phone, Clock, MapPin, Info, Eye, EyeOff, Palette, Sun, Moon, Lightbulb } from "lucide-react";
+import { Monitor, Smartphone, Check, Upload, Image as ImageIcon, Sparkles, CheckCircle2, Search, Fuel, Shield, Zap, Award, Car, Phone, Clock, MapPin, Palette, Type } from "lucide-react";
 
 interface AgencyData {
   id: string;
@@ -11,6 +11,7 @@ interface AgencyData {
   logo_url?: string;
   cover_url?: string;
   primary_color?: string;
+  font_family?: string;
   web_template?: string;
   hero_eyebrow?: string;
   hero_title?: string;
@@ -37,22 +38,23 @@ interface VisualWebBuilderProps {
   autoSavingStatus: "idle" | "saving" | "saved" | "error";
 }
 
-const TEMPLATES = [
-  { id: "executive", name: "Executive Motors", defaultAccent: "#17212F", fontClass: "tmpl-executive", bg: "#ffffff", desc: "Corporativo sobrio (Manrope + Inter)" },
-  { id: "performance", name: "Black Performance", defaultAccent: "#FF3B30", fontClass: "tmpl-performance", bg: "#0B0C0E", desc: "Deportivo & potente (Sora + Inter)" },
-  { id: "scandinavian", name: "Scandinavian Auto", defaultAccent: "#33443C", fontClass: "tmpl-scandinavian", bg: "#FAFAF8", desc: "Minimalista luminoso (DM Sans)" },
-  { id: "heritage", name: "Heritage Automotive", defaultAccent: "#8A3024", fontClass: "tmpl-heritage", bg: "#F4F0E8", desc: "Tradición & editorial (Libre Baskerville)" },
-  { id: "urban", name: "Urban Drive", defaultAccent: "#5B4FFF", fontClass: "tmpl-urban", bg: "#F7F8FA", desc: "Digital & joven (Plus Jakarta Sans)" },
-  { id: "local-trust", name: "Local Trust", defaultAccent: "#164E63", fontClass: "tmpl-local-trust", bg: "#ffffff", desc: "Cercanía & WhatsApp (Nunito Sans)" },
+const FONT_OPTIONS = [
+  { id: "Inter", name: "Inter (Moderna & Equilibrada)", family: "'Inter', sans-serif" },
+  { id: "Plus Jakarta Sans", name: "Plus Jakarta Sans (Tech)", family: "'Plus Jakarta Sans', sans-serif" },
+  { id: "Manrope", name: "Manrope (Ejecutiva)", family: "'Manrope', sans-serif" },
+  { id: "Outfit", name: "Outfit (Geométrica)", family: "'Outfit', sans-serif" },
+  { id: "Playfair Display", name: "Playfair Display (Editorial)", family: "'Playfair Display', serif" },
+  { id: "Roboto", name: "Roboto (Limpia & Funcional)", family: "'Roboto', sans-serif" },
 ];
 
 const COLOR_SWATCHES = [
-  { name: "Azul Ejecutivo", color: "#17212F" },
-  { name: "Rojo Performance", color: "#FF3B30" },
-  { name: "Verde Escandinavo", color: "#33443C" },
-  { name: "Vino Heritage", color: "#8A3024" },
-  { name: "Violeta Urban", color: "#5B4FFF" },
-  { name: "Azul Petróleo Trust", color: "#164E63" },
+  { name: "Verde Esmeralda", color: "#10B981" },
+  { name: "Azul Ejecutivo", color: "#1E40AF" },
+  { name: "Rojo Deportivo", color: "#DC2626" },
+  { name: "Cobalto Tech", color: "#2563EB" },
+  { name: "Ámbar Premium", color: "#D97706" },
+  { name: "Violeta Modern", color: "#7C3AED" },
+  { name: "Negro Profundo", color: "#111827" },
 ];
 
 const COPY_SUGGESTIONS: Record<string, string[]> = {
@@ -113,15 +115,13 @@ export default function VisualWebBuilder({
   autoSavingStatus
 }: VisualWebBuilderProps) {
   const [deviceMode, setDeviceMode] = useState<"desktop" | "mobile">("desktop");
-  const [previewModeTheme, setPreviewModeTheme] = useState<"dark" | "light">("dark");
   const [dragOverTarget, setDragOverTarget] = useState<"logo" | "cover" | null>(null);
   const [activeFocusField, setActiveFocusField] = useState<string | null>(null);
 
   // Local state for instant in-place editing
-  const [webTemplate, setWebTemplate] = useState(agency.web_template || "standard");
-  const activeTmpl = TEMPLATES.find(t => t.id === webTemplate) || TEMPLATES[0];
+  const [primaryColor, setPrimaryColor] = useState(agency.primary_color || "#10B981");
+  const [fontFamily, setFontFamily] = useState(agency.font_family || "Inter");
 
-  const [primaryColor, setPrimaryColor] = useState(agency.primary_color || activeTmpl.defaultAccent);
   const [name, setName] = useState(agency.name || "");
   const [heroEyebrow, setHeroEyebrow] = useState(agency.hero_eyebrow || "AUTOMOTORA OFICIAL");
   const [heroTitle, setHeroTitle] = useState(agency.hero_title || "Encuentra tu próximo vehículo");
@@ -145,37 +145,27 @@ export default function VisualWebBuilder({
   const [p4Title, setP4Title] = useState(agency.trust_pillar4_title || "Posventa Exclusiva");
   const [p4Desc, setP4Desc] = useState(agency.trust_pillar4_desc || "Atención y respaldo posterior a la entrega.");
 
-  // BUG2 FIX: Ref para debounce del color picker
+  // Ref para debounce del color picker
   const colorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Refs de debounce individuales por campo contentEditable (para onInput live save)
-  const eyebrowDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const titleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const subtitleDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const aboutDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Diccionario de timers para guardar cambios con debounce sin pasar refs durante el render
+  const debouncedTimerRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
-  // BUG1 FIX: Refs para sincronizar innerText de contentEditable cuando el valor cambia externamente
+  const handleLiveInput = useCallback((key: keyof AgencyData, val: string, ms = 800) => {
+    if (debouncedTimerRef.current[key]) {
+      clearTimeout(debouncedTimerRef.current[key]);
+    }
+    debouncedTimerRef.current[key] = setTimeout(() => {
+      onSave({ [key]: val.trim() } as Partial<AgencyData>);
+    }, ms);
+  }, [onSave]);
+
+  // Refs para sincronizar innerText de contentEditable cuando el valor cambia externamente
   const heroEyebrowRef = useRef<HTMLDivElement>(null);
   const heroTitleRef = useRef<HTMLHeadingElement>(null);
   const heroSubtitleRef = useRef<HTMLParagraphElement>(null);
   const aboutTextRef = useRef<HTMLParagraphElement>(null);
 
-  // Helper: crea un handler onInput con debounce de 800ms que guarda en el servidor
-  // El onBlur (flush inmediato) se agrega por separado en cada elemento
-  const makeDebouncedSave = useCallback(
-    (debounceRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>, setter: (val: string) => void, key: keyof AgencyData, ms = 800) =>
-      (e: React.FormEvent<HTMLElement>) => {
-        const val = e.currentTarget.innerText;
-        setter(val);
-        if (debounceRef.current) clearTimeout(debounceRef.current);
-        debounceRef.current = setTimeout(() => {
-          onSave({ [key]: val.trim() } as Partial<AgencyData>);
-        }, ms);
-      },
-    [onSave]
-  );
-
-  // BUG1 FIX: Sincronizar innerText de contentEditable cuando el valor cambia desde afuera (Copy AI, prop updates)
   useEffect(() => {
     if (heroEyebrowRef.current && document.activeElement !== heroEyebrowRef.current) {
       heroEyebrowRef.current.innerText = heroEyebrow;
@@ -200,32 +190,28 @@ export default function VisualWebBuilder({
     }
   }, [aboutText]);
 
-  // Sincronizar SOLO campos que no son contentEditable (template, color, logo, cover, trust pillars):
-  // Estos no tienen el problema de sobreescribir el DOM del usuario porque el usuario los cambia
-  // a través de botones/pickers, no escribiendo directamente.
-  useEffect(() => { setWebTemplate(agency.web_template || "standard"); }, [agency.web_template]);
-  useEffect(() => { setPrimaryColor(agency.primary_color || activeTmpl.defaultAccent); }, [agency.primary_color]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { setName(agency.name || ""); }, [agency.name]);
-  useEffect(() => { setLogoUrl(agency.logo_url || ""); }, [agency.logo_url]);
-  useEffect(() => { setCoverUrl(agency.cover_url || ""); }, [agency.cover_url]);
-  useEffect(() => { setFooterText(agency.footer_text || "Tu concesionario de confianza. Vehículos seleccionados con certificación de origen, garantía y la mejor atención personalizada."); }, [agency.footer_text]);
-  useEffect(() => { setLocationAddress(agency.location_address || "Av. Principal 1234, Montevideo, Uruguay"); }, [agency.location_address]);
-  useEffect(() => { setBusinessHours(agency.business_hours || "Lunes a Viernes: 09:00 - 19:00 hs | Sábados: 09:00 - 13:00 hs"); }, [agency.business_hours]);
-  useEffect(() => { setContactDescription(agency.contact_description || "¿Tienes alguna duda sobre una unidad o deseas agendar una prueba de manejo? Escríbenos directamente o visita nuestro showroom."); }, [agency.contact_description]);
-  useEffect(() => { if (agency.show_trust_section !== undefined) setShowTrustSection(agency.show_trust_section); }, [agency.show_trust_section]);
-  useEffect(() => { if (agency.trust_pillar1_title) setP1Title(agency.trust_pillar1_title); }, [agency.trust_pillar1_title]);
-  useEffect(() => { if (agency.trust_pillar1_desc) setP1Desc(agency.trust_pillar1_desc); }, [agency.trust_pillar1_desc]);
-  useEffect(() => { if (agency.trust_pillar2_title) setP2Title(agency.trust_pillar2_title); }, [agency.trust_pillar2_title]);
-  useEffect(() => { if (agency.trust_pillar2_desc) setP2Desc(agency.trust_pillar2_desc); }, [agency.trust_pillar2_desc]);
-  useEffect(() => { if (agency.trust_pillar3_title) setP3Title(agency.trust_pillar3_title); }, [agency.trust_pillar3_title]);
-  useEffect(() => { if (agency.trust_pillar3_desc) setP3Desc(agency.trust_pillar3_desc); }, [agency.trust_pillar3_desc]);
-  useEffect(() => { if (agency.trust_pillar4_title) setP4Title(agency.trust_pillar4_title); }, [agency.trust_pillar4_title]);
-  useEffect(() => { if (agency.trust_pillar4_desc) setP4Desc(agency.trust_pillar4_desc); }, [agency.trust_pillar4_desc]);
-
-  // Para los campos contentEditable (heroEyebrow, heroTitle, heroSubtitle, aboutText),
-  // la sincronización con el DOM se hace EXCLUSIVAMENTE a través de los useEffects individuales
-  // de BUG1 (arriba). El estado local se actualiza via onInput. NO usamos un useEffect masivo
-  // que los sobreescriba, para no pisar ediciones del usuario en curso.
+  const [prevAgency, setPrevAgency] = useState(agency);
+  if (agency !== prevAgency) {
+    setPrevAgency(agency);
+    if (agency.primary_color) setPrimaryColor(agency.primary_color);
+    if (agency.font_family) setFontFamily(agency.font_family);
+    if (agency.name !== undefined) setName(agency.name);
+    if (agency.logo_url !== undefined) setLogoUrl(agency.logo_url);
+    if (agency.cover_url !== undefined) setCoverUrl(agency.cover_url);
+    if (agency.footer_text !== undefined) setFooterText(agency.footer_text);
+    if (agency.location_address !== undefined) setLocationAddress(agency.location_address);
+    if (agency.business_hours !== undefined) setBusinessHours(agency.business_hours);
+    if (agency.contact_description !== undefined) setContactDescription(agency.contact_description);
+    if (agency.show_trust_section !== undefined) setShowTrustSection(agency.show_trust_section);
+    if (agency.trust_pillar1_title) setP1Title(agency.trust_pillar1_title);
+    if (agency.trust_pillar1_desc) setP1Desc(agency.trust_pillar1_desc);
+    if (agency.trust_pillar2_title) setP2Title(agency.trust_pillar2_title);
+    if (agency.trust_pillar2_desc) setP2Desc(agency.trust_pillar2_desc);
+    if (agency.trust_pillar3_title) setP3Title(agency.trust_pillar3_title);
+    if (agency.trust_pillar3_desc) setP3Desc(agency.trust_pillar3_desc);
+    if (agency.trust_pillar4_title) setP4Title(agency.trust_pillar4_title);
+    if (agency.trust_pillar4_desc) setP4Desc(agency.trust_pillar4_desc);
+  }
 
   const coverFileInputRef = useRef<HTMLInputElement>(null);
   const logoFileInputRef = useRef<HTMLInputElement>(null);
@@ -259,12 +245,15 @@ export default function VisualWebBuilder({
   const applyCopySuggestion = (field: string, text: string) => {
     if (field === "heroTitle") {
       setHeroTitle(text);
+      if (heroTitleRef.current) heroTitleRef.current.innerText = text;
       onSave({ hero_title: text });
     } else if (field === "heroSubtitle") {
       setHeroSubtitle(text);
+      if (heroSubtitleRef.current) heroSubtitleRef.current.innerText = text;
       onSave({ hero_subtitle: text });
     } else if (field === "aboutText") {
       setAboutText(text);
+      if (aboutTextRef.current) aboutTextRef.current.innerText = text;
       onSave({ about_text: text });
     }
     setActiveFocusField(null);
@@ -272,8 +261,8 @@ export default function VisualWebBuilder({
 
   const handleExplicitSaveAll = () => {
     onSave({
-      web_template: webTemplate,
       primary_color: primaryColor,
+      font_family: fontFamily,
       hero_eyebrow: heroEyebrow,
       hero_title: heroTitle,
       hero_subtitle: heroSubtitle,
@@ -297,257 +286,81 @@ export default function VisualWebBuilder({
   };
 
   const currentCover = coverUrl || "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80";
-  const activeAccent = primaryColor || activeTmpl.defaultAccent;
-
-  // Helper for Hero Title Template Styles
-  const getHeroTitleStyles = (): React.CSSProperties => {
-    const base: React.CSSProperties = {
-      fontSize: deviceMode === "mobile" ? "1.6rem" : (webTemplate === "heritage" ? "3.1rem" : "2.5rem"),
-      lineHeight: 1.1,
-      margin: 0,
-      cursor: "text",
-      outline: activeFocusField === "heroTitle" ? `3px solid ${activeAccent}` : "none",
-      boxShadow: activeFocusField === "heroTitle" ? `0 0 18px ${activeAccent}` : "none",
-      borderRadius: "6px",
-      padding: "2px 6px",
-      borderBottom: "2px dashed rgba(255,255,255,0.3)",
-      transition: "all 0.2s ease"
-    };
-
-    if (webTemplate === "performance" || webTemplate === "sport") {
-      return {
-        ...base,
-        fontFamily: "'Sora', sans-serif",
-        fontWeight: 700,
-        textTransform: "uppercase",
-        letterSpacing: "-0.045em",
-        color: "#ffffff",
-        textShadow: `0 4px 15px rgba(255, 59, 48, 0.4)`
-      };
-    }
-
-    if (webTemplate === "heritage" || webTemplate === "editorial") {
-      return {
-        ...base,
-        fontFamily: "'Libre Baskerville', Georgia, serif",
-        fontWeight: 700,
-        color: "#24211D"
-      };
-    }
-
-    if (webTemplate === "scandinavian" || webTemplate === "tech") {
-      return {
-        ...base,
-        fontFamily: "'DM Sans', sans-serif",
-        fontWeight: 500,
-        letterSpacing: "-0.045em",
-        color: "#20221F"
-      };
-    }
-
-    if (webTemplate === "urban" || webTemplate === "glassmorphism") {
-      return {
-        ...base,
-        fontFamily: "'Plus Jakarta Sans', sans-serif",
-        fontWeight: 700,
-        letterSpacing: "-0.045em",
-        color: "#111827"
-      };
-    }
-
-    if (webTemplate === "local-trust" || webTemplate === "luxury" || webTemplate === "local") {
-      return {
-        ...base,
-        fontFamily: "'Nunito Sans', sans-serif",
-        fontWeight: 700,
-        letterSpacing: "-0.03em",
-        color: "#164E63"
-      };
-    }
-
-    return {
-      ...base,
-      fontFamily: "'Manrope', sans-serif",
-      fontWeight: 600,
-      letterSpacing: "-0.035em",
-      color: "#111318"
-    };
-  };
-
-  const THEME_CANVAS_STYLES: Record<string, { bg: string; text: string; cardBg: string; border: string }> = {
-    executive: { bg: "#FFFFFF", text: "#111318", cardBg: "#FFFFFF", border: "#E4E7EB" },
-    performance: { bg: "#0B0C0E", text: "#F5F5F5", cardBg: "#151619", border: "#24262B" },
-    scandinavian: { bg: "#FAFAF8", text: "#20221F", cardBg: "transparent", border: "transparent" },
-    heritage: { bg: "#F4F0E8", text: "#24211D", cardBg: "#FCFAF5", border: "#D8D1C5" },
-    urban: { bg: "#F7F8FA", text: "#111827", cardBg: "#FFFFFF", border: "#EAECF0" },
-    "local-trust": { bg: "#FFFFFF", text: "#1E293B", cardBg: "#FFFFFF", border: "#E2E8F0" },
-  };
-
-  const activeCanvas = THEME_CANVAS_STYLES[webTemplate] || THEME_CANVAS_STYLES.executive;
-  const canvasBg = previewModeTheme === "light" ? (webTemplate === "performance" ? "#0B0C0E" : activeCanvas.bg) : activeCanvas.bg;
-  const canvasTextColor = activeCanvas.text;
-  const cardBg = activeCanvas.cardBg;
-  const cardBorder = activeCanvas.border;
+  const activeAccent = primaryColor;
+  const activeFontObj = FONT_OPTIONS.find(f => f.id === fontFamily) || FONT_OPTIONS[0];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem", width: "100%", position: "relative" }}>
-      {/* High-Specificity CSS rules for 100% Template Font Enforcement */}
       <style dangerouslySetInnerHTML={{ __html: `
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,700;1,9..40,400&family=Inter:wght@300;400;500;600;700;800;900&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Manrope:wght@400;500;600;700;800&family=Nunito+Sans:ital,opsz,wght@0,6..12,400;0,6..12,600;0,6..12,700;0,6..12,800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Sora:wght@400;600;700;800&display=swap');
-        
-        .tmpl-executive, .tmpl-executive h1, .tmpl-executive h2, .tmpl-executive h3, .tmpl-executive h4 {
-          font-family: 'Manrope', sans-serif !important;
-        }
-        .tmpl-performance, .tmpl-performance h1, .tmpl-performance h2, .tmpl-performance h3, .tmpl-performance h4 {
-          font-family: 'Sora', sans-serif !important;
-          text-transform: uppercase;
-        }
-        .tmpl-scandinavian, .tmpl-scandinavian h1, .tmpl-scandinavian h2, .tmpl-scandinavian h3, .tmpl-scandinavian h4 {
-          font-family: 'DM Sans', sans-serif !important;
-        }
-        .tmpl-heritage, .tmpl-heritage h1, .tmpl-heritage h2, .tmpl-heritage h3, .tmpl-heritage h4 {
-          font-family: 'Libre Baskerville', Georgia, serif !important;
-        }
-        .tmpl-urban, .tmpl-urban h1, .tmpl-urban h2, .tmpl-urban h3, .tmpl-urban h4 {
-          font-family: 'Plus Jakarta Sans', sans-serif !important;
-        }
-        .tmpl-local-trust, .tmpl-local-trust h1, .tmpl-local-trust h2, .tmpl-local-trust h3, .tmpl-local-trust h4 {
-          font-family: 'Nunito Sans', sans-serif !important;
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Plus+Jakarta+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Roboto:wght@400;500;700&display=swap');
       `}} />
 
-      {/* Visual Editor Controls Bar */}
+      {/* TOP CONTROL BAR: Device Preview & AutoSave Indicator */}
       <div style={{
         backgroundColor: "var(--surface-color)",
         border: "1px solid var(--border-color)",
-        borderRadius: "14px",
-        padding: "1rem 1.25rem",
+        borderRadius: "12px",
+        padding: "0.85rem 1.25rem",
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
         flexWrap: "wrap",
-        gap: "1rem",
-        boxShadow: "0 4px 14px rgba(0,0,0,0.06)"
+        gap: "1rem"
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <div style={{
-            backgroundColor: `${activeAccent}20`,
-            color: activeAccent,
-            padding: "0.55rem",
-            borderRadius: "10px",
-            display: "flex"
+        <div style={{ display: "flex", alignItems: "center", gap: "0.8rem" }}>
+          <span style={{ fontWeight: 800, fontSize: "1rem", color: "var(--text-color)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+            ✨ Editor Visual del Portal
+          </span>
+          <span style={{
+            fontSize: "0.75rem",
+            padding: "0.2rem 0.6rem",
+            borderRadius: "999px",
+            fontWeight: 700,
+            backgroundColor: autoSavingStatus === "saving" ? "#3b82f6" : autoSavingStatus === "saved" ? "#10b98122" : "var(--surface-hover)",
+            color: autoSavingStatus === "saving" ? "#ffffff" : autoSavingStatus === "saved" ? "#10b981" : "var(--text-muted)",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.3rem"
           }}>
-            <Sparkles size={20} />
-          </div>
-          <div>
-            <h3 style={{ margin: 0, fontSize: "1rem", fontWeight: 800 }}>Editor Visual Live 1:1</h3>
-            <p style={{ margin: 0, fontSize: "0.78rem", opacity: 0.7 }}>Haz clic sobre cualquier texto para editar y ver sugerencias de Copy AI 💡.</p>
-          </div>
+            {autoSavingStatus === "saving" && "💾 Guardando..."}
+            {autoSavingStatus === "saved" && <><CheckCircle2 size={12} /> Guardado en vivo</>}
+            {autoSavingStatus === "idle" && "Edición directa lista"}
+          </span>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-          {/* Explicit Save Button */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
           <button
             type="button"
             onClick={handleExplicitSaveAll}
             style={{
-              padding: "0.45rem 0.95rem",
-              borderRadius: "8px",
-              fontSize: "0.82rem",
-              fontWeight: 800,
-              border: "none",
-              backgroundColor: "var(--primary)",
-              color: "white",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.4rem",
-              boxShadow: "0 3px 10px rgba(16, 185, 129, 0.3)"
-            }}
-          >
-            <CheckCircle2 size={15} /> Guardar Cambios Web
-          </button>
-
-          {/* Toggle Section "Nuestro Compromiso" */}
-          <button
-            type="button"
-            onClick={() => {
-              const nextVal = !showTrustSection;
-              setShowTrustSection(nextVal);
-              onSave({ show_trust_section: nextVal });
-            }}
-            style={{
-              padding: "0.4rem 0.75rem",
+              padding: "0.4rem 0.85rem",
               borderRadius: "8px",
               fontSize: "0.78rem",
               fontWeight: 700,
-              border: "1px solid var(--border-color)",
-              backgroundColor: showTrustSection ? "rgba(16, 185, 129, 0.15)" : "rgba(239, 68, 68, 0.15)",
-              color: showTrustSection ? "#10b981" : "#ef4444",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.4rem"
+              backgroundColor: activeAccent,
+              color: "#ffffff",
+              border: "none",
+              cursor: "pointer"
             }}
           >
-            {showTrustSection ? <Eye size={14} /> : <EyeOff size={14} />}
-            {showTrustSection ? "Sección Compromiso: Visible" : "Sección Compromiso: Oculta"}
+            Guardar Cambios
           </button>
 
-          {/* Light / Dark Mode Preview Toggle */}
-          <div style={{ display: "flex", gap: "2px", backgroundColor: "var(--bg-color)", padding: "2px", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
-            <button
-              type="button"
-              onClick={() => setPreviewModeTheme("dark")}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.3rem",
-                padding: "0.35rem 0.65rem",
-                borderRadius: "6px",
-                fontSize: "0.78rem",
-                fontWeight: previewModeTheme === "dark" ? 700 : 500,
-                backgroundColor: previewModeTheme === "dark" ? activeAccent : "transparent",
-                color: previewModeTheme === "dark" ? "white" : "var(--text-color)",
-                border: "none",
-                cursor: "pointer"
-              }}
-            >
-              <Moon size={13} /> Oscuro
-            </button>
-            <button
-              type="button"
-              onClick={() => setPreviewModeTheme("light")}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.3rem",
-                padding: "0.35rem 0.65rem",
-                borderRadius: "6px",
-                fontSize: "0.78rem",
-                fontWeight: previewModeTheme === "light" ? 700 : 500,
-                backgroundColor: previewModeTheme === "light" ? activeAccent : "transparent",
-                color: previewModeTheme === "light" ? "white" : "var(--text-color)",
-                border: "none",
-                cursor: "pointer"
-              }}
-            >
-              <Sun size={13} /> Claro
-            </button>
-          </div>
-
-          {/* Device Switcher */}
-          <div style={{ display: "flex", gap: "2px", backgroundColor: "var(--bg-color)", padding: "2px", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
+          {/* Viewport Switcher */}
+          <div style={{
+            display: "flex",
+            backgroundColor: "var(--bg-color)",
+            border: "1px solid var(--border-color)",
+            borderRadius: "8px",
+            padding: "3px"
+          }}>
             <button
               type="button"
               onClick={() => setDeviceMode("desktop")}
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.3rem",
                 padding: "0.35rem 0.65rem",
                 borderRadius: "6px",
-                fontSize: "0.78rem",
+                fontSize: "0.75rem",
                 fontWeight: deviceMode === "desktop" ? 700 : 500,
                 backgroundColor: deviceMode === "desktop" ? activeAccent : "transparent",
                 color: deviceMode === "desktop" ? "white" : "var(--text-color)",
@@ -561,12 +374,9 @@ export default function VisualWebBuilder({
               type="button"
               onClick={() => setDeviceMode("mobile")}
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.3rem",
                 padding: "0.35rem 0.65rem",
                 borderRadius: "6px",
-                fontSize: "0.78rem",
+                fontSize: "0.75rem",
                 fontWeight: deviceMode === "mobile" ? 700 : 500,
                 backgroundColor: deviceMode === "mobile" ? activeAccent : "transparent",
                 color: deviceMode === "mobile" ? "white" : "var(--text-color)",
@@ -580,117 +390,114 @@ export default function VisualWebBuilder({
         </div>
       </div>
 
-      {/* Row 2: Template Selector Pills & Theme Color Picker */}
+      {/* Row 2: Visual Style Customizer (Color & Typography) */}
       <div style={{
         backgroundColor: "var(--surface-color)",
         border: "1px solid var(--border-color)",
         borderRadius: "12px",
-        padding: "0.85rem 1.25rem",
+        padding: "1rem 1.25rem",
         display: "flex",
         flexDirection: "column",
-        gap: "0.75rem"
+        gap: "1rem"
       }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
-          {/* Explicit Label: 🎨 Temas Visuales del Portal */}
+        {/* Color Section */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem" }}>
           <span style={{ fontSize: "0.85rem", fontWeight: 800, color: "var(--text-color)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-            🎨 Temas Visuales del Portal:
+            <Palette size={15} style={{ color: activeAccent }} /> Color Principal de Acento:
           </span>
 
-          {/* Color Palette Selector */}
-          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-            <span style={{ fontSize: "0.78rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.3rem" }}>
-              <Palette size={14} style={{ color: activeAccent }} /> Color del Tema:
-            </span>
-
-            <div style={{ display: "flex", gap: "5px", alignItems: "center" }}>
-              {COLOR_SWATCHES.map((swatch) => (
-                <button
-                  key={swatch.color}
-                  type="button"
-                  title={swatch.name}
-                  onClick={() => {
-                    setPrimaryColor(swatch.color);
-                    onSave({ primary_color: swatch.color });
-                  }}
-                  style={{
-                    width: "22px",
-                    height: "22px",
-                    borderRadius: "50%",
-                    backgroundColor: swatch.color,
-                    border: primaryColor === swatch.color ? "2px solid white" : "1px solid rgba(255,255,255,0.2)",
-                    boxShadow: primaryColor === swatch.color ? `0 0 8px ${swatch.color}` : "none",
-                    cursor: "pointer",
-                    padding: 0
-                  }}
-                />
-              ))}
-
-              {/* Custom Color Input — BUG2 FIX: debounce 400ms para evitar llamadas masivas a onSave */}
-              <input
-                type="color"
-                value={primaryColor}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setPrimaryColor(val);
-                  // Cancelar el guardado anterior y agendar uno nuevo con debounce
-                  if (colorDebounceRef.current) clearTimeout(colorDebounceRef.current);
-                  colorDebounceRef.current = setTimeout(() => {
-                    onSave({ primary_color: val });
-                  }, 400);
+          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+            {COLOR_SWATCHES.map((swatch) => (
+              <button
+                key={swatch.color}
+                type="button"
+                title={swatch.name}
+                onClick={() => {
+                  setPrimaryColor(swatch.color);
+                  onSave({ primary_color: swatch.color });
                 }}
-                onBlur={(e) => {
-                  // Guardar inmediatamente al soltar el picker
-                  if (colorDebounceRef.current) clearTimeout(colorDebounceRef.current);
-                  onSave({ primary_color: e.target.value });
-                }}
-                title="Elegir color personalizado"
                 style={{
-                  width: "26px",
-                  height: "26px",
-                  padding: 0,
-                  border: "none",
+                  width: "24px",
+                  height: "24px",
                   borderRadius: "50%",
+                  backgroundColor: swatch.color,
+                  border: primaryColor === swatch.color ? "2px solid white" : "1px solid rgba(255,255,255,0.2)",
+                  boxShadow: primaryColor === swatch.color ? `0 0 10px ${swatch.color}` : "none",
                   cursor: "pointer",
-                  backgroundColor: "transparent"
+                  padding: 0
                 }}
               />
-            </div>
+            ))}
+
+            {/* Custom Color Input */}
+            <input
+              type="color"
+              value={primaryColor}
+              onChange={(e) => {
+                const val = e.target.value;
+                setPrimaryColor(val);
+                if (colorDebounceRef.current) clearTimeout(colorDebounceRef.current);
+                colorDebounceRef.current = setTimeout(() => {
+                  onSave({ primary_color: val });
+                }, 400);
+              }}
+              onBlur={(e) => {
+                if (colorDebounceRef.current) clearTimeout(colorDebounceRef.current);
+                onSave({ primary_color: e.target.value });
+              }}
+              title="Elegir color personalizado"
+              style={{
+                width: "28px",
+                height: "28px",
+                padding: 0,
+                border: "none",
+                borderRadius: "50%",
+                cursor: "pointer",
+                backgroundColor: "transparent"
+              }}
+            />
           </div>
         </div>
 
-        {/* Template Pills */}
-        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-          {TEMPLATES.map((tmpl) => {
-            const isSelected = webTemplate === tmpl.id;
-            return (
-              <button
-                key={tmpl.id}
-                type="button"
-                onClick={() => {
-                  setWebTemplate(tmpl.id);
-                  setPrimaryColor(tmpl.defaultAccent);
-                  onSave({ web_template: tmpl.id, primary_color: tmpl.defaultAccent });
-                }}
-                style={{
-                  padding: "0.45rem 0.85rem",
-                  borderRadius: "8px",
-                  fontSize: "0.8rem",
-                  fontWeight: isSelected ? 800 : 500,
-                  border: isSelected ? `2px solid ${tmpl.defaultAccent}` : "1px solid var(--border-color)",
-                  backgroundColor: isSelected ? "var(--surface-hover)" : "var(--surface-color)",
-                  color: "var(--text-color)",
-                  cursor: "pointer",
-                  whiteSpace: "nowrap",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.35rem"
-                }}
-              >
-                {isSelected && <Check size={13} style={{ color: tmpl.defaultAccent }} />}
-                {tmpl.name}
-              </button>
-            );
-          })}
+        {/* Font Typography Section */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.75rem", borderTop: "1px solid var(--border-color)", paddingTop: "0.85rem" }}>
+          <span style={{ fontSize: "0.85rem", fontWeight: 800, color: "var(--text-color)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+            <Type size={15} style={{ color: activeAccent }} /> Fuente Tipográfica del Sitio:
+          </span>
+
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            {FONT_OPTIONS.map((font) => {
+              const isSelected = fontFamily === font.id;
+              return (
+                <button
+                  key={font.id}
+                  type="button"
+                  onClick={() => {
+                    setFontFamily(font.id);
+                    onSave({ font_family: font.id });
+                  }}
+                  style={{
+                    padding: "0.4rem 0.8rem",
+                    borderRadius: "8px",
+                    fontSize: "0.8rem",
+                    fontFamily: font.family,
+                    fontWeight: isSelected ? 800 : 500,
+                    border: isSelected ? `2px solid ${activeAccent}` : "1px solid var(--border-color)",
+                    backgroundColor: isSelected ? "var(--surface-hover)" : "var(--surface-color)",
+                    color: "var(--text-color)",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.35rem"
+                  }}
+                >
+                  {isSelected && <Check size={13} style={{ color: activeAccent }} />}
+                  {font.name}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -716,31 +523,37 @@ export default function VisualWebBuilder({
         }}
       />
 
-      {/* FULL PORTAL REPLICA CANVAS FRAME WITH HIGH-SPECIFICITY CSS CLASS & THEME PREVIEW */}
+      {/* FULL PORTAL REPLICA CANVAS FRAME */}
       <div 
-        className={activeTmpl.fontClass}
         style={{
           borderRadius: "16px",
           border: "2px solid var(--border-color)",
           overflow: "hidden",
-          boxShadow: "0 20px 40px rgba(0,0,0,0.18)",
-          backgroundColor: canvasBg,
-          color: canvasTextColor,
+          boxShadow: "0 20px 40px rgba(0,0,0,0.25)",
+          backgroundColor: "#0b0f17",
+          color: "#ffffff",
+          fontFamily: activeFontObj.family,
           width: deviceMode === "mobile" ? "390px" : "100%",
           margin: "0 auto",
-          transition: "all 0.3s ease",
-          position: "relative"
+          transition: "width 0.3s ease"
         }}
       >
-        {/* Top simulated browser bar */}
-        <div style={{ backgroundColor: "#161b22", padding: "0.6rem 1rem", borderBottom: "1px solid #30363d", display: "flex", alignItems: "center", gap: "0.75rem" }}>
+        {/* Browser Chrome Header */}
+        <div style={{
+          backgroundColor: "#161b22",
+          padding: "0.5rem 0.85rem",
+          display: "flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          borderBottom: "1px solid rgba(255,255,255,0.08)"
+        }}>
           <div style={{ display: "flex", gap: "6px" }}>
             <div style={{ width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#ff5f56" }} />
             <div style={{ width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#ffbd2e" }} />
             <div style={{ width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#27c93f" }} />
           </div>
           <div style={{ flex: 1, backgroundColor: "#0d1117", borderRadius: "6px", padding: "0.25rem 0.75rem", fontSize: "0.75rem", color: "#8b949e", fontFamily: "monospace" }}>
-            🔒 https://{agency.subdomain || "mi-automotora"}.n-sistemas.com/ [{activeTmpl.name.toUpperCase()}] ({previewModeTheme.toUpperCase()} MODE)
+            🔒 https://{agency.subdomain || "mi-automotora"}.n-autos.com/
           </div>
         </div>
 
@@ -749,19 +562,18 @@ export default function VisualWebBuilder({
           
           {/* SECTION 1: HEADER NAVBAR */}
           <header style={{
-            backgroundColor: previewModeTheme === "light" ? "#ffffff" : "rgba(15, 23, 42, 0.95)",
-            color: previewModeTheme === "light" ? "#0f172a" : "#ffffff",
+            backgroundColor: "rgba(11, 15, 23, 0.95)",
+            color: "#ffffff",
             padding: deviceMode === "mobile" ? "0.6rem 0.85rem" : "0.85rem 1.5rem",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            borderBottom: `1px solid ${activeAccent}44`,
+            borderBottom: `1px solid rgba(255, 255, 255, 0.08)`,
             position: "sticky",
             top: 0,
             zIndex: 30,
             backdropFilter: "blur(12px)"
           }}>
-            {/* CONDITIONAL LOGO VS NAME RENDERING */}
             <div 
               onDragOver={(e) => { e.preventDefault(); setDragOverTarget("logo"); }}
               onDragLeave={() => setDragOverTarget(null)}
@@ -783,7 +595,6 @@ export default function VisualWebBuilder({
                   <span style={{ fontSize: "1.2rem" }}>🚗</span>
                 ) : null}
 
-                {/* Floating Corner Button for Logo */}
                 <button
                   type="button"
                   onClick={() => logoFileInputRef.current?.click()}
@@ -809,15 +620,13 @@ export default function VisualWebBuilder({
                 </button>
               </div>
 
-              {/* Agency Name (Non-editable, changed only via Superadmin) */}
               {(name.trim() || !logoUrl) && (
                 <span 
-                  title="El nombre de la automotora solo puede cambiarse desde la consola de Superadmin."
                   style={{
                     fontWeight: 800,
                     fontSize: deviceMode === "mobile" ? "0.95rem" : "1.1rem",
                     padding: "2px 4px",
-                    opacity: name.trim() ? 1 : 0.6
+                    color: "#ffffff"
                   }}
                 >
                   {name.trim() || "Automotora VIP"}
@@ -838,28 +647,18 @@ export default function VisualWebBuilder({
             </div>
           </header>
 
-          {/* SECTION 2: HERO BANNER (WITH TEMPLATE TYPOGRAPHY & COPY AI CLOUD) */}
+          {/* SECTION 2: HERO BANNER */}
           <section style={{
             position: "relative",
             minHeight: deviceMode === "mobile" ? "280px" : "340px",
-            backgroundImage: webTemplate === "performance" 
-              ? `linear-gradient(90deg, rgba(11, 12, 14, 0.92), rgba(11, 12, 14, 0.45)), url('${currentCover}')`
-              : webTemplate === "scandinavian"
-              ? `linear-gradient(rgba(250, 250, 248, 0.94), rgba(250, 250, 248, 0.9)), url('${currentCover}')`
-              : webTemplate === "heritage"
-              ? `linear-gradient(rgba(244, 240, 232, 0.94), rgba(244, 240, 232, 0.9)), url('${currentCover}')`
-              : webTemplate === "urban"
-              ? `linear-gradient(rgba(247, 248, 250, 0.95), rgba(247, 248, 250, 0.9)), url('${currentCover}')`
-              : webTemplate === "local-trust"
-              ? `linear-gradient(rgba(255, 255, 255, 0.95), rgba(247, 249, 251, 0.92)), url('${currentCover}')`
-              : `linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(245, 246, 247, 0.92)), url('${currentCover}')`,
+            backgroundImage: `linear-gradient(180deg, rgba(11, 15, 23, 0.75) 0%, rgba(11, 15, 23, 0.92) 100%), url('${currentCover}')`,
             backgroundSize: "cover",
             backgroundPosition: "center",
-            padding: deviceMode === "mobile" ? "2.5rem 1rem" : (webTemplate === "heritage" ? "4rem 2rem" : "4rem 1.5rem"),
-            textAlign: webTemplate === "heritage" && deviceMode !== "mobile" ? "left" : "center",
+            padding: deviceMode === "mobile" ? "2.5rem 1rem" : "4rem 1.5rem",
+            textAlign: "center",
             display: "flex",
             flexDirection: "column",
-            alignItems: webTemplate === "heritage" && deviceMode !== "mobile" ? "flex-start" : "center",
+            alignItems: "center",
             justifyContent: "center",
             gap: "0.85rem",
             border: dragOverTarget === "cover" ? `3px dashed ${activeAccent}` : "none"
@@ -894,10 +693,9 @@ export default function VisualWebBuilder({
               ref={heroEyebrowRef}
               contentEditable
               suppressContentEditableWarning
-              onInput={makeDebouncedSave(eyebrowDebounceRef, setHeroEyebrow, "hero_eyebrow", 800)}
+              onInput={(e) => handleLiveInput("hero_eyebrow", e.currentTarget.innerText)}
               onBlur={(e) => {
-                // Flush inmediato al perder foco
-                if (eyebrowDebounceRef.current) clearTimeout(eyebrowDebounceRef.current);
+                if (debouncedTimerRef.current["hero_eyebrow"]) clearTimeout(debouncedTimerRef.current["hero_eyebrow"]);
                 const val = e.currentTarget.innerText.trim();
                 setHeroEyebrow(val);
                 onSave({ hero_eyebrow: val });
@@ -914,275 +712,42 @@ export default function VisualWebBuilder({
                 cursor: "text",
                 outline: "none"
               }}
-            >
-              {heroEyebrow}
-            </div>
+              dangerouslySetInnerHTML={{ __html: heroEyebrow }}
+            />
 
-            {/* HERO TITLE WITH ENHANCED EDIT VISUAL EMPHASIS & COPY AI SUGGESTION CLOUD */}
-            <div style={{ position: "relative", width: "100%", display: "flex", flexDirection: "column", alignItems: webTemplate === "heritage" && deviceMode !== "mobile" ? "flex-start" : "center" }}>
+            {/* HERO TITLE WITH EDIT HIGHLIGHT & AI SUGGESTIONS */}
+            <div style={{ position: "relative", width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
               <h1 
                 ref={heroTitleRef}
                 contentEditable
                 suppressContentEditableWarning
                 onFocus={() => setActiveFocusField("heroTitle")}
-                onInput={makeDebouncedSave(titleDebounceRef, setHeroTitle, "hero_title", 800)}
+                onInput={(e) => handleLiveInput("hero_title", e.currentTarget.innerText)}
                 onBlur={(e) => {
-                  // Flush inmediato al perder foco
-                  if (titleDebounceRef.current) clearTimeout(titleDebounceRef.current);
+                  if (debouncedTimerRef.current["hero_title"]) clearTimeout(debouncedTimerRef.current["hero_title"]);
                   const val = e.currentTarget.innerText.trim();
                   setHeroTitle(val);
                   onSave({ hero_title: val });
                 }}
-                style={getHeroTitleStyles()}
-              >
-                {heroTitle}
-              </h1>
-
-              {/* COPY AI SUGGESTION CLOUD POPUP FOR HERO TITLE */}
-              {activeFocusField === "heroTitle" && COPY_SUGGESTIONS.heroTitle && (
-                <div style={{
-                  position: "absolute",
-                  top: "105%",
-                  left: webTemplate === "heritage" && deviceMode !== "mobile" ? 0 : "50%",
-                  transform: webTemplate === "heritage" && deviceMode !== "mobile" ? "none" : "translateX(-50%)",
-                  backgroundColor: "rgba(15, 23, 42, 0.95)",
-                  border: `2px solid ${activeAccent}`,
-                  borderRadius: "14px",
-                  padding: "0.85rem 1rem",
-                  boxShadow: "0 15px 35px rgba(0,0,0,0.5)",
-                  zIndex: 99,
-                  maxWidth: "520px",
-                  width: "90%",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.4rem",
-                  backdropFilter: "blur(12px)"
-                }}>
-                  <div style={{ fontSize: "0.75rem", fontWeight: 800, color: activeAccent, display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                    <Lightbulb size={14} /> Sugerencias de Copy AI (Haz clic para usar):
-                  </div>
-                  {COPY_SUGGESTIONS.heroTitle.map((sug, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onMouseDown={(e) => { e.preventDefault(); applyCopySuggestion("heroTitle", sug); }}
-                      style={{
-                        backgroundColor: "rgba(255,255,255,0.06)",
-                        border: "1px solid rgba(255,255,255,0.12)",
-                        color: "#f8fafc",
-                        borderRadius: "6px",
-                        padding: "0.4rem 0.7rem",
-                        fontSize: "0.8rem",
-                        textAlign: "left",
-                        cursor: "pointer",
-                        transition: "all 0.15s ease"
-                      }}
-                    >
-                      ✨ "{sug}"
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* HERO SUBTITLE */}
-            <div style={{ position: "relative", width: "100%", display: "flex", flexDirection: "column", alignItems: webTemplate === "heritage" && deviceMode !== "mobile" ? "flex-start" : "center" }}>
-              <p 
-                ref={heroSubtitleRef}
-                contentEditable
-                suppressContentEditableWarning
-                onFocus={() => setActiveFocusField("heroSubtitle")}
-                onInput={makeDebouncedSave(subtitleDebounceRef, setHeroSubtitle, "hero_subtitle", 800)}
-                onBlur={(e) => {
-                  // Flush inmediato al perder foco
-                  if (subtitleDebounceRef.current) clearTimeout(subtitleDebounceRef.current);
-                  const val = e.currentTarget.innerText.trim();
-                  setHeroSubtitle(val);
-                  onSave({ hero_subtitle: val });
-                }}
                 style={{
-                  fontSize: deviceMode === "mobile" ? "0.85rem" : "0.95rem",
-                  color: canvasTextColor,
-                  opacity: 0.9,
-                  maxWidth: "620px",
+                  fontSize: deviceMode === "mobile" ? "1.6rem" : "2.5rem",
+                  fontFamily: activeFontObj.family,
+                  fontWeight: 700,
+                  lineHeight: 1.1,
                   margin: 0,
+                  color: "#ffffff",
                   cursor: "text",
-                  outline: activeFocusField === "heroSubtitle" ? `3px solid ${activeAccent}` : "none",
-                  boxShadow: activeFocusField === "heroSubtitle" ? `0 0 16px ${activeAccent}` : "none",
+                  outline: activeFocusField === "heroTitle" ? `3px solid ${activeAccent}` : "none",
+                  boxShadow: activeFocusField === "heroTitle" ? `0 0 18px ${activeAccent}` : "none",
                   borderRadius: "6px",
                   padding: "2px 6px",
-                  borderBottom: "1px dashed rgba(255,255,255,0.3)"
+                  borderBottom: "2px dashed rgba(255,255,255,0.3)",
+                  transition: "all 0.2s ease"
                 }}
-              >
-                {heroSubtitle}
-              </p>
+                dangerouslySetInnerHTML={{ __html: heroTitle }}
+              />
 
-              {/* COPY AI SUGGESTIONS FOR SUBTITLE */}
-              {activeFocusField === "heroSubtitle" && COPY_SUGGESTIONS.heroSubtitle && (
-                <div style={{
-                  position: "absolute",
-                  top: "105%",
-                  left: webTemplate === "editorial" && deviceMode !== "mobile" ? 0 : "50%",
-                  transform: webTemplate === "editorial" && deviceMode !== "mobile" ? "none" : "translateX(-50%)",
-                  backgroundColor: "rgba(15, 23, 42, 0.95)",
-                  border: `2px solid ${activeAccent}`,
-                  borderRadius: "14px",
-                  padding: "0.85rem 1rem",
-                  boxShadow: "0 15px 35px rgba(0,0,0,0.5)",
-                  zIndex: 99,
-                  maxWidth: "520px",
-                  width: "90%",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.4rem",
-                  backdropFilter: "blur(12px)"
-                }}>
-                  <div style={{ fontSize: "0.75rem", fontWeight: 800, color: activeAccent, display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                    <Lightbulb size={14} /> Sugerencias de Copy AI:
-                  </div>
-                  {COPY_SUGGESTIONS.heroSubtitle.map((sug, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onMouseDown={(e) => { e.preventDefault(); applyCopySuggestion("heroSubtitle", sug); }}
-                      style={{
-                        backgroundColor: "rgba(255,255,255,0.06)",
-                        border: "1px solid rgba(255,255,255,0.12)",
-                        color: "#f8fafc",
-                        borderRadius: "6px",
-                        padding: "0.4rem 0.7rem",
-                        fontSize: "0.78rem",
-                        textAlign: "left",
-                        cursor: "pointer"
-                      }}
-                    >
-                      ✨ "{sug}"
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
-
-          {/* SECTION 3: SEARCH & FILTER BAR */}
-          <section style={{ backgroundColor: previewModeTheme === "light" ? "#f1f5f9" : "rgba(17, 24, 39, 0.6)", padding: "1.25rem 1.5rem", borderBottom: `1px solid ${cardBorder}` }}>
-            <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-              <div style={{ flex: 1, minWidth: "160px", backgroundColor: previewModeTheme === "light" ? "#ffffff" : "#1f2937", borderRadius: "8px", padding: "0.6rem 1rem", display: "flex", alignItems: "center", gap: "0.5rem", border: `1px solid ${cardBorder}` }}>
-                <Search size={16} style={{ color: "#9ca3af" }} />
-                <span style={{ fontSize: "0.85rem", color: "#9ca3af" }}>Buscar vehículo...</span>
-              </div>
-              <div style={{ backgroundColor: previewModeTheme === "light" ? "#ffffff" : "#1f2937", borderRadius: "8px", padding: "0.6rem 1rem", display: "flex", alignItems: "center", gap: "0.5rem", border: `1px solid ${cardBorder}`, fontSize: "0.85rem", color: "#9ca3af" }}>
-                <Fuel size={16} /> Combustible (Todos)
-              </div>
-              <div style={{ backgroundColor: previewModeTheme === "light" ? "#ffffff" : "#1f2937", borderRadius: "8px", padding: "0.6rem 1rem", display: "flex", alignItems: "center", gap: "0.5rem", border: `1px solid ${cardBorder}`, fontSize: "0.85rem", color: "#9ca3af" }}>
-                Rango de Precio (Todos)
-              </div>
-            </div>
-          </section>
-
-          {/* SECTION 4: VEHICLE PUBLICATIONS CATALOG */}
-          <section style={{ padding: deviceMode === "mobile" ? "1.5rem 1rem" : "2.5rem 1.5rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-              <div>
-                <span style={{ fontSize: "0.72rem", fontWeight: 800, color: activeAccent, letterSpacing: "0.1em" }}>INVENTARIO EN VENTA</span>
-                <h2 style={{ margin: "0.2rem 0 0 0", fontSize: "1.4rem", color: canvasTextColor }}>Catálogo de Vehículos Seleccionados</h2>
-              </div>
-              <span style={{ fontSize: "0.8rem", color: activeAccent, fontWeight: 700 }}>Ver todo (3) →</span>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: deviceMode === "mobile" ? "1fr" : "repeat(auto-fit, minmax(220px, 1fr))", gap: "1.25rem" }}>
-              <div style={{
-                backgroundColor: `${activeAccent}12`,
-                border: `2px dashed ${activeAccent}`,
-                borderRadius: "14px",
-                padding: "1.5rem 1rem",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                textAlign: "center",
-                gap: "0.75rem",
-                minHeight: "250px"
-              }}>
-                <div style={{ backgroundColor: activeAccent, color: "white", padding: "0.75rem", borderRadius: "50%" }}>
-                  <Car size={24} />
-                </div>
-                <div>
-                  <strong style={{ fontSize: "0.92rem", color: activeAccent, display: "block", marginBottom: "0.3rem" }}>
-                    🚗 AQUÍ APARECERÁN TUS PUBLICACIONES
-                  </strong>
-                  <p style={{ fontSize: "0.78rem", opacity: 0.8, margin: 0, lineHeight: 1.4, color: canvasTextColor }}>
-                    Todos los vehículos que crees desde tu panel de administrador se mostrarán automáticamente en este catálogo.
-                  </p>
-                </div>
-                <span style={{ fontSize: "0.74rem", fontWeight: 700, backgroundColor: `${activeAccent}33`, color: activeAccent, padding: "0.3rem 0.75rem", borderRadius: "999px" }}>
-                  Sincronización Automática CRM
-                </span>
-              </div>
-
-              {DEMO_VEHICLES.map((v) => (
-                <div key={v.id} style={{ backgroundColor: previewModeTheme === "light" ? "#ffffff" : "#161e2e", borderRadius: "14px", overflow: "hidden", border: `1px solid ${cardBorder}` }}>
-                  <div style={{ position: "relative", height: "135px" }}>
-                    <img src={v.image} alt={v.model} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    <span style={{ position: "absolute", top: "8px", left: "8px", backgroundColor: activeAccent, color: "white", fontSize: "0.65rem", fontWeight: 800, padding: "0.2rem 0.5rem", borderRadius: "4px" }}>
-                      {v.tag}
-                    </span>
-                  </div>
-                  <div style={{ padding: "0.85rem" }}>
-                    <span style={{ fontSize: "0.72rem", opacity: 0.6, fontWeight: 600, color: canvasTextColor }}>{v.brand}</span>
-                    <h4 style={{ margin: "0.1rem 0 0.35rem 0", fontSize: "0.9rem", color: canvasTextColor }}>{v.model}</h4>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: "0.74rem", opacity: 0.6, color: canvasTextColor }}>{v.year} • {v.kms.toLocaleString()} km</span>
-                      <strong style={{ fontSize: "0.92rem", color: activeAccent }}>{v.price}</strong>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* SECTION 5: ABOUT US (WITH COPY AI SUGGESTIONS) */}
-          <section id="nosotros" style={{ padding: deviceMode === "mobile" ? "1.75rem 1rem" : "2.5rem 1.5rem", backgroundColor: previewModeTheme === "light" ? "#f1f5f9" : "rgba(15, 23, 42, 0.7)", borderTop: `1px solid ${cardBorder}` }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", maxWidth: "800px", margin: "0 auto", textAlign: "center", position: "relative" }}>
-              <span style={{ fontSize: "0.72rem", fontWeight: 800, color: activeAccent, letterSpacing: "0.1em", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: "0.3rem" }}>
-                <Info size={14} /> SOBRE NUESTRA AUTOMOTORA
-              </span>
-              <h2 style={{ margin: 0, fontSize: "1.4rem", color: canvasTextColor }}>Acerca de Nosotros</h2>
-              
-              <p
-                ref={aboutTextRef}
-                contentEditable
-                suppressContentEditableWarning
-                onFocus={() => setActiveFocusField("aboutText")}
-                onInput={makeDebouncedSave(aboutDebounceRef, setAboutText, "about_text", 800)}
-                onBlur={(e) => {
-                  // Flush inmediato al perder foco
-                  if (aboutDebounceRef.current) clearTimeout(aboutDebounceRef.current);
-                  const val = e.currentTarget.innerText.trim();
-                  setAboutText(val);
-                  onSave({ about_text: val });
-                }}
-                title="Escribe directamente aquí para modificar la reseña sobre tu automotora"
-                style={{
-                  fontSize: "0.9rem",
-                  lineHeight: 1.6,
-                  opacity: 0.95,
-                  margin: 0,
-                  cursor: "text",
-                  outline: activeFocusField === "aboutText" ? `3px solid ${activeAccent}` : "none",
-                  boxShadow: activeFocusField === "aboutText" ? `0 0 16px ${activeAccent}` : "none",
-                  border: "1px dashed rgba(255,255,255,0.3)",
-                  padding: "0.75rem 1rem",
-                  borderRadius: "8px",
-                  backgroundColor: previewModeTheme === "light" ? "#ffffff" : "rgba(255,255,255,0.03)",
-                  color: canvasTextColor
-                }}
-              >
-                {aboutText}
-              </p>
-
-              {/* COPY AI SUGGESTIONS FOR ABOUT US */}
-              {activeFocusField === "aboutText" && COPY_SUGGESTIONS.aboutText && (
+              {activeFocusField === "heroTitle" && COPY_SUGGESTIONS.heroTitle && (
                 <div style={{
                   position: "absolute",
                   top: "105%",
@@ -1192,315 +757,365 @@ export default function VisualWebBuilder({
                   border: `2px solid ${activeAccent}`,
                   borderRadius: "14px",
                   padding: "0.85rem 1rem",
-                  boxShadow: "0 15px 35px rgba(0,0,0,0.5)",
-                  zIndex: 99,
-                  maxWidth: "560px",
-                  width: "95%",
+                  boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
+                  zIndex: 40,
+                  width: "90%",
+                  maxWidth: "500px",
                   display: "flex",
                   flexDirection: "column",
-                  gap: "0.4rem",
-                  backdropFilter: "blur(12px)"
+                  gap: "0.5rem",
+                  backdropFilter: "blur(10px)"
                 }}>
-                  <div style={{ fontSize: "0.75rem", fontWeight: 800, color: activeAccent, display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                    <Lightbulb size={14} /> Sugerencias de Reseña Copy AI:
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.75rem", fontWeight: 800, color: activeAccent }}>
+                    <span><Sparkles size={12} /> Sugerencias de Título Impactante (IA):</span>
+                    <button type="button" onClick={() => setActiveFocusField(null)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", fontSize: "0.85rem" }}>✕</button>
                   </div>
-                  {COPY_SUGGESTIONS.aboutText.map((sug, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onMouseDown={(e) => { e.preventDefault(); applyCopySuggestion("aboutText", sug); }}
-                      style={{
-                        backgroundColor: "rgba(255,255,255,0.06)",
-                        border: "1px solid rgba(255,255,255,0.12)",
-                        color: "#f8fafc",
-                        borderRadius: "6px",
-                        padding: "0.45rem 0.75rem",
-                        fontSize: "0.78rem",
-                        textAlign: "left",
-                        cursor: "pointer",
-                        lineHeight: 1.4
-                      }}
-                    >
-                      ✨ "{sug}"
-                    </button>
-                  ))}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+                    {COPY_SUGGESTIONS.heroTitle.map((sug, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => applyCopySuggestion("heroTitle", sug)}
+                        style={{
+                          textAlign: "left",
+                          padding: "0.4rem 0.65rem",
+                          backgroundColor: "rgba(255,255,255,0.05)",
+                          border: "1px solid rgba(255,255,255,0.1)",
+                          borderRadius: "8px",
+                          color: "#f8fafc",
+                          fontSize: "0.78rem",
+                          cursor: "pointer"
+                        }}
+                      >
+                        &quot;{sug}&quot;
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
-          </section>
 
-          {/* SECTION 6: PILLARS OF TRUST (100% IN-PLACE EDITABLE FOR ALL 4 BLOCKS) */}
-          {showTrustSection && (
-            <section style={{ padding: deviceMode === "mobile" ? "1.75rem 1rem" : "2.5rem 1.5rem", borderTop: `1px solid ${cardBorder}` }}>
-              <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
-                <span style={{ fontSize: "0.72rem", fontWeight: 800, color: activeAccent, letterSpacing: "0.1em" }}>NUESTRO COMPROMISO</span>
-                <h3 style={{ margin: "0.2rem 0 0 0", fontSize: "1.35rem", color: canvasTextColor }}>¿Por qué Elegirnos?</h3>
+            {/* HERO SUBTITLE */}
+            <div style={{ position: "relative", width: "100%", maxWidth: "700px" }}>
+              <p 
+                ref={heroSubtitleRef}
+                contentEditable
+                suppressContentEditableWarning
+                onFocus={() => setActiveFocusField("heroSubtitle")}
+                onInput={(e) => handleLiveInput("hero_subtitle", e.currentTarget.innerText)}
+                onBlur={(e) => {
+                  if (debouncedTimerRef.current["hero_subtitle"]) clearTimeout(debouncedTimerRef.current["hero_subtitle"]);
+                  const val = e.currentTarget.innerText.trim();
+                  setHeroSubtitle(val);
+                  onSave({ hero_subtitle: val });
+                }}
+                style={{
+                  fontSize: deviceMode === "mobile" ? "0.85rem" : "1.05rem",
+                  color: "#cbd5e1",
+                  margin: 0,
+                  cursor: "text",
+                  outline: activeFocusField === "heroSubtitle" ? `3px solid ${activeAccent}` : "none",
+                  borderRadius: "6px",
+                  padding: "2px 6px",
+                  borderBottom: "2px dashed rgba(255,255,255,0.3)"
+                }}
+                dangerouslySetInnerHTML={{ __html: heroSubtitle }}
+              />
+            </div>
+
+            {/* Simulated Search Box */}
+            <div style={{
+              backgroundColor: "rgba(15, 23, 42, 0.85)",
+              border: `1px solid rgba(255, 255, 255, 0.12)`,
+              borderRadius: "12px",
+              padding: "0.85rem",
+              marginTop: "0.5rem",
+              width: "100%",
+              maxWidth: "680px",
+              display: "flex",
+              flexDirection: deviceMode === "mobile" ? "column" : "row",
+              gap: "0.5rem"
+            }}>
+              <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.5rem", backgroundColor: "rgba(255, 255, 255, 0.05)", borderRadius: "8px", padding: "0.5rem 0.75rem", fontSize: "0.8rem" }}>
+                <Search size={14} style={{ opacity: 0.6 }} />
+                <span>Buscar marca o modelo...</span>
               </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: deviceMode === "mobile" ? "1fr" : "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem" }}>
-                {/* Block 1 */}
-                <div style={{ backgroundColor: cardBg, padding: "1.25rem", borderRadius: "12px", border: `1px dashed ${cardBorder}` }}>
-                  <Shield size={24} style={{ color: activeAccent, marginBottom: "0.5rem" }} />
-                  <h4 
-                    contentEditable
-                    suppressContentEditableWarning
-                    onBlur={(e) => {
-                      const val = e.currentTarget.innerText.trim();
-                      setP1Title(val);
-                      onSave({ trust_pillar1_title: val });
-                    }}
-                    style={{ margin: "0 0 0.25rem 0", fontSize: "0.9rem", outline: "none", cursor: "text", color: canvasTextColor }}
-                  >
-                    {p1Title}
-                  </h4>
-                  <p 
-                    contentEditable
-                    suppressContentEditableWarning
-                    onBlur={(e) => {
-                      const val = e.currentTarget.innerText.trim();
-                      setP1Desc(val);
-                      onSave({ trust_pillar1_desc: val });
-                    }}
-                    style={{ margin: 0, fontSize: "0.78rem", opacity: 0.8, outline: "none", cursor: "text", color: canvasTextColor }}
-                  >
-                    {p1Desc}
-                  </p>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", backgroundColor: "rgba(255, 255, 255, 0.05)", borderRadius: "8px", padding: "0.5rem 0.75rem", fontSize: "0.8rem" }}>
+                  <Fuel size={14} style={{ opacity: 0.6 }} /> Combustible
                 </div>
-
-                {/* Block 2 */}
-                <div style={{ backgroundColor: cardBg, padding: "1.25rem", borderRadius: "12px", border: `1px dashed ${cardBorder}` }}>
-                  <Zap size={24} style={{ color: activeAccent, marginBottom: "0.5rem" }} />
-                  <h4 
-                    contentEditable
-                    suppressContentEditableWarning
-                    onBlur={(e) => {
-                      const val = e.currentTarget.innerText.trim();
-                      setP2Title(val);
-                      onSave({ trust_pillar2_title: val });
-                    }}
-                    style={{ margin: "0 0 0.25rem 0", fontSize: "0.9rem", outline: "none", cursor: "text", color: canvasTextColor }}
-                  >
-                    {p2Title}
-                  </h4>
-                  <p 
-                    contentEditable
-                    suppressContentEditableWarning
-                    onBlur={(e) => {
-                      const val = e.currentTarget.innerText.trim();
-                      setP2Desc(val);
-                      onSave({ trust_pillar2_desc: val });
-                    }}
-                    style={{ margin: 0, fontSize: "0.78rem", opacity: 0.8, outline: "none", cursor: "text", color: canvasTextColor }}
-                  >
-                    {p2Desc}
-                  </p>
-                </div>
-
-                {/* Block 3 */}
-                <div style={{ backgroundColor: cardBg, padding: "1.25rem", borderRadius: "12px", border: `1px dashed ${cardBorder}` }}>
-                  <Car size={24} style={{ color: activeAccent, marginBottom: "0.5rem" }} />
-                  <h4 
-                    contentEditable
-                    suppressContentEditableWarning
-                    onBlur={(e) => {
-                      const val = e.currentTarget.innerText.trim();
-                      setP3Title(val);
-                      onSave({ trust_pillar3_title: val });
-                    }}
-                    style={{ margin: "0 0 0.25rem 0", fontSize: "0.9rem", outline: "none", cursor: "text", color: canvasTextColor }}
-                  >
-                    {p3Title}
-                  </h4>
-                  <p 
-                    contentEditable
-                    suppressContentEditableWarning
-                    onBlur={(e) => {
-                      const val = e.currentTarget.innerText.trim();
-                      setP3Desc(val);
-                      onSave({ trust_pillar3_desc: val });
-                    }}
-                    style={{ margin: 0, fontSize: "0.78rem", opacity: 0.8, outline: "none", cursor: "text", color: canvasTextColor }}
-                  >
-                    {p3Desc}
-                  </p>
-                </div>
-
-                {/* Block 4 */}
-                <div style={{ backgroundColor: cardBg, padding: "1.25rem", borderRadius: "12px", border: `1px dashed ${cardBorder}` }}>
-                  <Award size={24} style={{ color: activeAccent, marginBottom: "0.5rem" }} />
-                  <h4 
-                    contentEditable
-                    suppressContentEditableWarning
-                    onBlur={(e) => {
-                      const val = e.currentTarget.innerText.trim();
-                      setP4Title(val);
-                      onSave({ trust_pillar4_title: val });
-                    }}
-                    style={{ margin: "0 0 0.25rem 0", fontSize: "0.9rem", outline: "none", cursor: "text", color: canvasTextColor }}
-                  >
-                    {p4Title}
-                  </h4>
-                  <p 
-                    contentEditable
-                    suppressContentEditableWarning
-                    onBlur={(e) => {
-                      const val = e.currentTarget.innerText.trim();
-                      setP4Desc(val);
-                      onSave({ trust_pillar4_desc: val });
-                    }}
-                    style={{ margin: 0, fontSize: "0.78rem", opacity: 0.8, outline: "none", cursor: "text", color: canvasTextColor }}
-                  >
-                    {p4Desc}
-                  </p>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* SECTION 7: CONTACT & LOCATION */}
-          <section style={{ padding: deviceMode === "mobile" ? "1.75rem 1rem" : "2.5rem 1.5rem", backgroundColor: previewModeTheme === "light" ? "#f1f5f9" : "rgba(11, 15, 25, 0.8)", borderTop: `1px solid ${cardBorder}` }}>
-            <div style={{ display: "grid", gridTemplateColumns: deviceMode === "mobile" ? "1fr" : "1fr 1fr", gap: "1.75rem" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                <span style={{ fontSize: "0.72rem", fontWeight: 800, color: activeAccent, letterSpacing: "0.1em" }}>ATENCIÓN PERSONALIZADA</span>
-                <h3 style={{ margin: 0, fontSize: "1.35rem", color: canvasTextColor }}>Contacto & Ubicación</h3>
-                
-                <div style={{ backgroundColor: cardBg, padding: "0.85rem 1rem", borderRadius: "10px", border: `1px dashed ${cardBorder}` }}>
-                  <strong style={{ fontSize: "0.78rem", color: activeAccent, display: "block" }}>💬 Mensaje de Atención</strong>
-                  <p
-                    contentEditable
-                    suppressContentEditableWarning
-                    onBlur={(e) => {
-                      const val = e.currentTarget.innerText.trim();
-                      setContactDescription(val);
-                      onSave({ contact_description: val });
-                    }}
-                    style={{ fontSize: "0.85rem", margin: 0, outline: "none", cursor: "text", color: canvasTextColor }}
-                  >
-                    {contactDescription}
-                  </p>
-                </div>
-
-                <div style={{ backgroundColor: cardBg, padding: "0.85rem 1rem", borderRadius: "10px", border: `1px dashed ${cardBorder}` }}>
-                  <strong style={{ fontSize: "0.78rem", color: "#38bdf8", display: "block" }}>📍 Ubicación de {agency.name || "la Automotora"}</strong>
-                  <p
-                    contentEditable
-                    suppressContentEditableWarning
-                    onBlur={(e) => {
-                      const val = e.currentTarget.innerText.trim();
-                      setLocationAddress(val);
-                      onSave({ location_address: val });
-                    }}
-                    style={{ fontSize: "0.85rem", margin: 0, outline: "none", cursor: "text", color: canvasTextColor }}
-                  >
-                    {locationAddress}
-                  </p>
-                </div>
-
-                <div style={{ backgroundColor: cardBg, padding: "0.85rem 1rem", borderRadius: "10px", border: `1px dashed ${cardBorder}` }}>
-                  <strong style={{ fontSize: "0.78rem", color: "#f59e0b", display: "block" }}>🕒 Horarios de Atención</strong>
-                  <p
-                    contentEditable
-                    suppressContentEditableWarning
-                    onBlur={(e) => {
-                      const val = e.currentTarget.innerText.trim();
-                      setBusinessHours(val);
-                      onSave({ business_hours: val });
-                    }}
-                    style={{ fontSize: "0.85rem", margin: 0, outline: "none", cursor: "text", color: canvasTextColor }}
-                  >
-                    {businessHours}
-                  </p>
-                </div>
-              </div>
-
-              <div style={{ backgroundColor: cardBg, padding: "1.25rem", borderRadius: "14px", border: `1px solid ${cardBorder}`, display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-                <h4 style={{ margin: 0, fontSize: "0.95rem", color: canvasTextColor }}>Enviar Consulta Directa</h4>
-                <input type="text" placeholder="Tu Nombre completo..." style={{ padding: "0.55rem 0.75rem", borderRadius: "6px", border: `1px solid ${cardBorder}`, backgroundColor: previewModeTheme === "light" ? "#ffffff" : "#0b0f19", color: canvasTextColor, fontSize: "0.82rem" }} readOnly />
-                <input type="text" placeholder="Tu Teléfono / WhatsApp..." style={{ padding: "0.55rem 0.75rem", borderRadius: "6px", border: `1px solid ${cardBorder}`, backgroundColor: previewModeTheme === "light" ? "#ffffff" : "#0b0f19", color: canvasTextColor, fontSize: "0.82rem" }} readOnly />
-                <textarea rows={2} placeholder="¿Qué vehículo te interesa consultar?..." style={{ padding: "0.55rem 0.75rem", borderRadius: "6px", border: `1px solid ${cardBorder}`, backgroundColor: previewModeTheme === "light" ? "#ffffff" : "#0b0f19", color: canvasTextColor, fontSize: "0.82rem", resize: "none" }} readOnly />
-                <button type="button" style={{ backgroundColor: "#25d366", color: "white", border: "none", padding: "0.6rem", borderRadius: "6px", fontWeight: 700, fontSize: "0.85rem", cursor: "pointer" }}>
-                  Enviar por WhatsApp ↗
+                <button type="button" style={{ backgroundColor: activeAccent, color: "white", border: "none", borderRadius: "8px", padding: "0.5rem 1rem", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer" }}>
+                  Buscar
                 </button>
               </div>
             </div>
           </section>
 
-          {/* SECTION 8: FOOTER (CLEANED WITHOUT EXTRA AUXILIARY LABELS) */}
-          <footer style={{
-            padding: "1.75rem 1.5rem",
-            backgroundColor: previewModeTheme === "light" ? "#e2e8f0" : "#05070b",
-            borderTop: `1px solid ${cardBorder}`,
-            textAlign: "center"
-          }}>
-            <p
-              contentEditable
-              suppressContentEditableWarning
-              onBlur={(e) => {
-                const val = e.currentTarget.innerText.trim();
-                setFooterText(val);
-                onSave({ footer_text: val });
-              }}
-              style={{
-                fontSize: "0.85rem",
-                opacity: 0.85,
-                maxWidth: "600px",
-                margin: "0 auto",
-                outline: "none",
-                cursor: "text",
-                color: canvasTextColor,
-                borderBottom: previewModeTheme === "light" ? "1px dashed rgba(0,0,0,0.3)" : "1px dashed rgba(255,255,255,0.3)"
-              }}
-            >
-              {footerText}
-            </p>
-            <div style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: `1px solid ${cardBorder}`, fontSize: "0.72rem", opacity: 0.6, color: canvasTextColor }}>
+          {/* SECTION 3: FEATURED VEHICLES GRID */}
+          <section style={{ backgroundColor: "#0b0f17", padding: "2.5rem 1.5rem", borderBottom: `1px solid rgba(255,255,255,0.08)` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "1.5rem" }}>
+              <div>
+                <span style={{ fontSize: "0.7rem", fontWeight: 800, color: activeAccent, letterSpacing: "0.1em" }}>
+                  CATÁLOGO EN VIVO
+                </span>
+                <h2 style={{ fontSize: "1.5rem", fontWeight: 700, margin: 0, color: "#ffffff" }}>Vehículos Destacados</h2>
+              </div>
+              <span style={{ fontSize: "0.8rem", color: "#94a3b8" }}>3 unidades de prueba</span>
+            </div>
+
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: deviceMode === "mobile" ? "1fr" : "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: "1.25rem"
+            }}>
+              {DEMO_VEHICLES.map((v) => (
+                <div 
+                  key={v.id}
+                  style={{
+                    backgroundColor: "#151d2a",
+                    border: `1px solid rgba(255,255,255,0.08)`,
+                    borderRadius: "12px",
+                    overflow: "hidden",
+                    display: "flex",
+                    flexDirection: "column"
+                  }}
+                >
+                  <div style={{ position: "relative", aspectRatio: "16/10", overflow: "hidden" }}>
+                    <img src={v.image} alt={v.model} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <span style={{
+                      position: "absolute",
+                      top: "8px",
+                      left: "8px",
+                      backgroundColor: "rgba(0,0,0,0.75)",
+                      color: "white",
+                      fontSize: "0.65rem",
+                      fontWeight: 800,
+                      padding: "0.2rem 0.5rem",
+                      borderRadius: "4px"
+                    }}>
+                      {v.tag}
+                    </span>
+                  </div>
+                  <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+                    <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "#ffffff" }}>{v.brand} {v.model}</div>
+                    <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>Año: {v.year} | {v.kms.toLocaleString()} km</div>
+                    <div style={{ fontSize: "1.05rem", fontWeight: 800, color: activeAccent, marginTop: "0.3rem" }}>{v.price}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* SECTION 4: SOBRE NOSOTROS */}
+          <section style={{ backgroundColor: "#0f172a", padding: "2.5rem 1.5rem", borderBottom: `1px solid rgba(255,255,255,0.08)` }}>
+            <div style={{ maxWidth: "800px", margin: "0 auto", textAlign: "center", display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <span style={{ fontSize: "0.7rem", fontWeight: 800, color: activeAccent, letterSpacing: "0.1em" }}>
+                TRANSPARENCIA & RESPALDO
+              </span>
+              <h2 style={{ fontSize: "1.6rem", fontWeight: 700, margin: 0, color: "#ffffff" }}>Sobre {name || "la Automotora"}</h2>
+              
+              <div style={{ position: "relative" }}>
+                <p
+                  ref={aboutTextRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  onFocus={() => setActiveFocusField("aboutText")}
+                  onInput={(e) => handleLiveInput("about_text", e.currentTarget.innerText)}
+                  onBlur={(e) => {
+                    if (debouncedTimerRef.current["about_text"]) clearTimeout(debouncedTimerRef.current["about_text"]);
+                    const val = e.currentTarget.innerText.trim();
+                    setAboutText(val);
+                    onSave({ about_text: val });
+                  }}
+                  style={{
+                    fontSize: "0.95rem",
+                    lineHeight: 1.6,
+                    color: "#cbd5e1",
+                    margin: 0,
+                    cursor: "text",
+                    outline: activeFocusField === "aboutText" ? `3px solid ${activeAccent}` : "none",
+                    borderRadius: "6px",
+                    padding: "4px 8px",
+                    borderBottom: "2px dashed rgba(255,255,255,0.3)"
+                  }}
+                  dangerouslySetInnerHTML={{ __html: aboutText }}
+                />
+              </div>
+
+              {/* TRUST PILLARS CARDS */}
+              {showTrustSection && (
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: deviceMode === "mobile" ? "1fr" : "repeat(4, 1fr)",
+                  gap: "0.85rem",
+                  marginTop: "1.5rem",
+                  textAlign: "left"
+                }}>
+                  <div style={{ backgroundColor: "#151d2a", border: `1px solid rgba(255,255,255,0.08)`, borderRadius: "10px", padding: "0.85rem" }}>
+                    <Shield size={22} style={{ color: activeAccent, marginBottom: "0.4rem" }} />
+                    <h4 
+                      contentEditable 
+                      suppressContentEditableWarning
+                      onInput={(e) => handleLiveInput("trust_pillar1_title", e.currentTarget.innerText)}
+                      onBlur={(e) => {
+                        if (debouncedTimerRef.current["trust_pillar1_title"]) clearTimeout(debouncedTimerRef.current["trust_pillar1_title"]);
+                        const v = e.currentTarget.innerText.trim(); setP1Title(v); onSave({ trust_pillar1_title: v });
+                      }}
+                      style={{ fontSize: "0.85rem", fontWeight: 700, margin: "0 0 0.2rem 0", color: "#ffffff", outline: "none" }}
+                      dangerouslySetInnerHTML={{ __html: p1Title }}
+                    />
+                    <p 
+                      contentEditable 
+                      suppressContentEditableWarning
+                      onInput={(e) => handleLiveInput("trust_pillar1_desc", e.currentTarget.innerText)}
+                      onBlur={(e) => {
+                        if (debouncedTimerRef.current["trust_pillar1_desc"]) clearTimeout(debouncedTimerRef.current["trust_pillar1_desc"]);
+                        const v = e.currentTarget.innerText.trim(); setP1Desc(v); onSave({ trust_pillar1_desc: v });
+                      }}
+                      style={{ fontSize: "0.72rem", color: "#94a3b8", margin: 0, outline: "none" }}
+                      dangerouslySetInnerHTML={{ __html: p1Desc }}
+                    />
+                  </div>
+
+                  <div style={{ backgroundColor: "#151d2a", border: `1px solid rgba(255,255,255,0.08)`, borderRadius: "10px", padding: "0.85rem" }}>
+                    <Zap size={22} style={{ color: activeAccent, marginBottom: "0.4rem" }} />
+                    <h4 
+                      contentEditable 
+                      suppressContentEditableWarning
+                      onInput={(e) => handleLiveInput("trust_pillar2_title", e.currentTarget.innerText)}
+                      onBlur={(e) => {
+                        if (debouncedTimerRef.current["trust_pillar2_title"]) clearTimeout(debouncedTimerRef.current["trust_pillar2_title"]);
+                        const v = e.currentTarget.innerText.trim(); setP2Title(v); onSave({ trust_pillar2_title: v });
+                      }}
+                      style={{ fontSize: "0.85rem", fontWeight: 700, margin: "0 0 0.2rem 0", color: "#ffffff", outline: "none" }}
+                      dangerouslySetInnerHTML={{ __html: p2Title }}
+                    />
+                    <p 
+                      contentEditable 
+                      suppressContentEditableWarning
+                      onInput={(e) => handleLiveInput("trust_pillar2_desc", e.currentTarget.innerText)}
+                      onBlur={(e) => {
+                        if (debouncedTimerRef.current["trust_pillar2_desc"]) clearTimeout(debouncedTimerRef.current["trust_pillar2_desc"]);
+                        const v = e.currentTarget.innerText.trim(); setP2Desc(v); onSave({ trust_pillar2_desc: v });
+                      }}
+                      style={{ fontSize: "0.72rem", color: "#94a3b8", margin: 0, outline: "none" }}
+                      dangerouslySetInnerHTML={{ __html: p2Desc }}
+                    />
+                  </div>
+
+                  <div style={{ backgroundColor: "#151d2a", border: `1px solid rgba(255,255,255,0.08)`, borderRadius: "10px", padding: "0.85rem" }}>
+                    <Car size={22} style={{ color: activeAccent, marginBottom: "0.4rem" }} />
+                    <h4 
+                      contentEditable 
+                      suppressContentEditableWarning
+                      onInput={(e) => handleLiveInput("trust_pillar3_title", e.currentTarget.innerText)}
+                      onBlur={(e) => {
+                        if (debouncedTimerRef.current["trust_pillar3_title"]) clearTimeout(debouncedTimerRef.current["trust_pillar3_title"]);
+                        const v = e.currentTarget.innerText.trim(); setP3Title(v); onSave({ trust_pillar3_title: v });
+                      }}
+                      style={{ fontSize: "0.85rem", fontWeight: 700, margin: "0 0 0.2rem 0", color: "#ffffff", outline: "none" }}
+                      dangerouslySetInnerHTML={{ __html: p3Title }}
+                    />
+                    <p 
+                      contentEditable 
+                      suppressContentEditableWarning
+                      onInput={(e) => handleLiveInput("trust_pillar3_desc", e.currentTarget.innerText)}
+                      onBlur={(e) => {
+                        if (debouncedTimerRef.current["trust_pillar3_desc"]) clearTimeout(debouncedTimerRef.current["trust_pillar3_desc"]);
+                        const v = e.currentTarget.innerText.trim(); setP3Desc(v); onSave({ trust_pillar3_desc: v });
+                      }}
+                      style={{ fontSize: "0.72rem", color: "#94a3b8", margin: 0, outline: "none" }}
+                      dangerouslySetInnerHTML={{ __html: p3Desc }}
+                    />
+                  </div>
+
+                  <div style={{ backgroundColor: "#151d2a", border: `1px solid rgba(255,255,255,0.08)`, borderRadius: "10px", padding: "0.85rem" }}>
+                    <Award size={22} style={{ color: activeAccent, marginBottom: "0.4rem" }} />
+                    <h4 
+                      contentEditable 
+                      suppressContentEditableWarning
+                      onInput={(e) => handleLiveInput("trust_pillar4_title", e.currentTarget.innerText)}
+                      onBlur={(e) => {
+                        if (debouncedTimerRef.current["trust_pillar4_title"]) clearTimeout(debouncedTimerRef.current["trust_pillar4_title"]);
+                        const v = e.currentTarget.innerText.trim(); setP4Title(v); onSave({ trust_pillar4_title: v });
+                      }}
+                      style={{ fontSize: "0.85rem", fontWeight: 700, margin: "0 0 0.2rem 0", color: "#ffffff", outline: "none" }}
+                      dangerouslySetInnerHTML={{ __html: p4Title }}
+                    />
+                    <p 
+                      contentEditable 
+                      suppressContentEditableWarning
+                      onInput={(e) => handleLiveInput("trust_pillar4_desc", e.currentTarget.innerText)}
+                      onBlur={(e) => {
+                        if (debouncedTimerRef.current["trust_pillar4_desc"]) clearTimeout(debouncedTimerRef.current["trust_pillar4_desc"]);
+                        const v = e.currentTarget.innerText.trim(); setP4Desc(v); onSave({ trust_pillar4_desc: v });
+                      }}
+                      style={{ fontSize: "0.72rem", color: "#94a3b8", margin: 0, outline: "none" }}
+                      dangerouslySetInnerHTML={{ __html: p4Desc }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* SECTION 5: CONTACT & FOOTER */}
+          <footer style={{ backgroundColor: "#0b0f17", padding: "2rem 1.5rem", borderTop: `1px solid rgba(255,255,255,0.08)` }}>
+            <div style={{ display: "flex", flexDirection: deviceMode === "mobile" ? "column" : "row", justifyContent: "space-between", gap: "1.5rem" }}>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <div style={{ fontSize: "1.1rem", fontWeight: 800, color: "#ffffff" }}>{name || "Automotora VIP"}</div>
+                <p 
+                  contentEditable
+                  suppressContentEditableWarning
+                  onInput={(e) => handleLiveInput("footer_text", e.currentTarget.innerText)}
+                  onBlur={(e) => {
+                    if (debouncedTimerRef.current["footer_text"]) clearTimeout(debouncedTimerRef.current["footer_text"]);
+                    const v = e.currentTarget.innerText.trim(); setFooterText(v); onSave({ footer_text: v });
+                  }}
+                  style={{ fontSize: "0.78rem", color: "#94a3b8", margin: 0, outline: "none" }}
+                  dangerouslySetInnerHTML={{ __html: footerText }}
+                />
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "0.78rem", color: "#cbd5e1" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  <MapPin size={13} style={{ color: activeAccent }} />
+                  <span 
+                    contentEditable
+                    suppressContentEditableWarning
+                    onInput={(e) => handleLiveInput("location_address", e.currentTarget.innerText)}
+                    onBlur={(e) => {
+                      if (debouncedTimerRef.current["location_address"]) clearTimeout(debouncedTimerRef.current["location_address"]);
+                      const v = e.currentTarget.innerText.trim(); setLocationAddress(v); onSave({ location_address: v });
+                    }}
+                    style={{ outline: "none" }}
+                    dangerouslySetInnerHTML={{ __html: locationAddress }}
+                  />
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  <Clock size={13} style={{ color: activeAccent }} />
+                  <span 
+                    contentEditable
+                    suppressContentEditableWarning
+                    onInput={(e) => handleLiveInput("business_hours", e.currentTarget.innerText)}
+                    onBlur={(e) => {
+                      if (debouncedTimerRef.current["business_hours"]) clearTimeout(debouncedTimerRef.current["business_hours"]);
+                      const v = e.currentTarget.innerText.trim(); setBusinessHours(v); onSave({ business_hours: v });
+                    }}
+                    style={{ outline: "none" }}
+                    dangerouslySetInnerHTML={{ __html: businessHours }}
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", marginTop: "1.5rem", paddingTop: "1rem", fontSize: "0.72rem", color: "#64748b", textAlign: "center" }}>
               © {new Date().getFullYear()} {name || "Automotora"}. Todos los derechos reservados.
             </div>
           </footer>
 
         </div>
       </div>
-
-      {/* FIXED BOTTOM OUTSIDE STATUS BANNER (YELLOW FOR SAVING / NEON GREEN FOR SAVED) */}
-      {autoSavingStatus !== "idle" && (
-        <div style={{
-          position: "fixed",
-          bottom: "24px",
-          left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 99999,
-          padding: "0.7rem 1.6rem",
-          borderRadius: "9999px",
-          fontWeight: 800,
-          fontSize: "0.88rem",
-          display: "flex",
-          alignItems: "center",
-          gap: "0.6rem",
-          boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
-          backdropFilter: "blur(12px)",
-          transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-          backgroundColor: autoSavingStatus === "saving" ? "#f59e0b" : autoSavingStatus === "error" ? "#ef4444" : "#10b981",
-          color: autoSavingStatus === "saving" ? "#0f172a" : "#ffffff",
-          border: autoSavingStatus === "saving" ? "1px solid #d97706" : autoSavingStatus === "error" ? "1px solid #dc2626" : "1px solid #059669"
-        }}>
-          {autoSavingStatus === "saving" ? (
-            <>
-              <span style={{ fontSize: "1.1rem" }}>⏳</span>
-              <span>Guardando cambios en vivo...</span>
-            </>
-          ) : autoSavingStatus === "error" ? (
-            <>
-              <XCircle size={18} />
-              <span>Error al guardar. Reintentando...</span>
-            </>
-          ) : (
-            <>
-              <CheckCircle2 size={18} />
-              <span>¡Guardado con éxito!</span>
-            </>
-          )}
-        </div>
-      )}
     </div>
   );
 }

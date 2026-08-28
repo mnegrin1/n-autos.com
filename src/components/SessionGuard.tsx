@@ -168,7 +168,8 @@ export default function SessionGuard({
       document.cookie = "admin-session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;";
       await logout();
     } catch {}
-    window.location.href = "/admin/login";
+    const isSuperAdminPath = typeof window !== "undefined" && window.location.pathname.startsWith("/superadmin");
+    window.location.href = isSuperAdminPath ? "/superadmin/login" : "/admin/login";
   };
 
   return (

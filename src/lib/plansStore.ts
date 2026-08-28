@@ -47,7 +47,7 @@ export const DEFAULT_PLANS: PaymentPlan[] = [
     emailBroadcasts: "No disponible",
     multichannelPublish: "Manual",
     aiAssistant: "No disponible",
-    customDomain: "Subdominio .n-sistemas.com",
+    customDomain: "Subdominio .n-autos.com",
     supportLevel: "Email estándar",
     active: true
   },

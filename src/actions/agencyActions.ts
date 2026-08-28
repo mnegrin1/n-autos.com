@@ -15,16 +15,24 @@ import {
 // Persistent server-side in-memory agency store to guarantee instant persistence
 const serverAgencyStore: Record<string, any> = {};
 
+export async function clearServerAgencyCache(key: string) {
+  if (!key) return;
+  const cleanKey = key.trim().toLowerCase();
+  delete serverAgencyStore[cleanKey];
+  delete serverAgencyStore[key];
+}
+
+
 const DEFAULT_BASE_DEFAULTS = {
-  id: "00000000-0000-0000-0000-000000000000",
   name: "Automotora",
   subdomain: "hola",
   whatsapp: "+598 99 123 456",
   primary_color: "#10b981",
   secondary_color: "#059669",
+  font_family: "Inter",
   web_template: "standard",
   logo_url: "",
-  cover_url: "",
+  cover_url: "/hero_dealership_drone.jpg",
   hero_eyebrow: "AUTOMOTORA OFICIAL",
   hero_title: "Encuentra tu próximo vehículo",
   hero_subtitle: "Unidades seleccionadas que te brindan seguridad, potencia y tranquilidad en cada kilómetro.",
@@ -49,7 +57,7 @@ const DEFAULT_BASE_DEFAULTS = {
 
 export async function getAgencyBySlug(slug: string): Promise<any> {
   const cleanSlug = slug.trim().toLowerCase();
-  const persistent = getPersistentAgencySettings();
+  const persistent = getPersistentAgencySettings(cleanSlug);
 
   // 1. Verificar si el subdominio está en el historial de subdominios cambiados
   const historyRecord = await checkSubdomainHistory(cleanSlug);
@@ -63,15 +71,18 @@ export async function getAgencyBySlug(slug: string): Promise<any> {
     };
   }
 
-  const cached = serverAgencyStore[cleanSlug] || serverAgencyStore["demo"] || {};
+  const cached = serverAgencyStore[cleanSlug] || {};
 
   try {
-    let { data, error } = await (supabaseAdmin.from("agencies") as any)
+    const initialRes = await (supabaseAdmin.from("agencies") as any)
       .select("*")
       .eq("subdomain", cleanSlug)
       .maybeSingle();
 
-    if ((error || !data) && (cleanSlug === "demo" || cleanSlug === "carmax" || cleanSlug === persistent.subdomain)) {
+    let data = initialRes.data;
+    const error = initialRes.error;
+
+    if ((error || !data) && cleanSlug === "demo") {
       const fallbackRes = await (supabaseAdmin.from("agencies") as any)
         .select("*")
         .limit(1)
@@ -81,14 +92,25 @@ export async function getAgencyBySlug(slug: string): Promise<any> {
       }
     }
 
-    if (!data && cleanSlug !== "demo" && cleanSlug !== "carmax" && cleanSlug !== persistent.subdomain) {
-      if (serverAgencyStore[cleanSlug] && serverAgencyStore[cleanSlug].subdomain === cleanSlug) {
-        return {
+    if (!data && cleanSlug !== "demo") {
+
+      const hasPersistentMatch = persistent && persistent.subdomain && persistent.subdomain.toLowerCase() === cleanSlug;
+      const hasMemoryMatch = serverAgencyStore[cleanSlug] && serverAgencyStore[cleanSlug].subdomain === cleanSlug;
+
+      if (hasPersistentMatch || hasMemoryMatch) {
+        const merged = {
           ...DEFAULT_BASE_DEFAULTS,
           ...persistent,
-          ...serverAgencyStore[cleanSlug],
+          ...(serverAgencyStore[cleanSlug] || {}),
+          subdomain: cleanSlug,
         };
+        serverAgencyStore[cleanSlug] = merged;
+        if (merged.id) {
+          serverAgencyStore[merged.id] = merged;
+        }
+        return merged;
       }
+
       return {
         isNotFound: true,
         subdomain: cleanSlug,
@@ -99,16 +121,28 @@ export async function getAgencyBySlug(slug: string): Promise<any> {
 
     const merged = {
       ...DEFAULT_BASE_DEFAULTS,
-      ...cleanData,
       ...persistent,
+      ...cleanData,
       ...cached,
+      ...(data?.id ? { id: data.id } : {}),
+      ...(data?.subdomain ? { subdomain: data.subdomain } : {}),
+      ...(data?.name ? { name: data.name } : {}),
     };
+
+    if (!persistent.name || persistent.name === "Automotora") {
+      if (cleanData.name) merged.name = cleanData.name as string;
+    }
+    if (!persistent.subdomain || persistent.subdomain === "hola") {
+      if (cleanData.subdomain) merged.subdomain = cleanData.subdomain as string;
+    }
 
     serverAgencyStore[cleanSlug] = merged;
     if (merged.subdomain) {
       serverAgencyStore[merged.subdomain] = merged;
     }
-    serverAgencyStore["demo"] = merged;
+    if (data?.id) {
+      serverAgencyStore[data.id] = merged;
+    }
     return merged;
   } catch (e) {
     console.error("Error connecting to Supabase for agency:", e);
@@ -122,54 +156,60 @@ export async function getAgencyBySlug(slug: string): Promise<any> {
 }
 
 export async function getPrimaryAgency(agencyId?: string): Promise<any> {
-  const persistent = getPersistentAgencySettings();
+  const isDemoQuery = !agencyId || agencyId === "00000000-0000-0000-0000-000000000000";
   const targetId = agencyId && agencyId !== "00000000-0000-0000-0000-000000000000" ? agencyId : null;
+  const persistent = getPersistentAgencySettings(targetId || (isDemoQuery ? "00000000-0000-0000-0000-000000000000" : undefined));
 
   try {
-    let query = (supabaseAdmin.from("agencies") as any).select("*");
+    let data: any = null;
+
     if (targetId) {
-      query = query.eq("id", targetId);
-    }
-    let { data, error } = await query.limit(1).maybeSingle();
-
-    if ((error || !data) && targetId) {
+      const res = await (supabaseAdmin.from("agencies") as any).select("*").eq("id", targetId).maybeSingle();
+      if (!res.error && res.data) {
+        data = res.data;
+      }
+    } else if (isDemoQuery) {
       const fallbackRes = await (supabaseAdmin.from("agencies") as any).select("*").limit(1).maybeSingle();
       if (!fallbackRes.error && fallbackRes.data) {
         data = fallbackRes.data;
       }
     }
 
-    if (!data) {
-      const fallbackRes = await (supabaseAdmin.from("agencies") as any).select("*").limit(1).maybeSingle();
-      if (!fallbackRes.error && fallbackRes.data) {
-        data = fallbackRes.data;
-      }
-    }
-
-    const cached = serverAgencyStore[data?.id] || serverAgencyStore[data?.subdomain] || (agencyId ? serverAgencyStore[agencyId] : null) || serverAgencyStore["demo"] || {};
-
+    const cached = (data?.id ? serverAgencyStore[data.id] : null) || (agencyId ? serverAgencyStore[agencyId] : null) || (data?.subdomain ? serverAgencyStore[data.subdomain] : null) || {};
     const cleanData = data ? Object.fromEntries(Object.entries(data).filter(([_, v]) => v !== null && v !== undefined && v !== "")) : {};
 
     const merged = {
       ...DEFAULT_BASE_DEFAULTS,
-      ...cleanData,
       ...persistent,
+      ...cleanData,
       ...cached,
+      ...(agencyId ? { id: agencyId } : data?.id ? { id: data.id } : {}),
+      ...(data?.subdomain ? { subdomain: data.subdomain } : {}),
+      ...(data?.name ? { name: data.name } : {}),
     };
+
+    if (!persistent.name || persistent.name === "Automotora") {
+      if (cleanData.name) merged.name = cleanData.name as string;
+    }
+    if (!persistent.subdomain || persistent.subdomain === "hola") {
+      if (cleanData.subdomain) merged.subdomain = cleanData.subdomain as string;
+    }
 
     if (data?.id) serverAgencyStore[data.id] = merged;
     if (agencyId) serverAgencyStore[agencyId] = merged;
     if (merged.subdomain) serverAgencyStore[merged.subdomain] = merged;
-    serverAgencyStore["demo"] = merged;
 
     return merged;
   } catch (e) {
     console.error("Error al obtener la agencia principal:", e);
   }
 
+  const cached = (agencyId ? serverAgencyStore[agencyId] : null) || {};
   return {
     ...DEFAULT_BASE_DEFAULTS,
+    ...(agencyId ? { id: agencyId } : {}),
     ...persistent,
+    ...cached,
   };
 }
 
@@ -213,9 +253,6 @@ export async function updateAgencySettings(
       delete updates.name;
     }
 
-    // 1. Guardar de inmediato en almacenamiento permanente en disco (.agency_settings.json y /tmp)
-    const persistentRecord = savePersistentAgencySettings(updates as any);
-
     // 2. Determinar ID objetivo real y subdominio previo
     let dbAgency: any = null;
     let targetId = agencyId;
@@ -242,7 +279,7 @@ export async function updateAgencySettings(
       }
     }
 
-    const currentSubdomain = dbAgency?.subdomain || persistentRecord.subdomain || "hola";
+    const currentSubdomain = dbAgency?.subdomain || "hola";
 
     // 3. Validar disponibilidad si hay cambio de subdominio
     let oldSubdomainToRecord: string | null = null;
@@ -259,21 +296,27 @@ export async function updateAgencySettings(
     }
 
     const slugKey = updates.subdomain || currentSubdomain || "hola";
+    const currentCached = (targetId ? serverAgencyStore[targetId] : null) || serverAgencyStore[slugKey] || (agencyId ? serverAgencyStore[agencyId] : null) || {};
+    const persistentRecord = getPersistentAgencySettings(targetId || slugKey);
+
     const updatedRecord = {
       ...DEFAULT_BASE_DEFAULTS,
       ...(dbAgency || {}),
       ...persistentRecord,
+      ...currentCached,
       ...updates,
       id: targetId,
     };
 
+    // 1. Guardar de inmediato en almacenamiento permanente en disco (.agency_settings.json y /tmp) por ID / Subdominio
+    const finalSavedRecord = savePersistentAgencySettings(updatedRecord as any, targetId || agencyId);
+
     // Actualizar almacenamiento en memoria local inmediatamente
-    serverAgencyStore[slugKey] = updatedRecord;
-    serverAgencyStore["demo"] = updatedRecord;
-    serverAgencyStore[targetId] = updatedRecord;
-    if (agencyId) serverAgencyStore[agencyId] = updatedRecord;
+    serverAgencyStore[slugKey] = finalSavedRecord;
+    serverAgencyStore[targetId] = finalSavedRecord;
+    if (agencyId) serverAgencyStore[agencyId] = finalSavedRecord;
     if (updates.subdomain) {
-      serverAgencyStore[updates.subdomain] = updatedRecord;
+      serverAgencyStore[updates.subdomain] = finalSavedRecord;
       if (oldSubdomainToRecord && serverAgencyStore[oldSubdomainToRecord]) {
         delete serverAgencyStore[oldSubdomainToRecord];
       }
