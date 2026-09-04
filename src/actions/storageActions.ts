@@ -2,6 +2,9 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
+import fs from "fs/promises";
+import path from "path";
+
 const BUCKET_NAME = "vehicles";
 
 /**
@@ -20,7 +23,22 @@ async function ensureBucketExists() {
       const { error: createError } = await supabaseAdmin.storage.createBucket(BUCKET_NAME, {
         public: true,
         fileSizeLimit: 52428800, // 50MB
-        allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/quicktime", "video/webm"],
+        allowedMimeTypes: [
+          "image/jpeg", 
+          "image/png", 
+          "image/webp", 
+          "image/gif", 
+          "video/mp4", 
+          "video/quicktime", 
+          "video/webm",
+          "audio/webm",
+          "audio/mp4",
+          "audio/mpeg",
+          "audio/ogg",
+          "audio/aac",
+          "audio/wav",
+          "audio/x-m4a"
+        ],
       });
       if (createError) {
         console.warn(`Could not create bucket '${BUCKET_NAME}':`, createError.message);
@@ -99,3 +117,53 @@ export async function uploadMediaFiles(
 
   return { images, videos };
 }
+
+/**
+ * Uploads a single audio buffer to Supabase Storage, with fallback to local public/uploads/audio
+ */
+export async function uploadAudioBuffer(
+  buffer: Uint8Array,
+  fileName: string,
+  mimeType: string = "audio/webm",
+  folderPrefix: string = "audio"
+): Promise<string> {
+  const cleanFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
+  const storagePath = `${folderPrefix}/${Date.now()}_${cleanFileName}`;
+
+  try {
+    await ensureBucketExists();
+
+    const { data, error } = await supabaseAdmin.storage
+      .from(BUCKET_NAME)
+      .upload(storagePath, buffer, {
+        contentType: mimeType,
+        upsert: true,
+      });
+
+    if (!error && data?.path) {
+      const { data: publicUrlData } = supabaseAdmin.storage
+        .from(BUCKET_NAME)
+        .getPublicUrl(data.path);
+
+      if (publicUrlData?.publicUrl) {
+        return publicUrlData.publicUrl;
+      }
+    }
+  } catch (err) {
+    console.warn("Supabase Storage audio upload failed, using local storage fallback:", err);
+  }
+
+  // Local filesystem fallback (works reliably in local dev and without configured Supabase bucket)
+  try {
+    const uploadDir = path.join(process.cwd(), "public", "uploads", "audio");
+    await fs.mkdir(uploadDir, { recursive: true });
+    const localFileName = `${Date.now()}_${cleanFileName}`;
+    const filePath = path.join(uploadDir, localFileName);
+    await fs.writeFile(filePath, buffer);
+    return `/uploads/audio/${localFileName}`;
+  } catch (localErr) {
+    console.error("Local audio fallback failed:", localErr);
+    throw new Error("No se pudo guardar el archivo de audio.");
+  }
+}
+

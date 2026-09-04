@@ -38,8 +38,11 @@ export async function POST(request: Request) {
       const entry = body.entry?.[0];
       const messaging = entry?.messaging?.[0];
 
-      // Si contiene un mensaje de texto entrante del lead
-      if (messaging && messaging.message && messaging.message.text) {
+      // Si contiene un mensaje de texto o adjunto entrante del lead
+      const hasText = Boolean(messaging?.message?.text);
+      const hasAttachment = Boolean(messaging?.message?.attachments && messaging.message.attachments.length > 0);
+
+      if (messaging && messaging.message && (hasText || hasAttachment)) {
         
         // Ignorar Ecos (mensajes enviados por la propia página/app)
         if (messaging.message.is_echo) {
@@ -48,8 +51,12 @@ export async function POST(request: Request) {
         }
 
         const senderId = messaging.sender.id;
-        const messageText = messaging.message.text;
         const channel = isPage ? "facebook" : "instagram";
+
+        const audioAttachment = hasAttachment ? messaging.message.attachments.find((att: any) => att.type === "audio") : null;
+        const isAudio = Boolean(audioAttachment);
+        const audioUrl = audioAttachment?.payload?.url;
+        const messageText = messaging.message.text || (isAudio ? "🎵 Nota de voz" : "📎 Archivo adjunto");
 
         const { data: existingConvs } = await (supabaseAdmin as any)
           .from("inbox_conversations")
@@ -62,6 +69,16 @@ export async function POST(request: Request) {
 
         const now = new Date();
         const timeStr = now.toISOString();
+
+        const incomingMsg = {
+          id: `msg-${Date.now()}`,
+          sender: 'lead' as const,
+          text: messageText,
+          type: isAudio ? ('audio' as const) : ('text' as const),
+          audio_url: audioUrl,
+          time: timeStr,
+          status: 'read' as const
+        };
 
         if (!conversation) {
           const recipientId = messaging.recipient.id;
@@ -107,24 +124,12 @@ export async function POST(request: Request) {
             last_message: messageText,
             last_message_time: timeStr,
             unread: true,
-            messages: [{
-              id: `msg-${Date.now()}`,
-              sender: 'lead',
-              text: messageText,
-              time: timeStr,
-              status: 'read'
-            }],
+            messages: [incomingMsg],
             channel_sender_id: senderId
           };
           await (supabaseAdmin.from("inbox_conversations") as any).insert(newConv);
         } else {
-          const newMessages = [...(conversation.messages || []), {
-            id: `msg-${Date.now()}`,
-            sender: 'lead',
-            text: messageText,
-            time: timeStr,
-            status: 'read'
-          }];
+          const newMessages = [...(conversation.messages || []), incomingMsg];
           
           await (supabaseAdmin.from("inbox_conversations") as any).update({
             last_message: messageText,
@@ -145,9 +150,10 @@ export async function POST(request: Request) {
         const message = value.messages[0];
         const contact = value.contacts?.[0];
         
-        if (message.type === "text") {
+        const isAudio = message.type === "audio" || message.type === "voice";
+        if (message.type === "text" || isAudio) {
           const senderId = message.from;
-          const messageText = message.text.body;
+          const messageText = isAudio ? "🎵 Nota de voz" : (message.text?.body || "");
           const contactName = contact?.profile?.name || `Cliente WA (${senderId.slice(-4)})`;
           
           const { data: existingConvs } = await (supabaseAdmin as any)
@@ -162,6 +168,16 @@ export async function POST(request: Request) {
           const now = new Date();
           const timeStr = now.toISOString();
 
+          const incomingMsg = {
+            id: `msg-${Date.now()}`,
+            sender: 'lead' as const,
+            text: messageText,
+            type: isAudio ? ('audio' as const) : ('text' as const),
+            audio_url: message.audio?.link || undefined,
+            time: timeStr,
+            status: 'read' as const
+          };
+
           if (!conversation) {
             const newConv = {
               id: `conv-wa-${Date.now()}`,
@@ -172,24 +188,12 @@ export async function POST(request: Request) {
               last_message: messageText,
               last_message_time: timeStr,
               unread: true,
-              messages: [{
-                id: `msg-${Date.now()}`,
-                sender: 'lead',
-                text: messageText,
-                time: timeStr,
-                status: 'read'
-              }],
+              messages: [incomingMsg],
               channel_sender_id: senderId
             };
             await (supabaseAdmin.from("inbox_conversations") as any).insert(newConv);
           } else {
-            const newMessages = [...(conversation.messages || []), {
-              id: `msg-${Date.now()}`,
-              sender: 'lead',
-              text: messageText,
-              time: timeStr,
-              status: 'read'
-            }];
+            const newMessages = [...(conversation.messages || []), incomingMsg];
             
             await (supabaseAdmin.from("inbox_conversations") as any).update({
               last_message: messageText,

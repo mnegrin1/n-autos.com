@@ -1510,6 +1510,74 @@ export async function sendMetaMessage(channel: "facebook" | "instagram", recipie
   }
 }
 
+export async function sendMetaAudio(channel: "facebook" | "instagram", recipientId: string, audioUrl: string) {
+  try {
+    const integrations = await getIntegrations();
+    const integration = channel === "facebook" ? integrations.facebook : integrations.instagram;
+    
+    if (!integration || !integration.connected || !integration.token || !integration.refresh_token) {
+      console.warn(`${channel} no está conectado o faltan credenciales. Simulando envío de audio.`);
+      return { success: true, simulated: true };
+    }
+
+    const token = integration.token; // Access Token
+    const senderId = integration.refresh_token; // pageId para FB o igId para IG
+    const fbPageId = integrations.facebook?.refresh_token;
+
+    const targetSenderId = (channel === "instagram" && fbPageId) ? fbPageId : senderId;
+
+    let res = await fetch(`https://graph.facebook.com/v20.0/${targetSenderId}/messages?access_token=${token}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        recipient: { id: recipientId },
+        message: {
+          attachment: {
+            type: "audio",
+            payload: {
+              url: audioUrl,
+              is_reusable: true
+            }
+          }
+        }
+      })
+    });
+
+    if (!res.ok && channel === "instagram" && targetSenderId !== senderId) {
+      res = await fetch(`https://graph.facebook.com/v20.0/${senderId}/messages?access_token=${token}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          recipient: { id: recipientId },
+          message: {
+            attachment: {
+              type: "audio",
+              payload: {
+                url: audioUrl,
+                is_reusable: true
+              }
+            }
+          }
+        })
+      });
+    }
+
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      throw new Error(data.error?.message || `Fallo al enviar audio por ${channel}`);
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error(`Error enviando audio por ${channel}:`, err);
+    return { success: false, error: err.message };
+  }
+}
+
 export async function sendInboxMessage(conversationId: string, text: string) {
   if (conversationId.startsWith("ml-question-")) {
     const questionId = conversationId.replace("ml-question-", "");
@@ -1954,6 +2022,113 @@ export async function sendWhatsAppMessage(toPhone: string, text: string) {
     return { success: false, error: error.message };
   }
 }
+
+export async function sendWhatsAppAudio(toPhone: string, audioUrl: string) {
+  const token = process.env.WHATSAPP_TOKEN;
+  const phoneId = process.env.WHATSAPP_PHONE_ID;
+
+  if (!token || !phoneId) {
+    console.warn("Faltan credenciales de WhatsApp (WHATSAPP_TOKEN o WHATSAPP_PHONE_ID). Simulando envío de audio.");
+    return { success: true, simulated: true };
+  }
+
+  try {
+    const response = await fetch(`https://graph.facebook.com/v19.0/${phoneId}/messages`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: toPhone,
+        type: "audio",
+        audio: {
+          link: audioUrl
+        }
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error?.message || "Error al enviar audio por WhatsApp");
+    }
+
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("Error en sendWhatsAppAudio:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function sendInboxAudio(conversationId: string, audioUrl: string, duration?: number) {
+  if (conversationId.startsWith("ml-question-")) {
+    return { success: false, error: "MercadoLibre preguntas no admite envío de audios." };
+  }
+
+  const { data: conversation, error: fetchErr } = await (supabaseAdmin.from('inbox_conversations') as any)
+    .select('*')
+    .eq('id', conversationId)
+    .single();
+
+  if (fetchErr || !conversation) {
+    return { success: false, error: "Conversación no encontrada" };
+  }
+
+  const now = new Date();
+  const timeStr = now.toISOString();
+
+  // 1. Enviar audio a WhatsApp
+  if (conversation.channel === "whatsapp" && conversation.channel_sender_id) {
+    const waRes = await sendWhatsAppAudio(conversation.channel_sender_id, audioUrl);
+    if (!waRes.success && !waRes.simulated) {
+      return { success: false, error: waRes.error || "Fallo al enviar el audio a WhatsApp" };
+    }
+  }
+
+  // 2. Enviar audio a Meta (Facebook / Instagram)
+  if ((conversation.channel === "facebook" || conversation.channel === "instagram") && conversation.channel_sender_id) {
+    const metaRes = await sendMetaAudio(conversation.channel, conversation.channel_sender_id, audioUrl);
+    if (!metaRes.success && !metaRes.simulated) {
+      return { success: false, error: metaRes.error || `Fallo al enviar el audio a ${conversation.channel}` };
+    }
+  }
+
+  const newMsg = {
+    id: `msg-${Date.now()}`,
+    sender: 'agent' as const,
+    text: "🎵 Nota de voz",
+    type: 'audio' as const,
+    audio_url: audioUrl,
+    audio_duration: duration || 0,
+    time: timeStr,
+    status: 'sent' as const
+  };
+
+  const newMessages = [...(conversation.messages || []), newMsg];
+  const { data: updatedConv, error: updateErr } = await (supabaseAdmin.from('inbox_conversations') as any)
+    .update({
+      messages: newMessages,
+      last_message: "🎵 Nota de voz",
+      last_message_time: timeStr,
+      unread: false
+    })
+    .eq('id', conversationId)
+    .select()
+    .single();
+
+  if (!updateErr && updatedConv) {
+    conversation.messages = updatedConv.messages;
+    conversation.last_message = updatedConv.last_message;
+    conversation.last_message_time = updatedConv.last_message_time;
+    conversation.unread = updatedConv.unread;
+  }
+
+  revalidatePath("/admin/inbox");
+  return { success: true, conversation: updatedConv || conversation };
+}
+
 
 export async function deleteConversation(conversationId: string) {
   try {

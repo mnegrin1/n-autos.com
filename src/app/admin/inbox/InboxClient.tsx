@@ -24,11 +24,13 @@ import {
   RefreshCw,
   MoreVertical,
   X,
-  ArrowLeft
+  ArrowLeft,
+  Mic
 } from "lucide-react";
 import styles from "./inbox.module.css";
 import { 
   sendInboxMessage, 
+  sendInboxAudio,
   markConversationRead, 
   updateConversationNotes,
   updateAutoLeadStatus,
@@ -40,6 +42,8 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useSearchParams, useRouter } from "next/navigation";
 import ComposeEmailModal from "@/components/ComposeEmailModal";
+import AudioMessagePlayer from "@/components/AudioMessagePlayer";
+import VoiceRecorderComposer from "@/components/VoiceRecorderComposer";
 
 interface Message {
   id: string;
@@ -47,6 +51,9 @@ interface Message {
   text: string;
   time: string;
   status?: 'sent' | 'delivered' | 'read';
+  type?: 'text' | 'audio';
+  audio_url?: string;
+  audio_duration?: number;
 }
 
 interface Conversation {
@@ -293,6 +300,73 @@ export default function InboxClient({
     });
   };
 
+  // Manejar el envío de audios y notas de voz
+  const handleSendAudio = async (blob: Blob, duration: number, fileName?: string) => {
+    if (!selectedConvId) return;
+
+    const tempAudioUrl = URL.createObjectURL(blob);
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const localAgentMsg: Message = {
+      id: `temp-${Date.now()}`,
+      sender: 'agent',
+      text: "🎵 Nota de voz",
+      type: 'audio',
+      audio_url: tempAudioUrl,
+      audio_duration: duration,
+      time: timeStr,
+      status: 'sent'
+    };
+
+    setConversations(prev => prev.map(c => {
+      if (c.id === selectedConvId) {
+        return {
+          ...c,
+          last_message: "🎵 Nota de voz",
+          last_message_time: timeStr,
+          messages: [...c.messages, localAgentMsg]
+        };
+      }
+      return c;
+    }));
+
+    startTransition(async () => {
+      try {
+        const formData = new FormData();
+        const fileExt = fileName && fileName.includes('.') ? fileName.split('.').pop() : 'webm';
+        const uploadFileName = fileName || `voice_${Date.now()}.${fileExt}`;
+        formData.append("audio", blob, uploadFileName);
+        formData.append("duration", duration.toString());
+
+        const uploadRes = await fetch("/api/inbox/upload-audio", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!uploadRes.ok) {
+          throw new Error("Error al subir el archivo de audio al servidor");
+        }
+
+        const uploadData = await uploadRes.json();
+        if (!uploadData.success || !uploadData.url) {
+          throw new Error(uploadData.error || "No se obtuvo URL del audio");
+        }
+
+        const audioUrlToSend = uploadData.absoluteUrl || uploadData.url;
+        const res = await sendInboxAudio(selectedConvId, audioUrlToSend, duration);
+
+        if (res.success && res.conversation) {
+          setConversations(prev => prev.map(c => c.id === selectedConvId ? { ...c, ...res.conversation } : c));
+        } else if (!res.success) {
+          alert(`Error al enviar audio: ${res.error}`);
+        }
+      } catch (err: any) {
+        console.error("Error enviando audio:", err);
+        alert(`Error al enviar nota de voz: ${err.message}`);
+      }
+    });
+  };
+
   const handleSelectTemplate = (template: string) => {
     setInputText(template);
     setShowTemplates(false);
@@ -527,7 +601,15 @@ export default function InboxClient({
                         })()}</span>
                       </div>
                       <div className={styles.chatItemRow}>
-                        <p className={styles.lastMsgPreview}>{c.last_message}</p>
+                        <p className={styles.lastMsgPreview}>
+                          {c.last_message?.includes("Nota de voz") ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <Mic size={12} style={{ color: 'var(--primary)' }} /> Nota de voz
+                            </span>
+                          ) : (
+                            c.last_message
+                          )}
+                        </p>
                         {c.unread && <span className={styles.unreadDot} />}
                       </div>
                       {vehicle && (
@@ -600,13 +682,22 @@ export default function InboxClient({
               <div className={styles.messageBox}>
                 {currentConv.messages.map(m => {
                   const isAgent = m.sender === 'agent';
+                  const isAudio = m.type === 'audio' || Boolean(m.audio_url);
                   return (
                     <div 
                       key={m.id} 
                       className={`${styles.messageRow} ${isAgent ? styles.rowAgent : styles.rowLead}`}
                     >
                       <div className={`${styles.bubble} ${isAgent ? styles.bubbleAgent : styles.bubbleLead}`}>
-                        <p style={{ margin: 0, fontSize: '0.9rem', lineHeight: '1.4' }}>{m.text}</p>
+                        {isAudio && m.audio_url ? (
+                          <AudioMessagePlayer 
+                            src={m.audio_url} 
+                            duration={m.audio_duration} 
+                            isAgent={isAgent} 
+                          />
+                        ) : (
+                          <p style={{ margin: 0, fontSize: '0.9rem', lineHeight: '1.4' }}>{m.text}</p>
+                        )}
                         <div className={styles.bubbleFooter}>
                           <span>{(() => {
                             const d = new Date(m.time);
@@ -686,14 +777,25 @@ export default function InboxClient({
                   className={styles.composerInput}
                   disabled={isPending}
                 />
+
+                {/* Grabador y adjuntador de notas de voz */}
+                {currentConv.channel !== 'email' && (
+                  <VoiceRecorderComposer 
+                    onSendAudio={handleSendAudio}
+                    isPending={isPending}
+                  />
+                )}
                 
-                <button 
-                  type="submit" 
-                  className={styles.sendBtn}
-                  disabled={!inputText.trim() || isPending}
-                >
-                  {isPending ? <Loader2 size={16} className={styles.spin} /> : <Send size={16} />}
-                </button>
+                {inputText.trim() ? (
+                  <button 
+                    type="submit" 
+                    className={styles.sendBtn}
+                    disabled={isPending}
+                    title="Enviar mensaje de texto"
+                  >
+                    {isPending ? <Loader2 size={16} className={styles.spin} /> : <Send size={16} />}
+                  </button>
+                ) : null}
               </form>
             </>
           ) : (
