@@ -745,3 +745,65 @@
     transform: rotate(360deg);
   }
 }
+
+.mobileBackBtn {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-color);
+  cursor: pointer;
+  padding: 0.35rem;
+  border-radius: 6px;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .mobileBackBtn {
+    display: flex !important;
+  }
+
+  .demoBanner {
+    display: none !important;
+  }
+
+  .inboxContainer {
+    height: auto;
+    min-height: calc(100vh - 120px);
+  }
+
+  .dashboard {
+    grid-template-columns: 1fr !important;
+    border-radius: 12px;
+    border: none;
+    background: transparent;
+  }
+
+  /* Modo WhatsApp/Instagram: Si se seleccionó una conversación, ocultar la lista de chats en móviles */
+  .dashboard.hasSelectedChat .sidebar {
+    display: none !important;
+  }
+
+  /* Modo WhatsApp/Instagram: Si NO hay conversación seleccionada, ocultar la ventana de chat en móviles */
+  .dashboard.noSelectedChat .chatWindow {
+    display: none !important;
+  }
+
+  .sidebar {
+    border-right: none;
+    height: calc(100vh - 140px);
+  }
+
+  .chatWindow {
+    border-right: none;
+    height: calc(100vh - 140px);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .bubble {
+    max-width: 85%;
+  }
+}
+
+

@@ -575,10 +575,10 @@ export default function PublicationsClient({ vehicles: initialVehicles, publicat
         }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
           <div>
-            <h1 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-color)", margin: "0 0 0.25rem 0" }}>
-              Publicaciones, Canales y Consultas
+            <h1 style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text-color)", margin: "0 0 0.25rem 0" }}>
+              Publicaciones
             </h1>
-            <p style={{ color: "var(--text-color)", opacity: 0.7, margin: 0, fontSize: "0.88rem" }}>
+            <p className="hideOnMobile" style={{ color: "var(--text-color)", opacity: 0.7, margin: 0, fontSize: "0.88rem" }}>
               Importa publicaciones de <strong>MercadoLibre</strong>, <strong>Facebook</strong> e <strong>Instagram</strong> hacia tu <strong>Stock</strong> y <strong>Página Web</strong>, gestiona consultas con prioridad y configura respuestas ManyChat.
             </p>
           </div>
@@ -744,6 +744,8 @@ export default function PublicationsClient({ vehicles: initialVehicles, publicat
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: "0.75rem",
                   padding: "1rem 1.25rem",
                   backgroundColor: "var(--surface-color)",
                   border: hasPendingQuestions ? "1px solid rgba(239, 68, 68, 0.4)" : "1px solid var(--border-color)",

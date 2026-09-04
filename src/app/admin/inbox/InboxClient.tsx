@@ -23,7 +23,8 @@ import {
   Edit2,
   RefreshCw,
   MoreVertical,
-  X
+  X,
+  ArrowLeft
 } from "lucide-react";
 import styles from "./inbox.module.css";
 import { 
@@ -381,7 +382,7 @@ export default function InboxClient({
         </div>
       )}
 
-      <div className={styles.dashboard}>
+      <div className={`${styles.dashboard} ${selectedConvId ? styles.hasSelectedChat : styles.noSelectedChat}`}>
         {/* Columna 1: Listado de Chats */}
         <div className={styles.sidebar}>
           
@@ -548,11 +549,20 @@ export default function InboxClient({
             <>
               {/* Chat Header */}
               <div className={styles.chatHeader}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>{currentConv.lead_name}</h3>
-                  <span className={styles.chatHeaderChannel} style={{ color: getChannelColor(currentConv.channel) }}>
-                    Interactuando vía {currentConv.channel.toUpperCase()}
-                  </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <button 
+                    onClick={() => setSelectedConvId(null)}
+                    className={styles.mobileBackBtn}
+                    title="Volver a los chats"
+                  >
+                    <ArrowLeft size={20} />
+                  </button>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700 }}>{currentConv.lead_name}</h3>
+                    <span className={styles.chatHeaderChannel} style={{ color: getChannelColor(currentConv.channel) }}>
+                      Interactuando vía {currentConv.channel.toUpperCase()}
+                    </span>
+                  </div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   {associatedLead?.phone && (

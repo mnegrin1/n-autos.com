@@ -252,8 +252,8 @@ export default function VehiclesClient({ initialVehicles, initialPublishSold }: 
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 800 }}>Inventario de Vehículos</h1>
-            <p style={{ margin: "0.2rem 0 0 0", opacity: 0.7, fontSize: "0.88rem" }}>Gestiona el stock del concesionario de autos en tiempo real.</p>
+            <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 800 }}>Inventario de Vehículos</h1>
+            <p className="hideOnMobile" style={{ margin: "0.2rem 0 0 0", opacity: 0.7, fontSize: "0.88rem" }}>Gestiona el stock del concesionario de autos en tiempo real.</p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
             <button
@@ -322,8 +322,8 @@ export default function VehiclesClient({ initialVehicles, initialPublishSold }: 
         </div>
       </div>
 
-      {/* Table grid */}
-      <div className={styles.tableContainer}>
+      {/* Table grid (Desktop) */}
+      <div className={`${styles.tableContainer} ${styles.desktopTable}`}>
         <table className={styles.table}>
           <thead>
             <tr>
@@ -403,6 +403,81 @@ export default function VehiclesClient({ initialVehicles, initialPublishSold }: 
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Card Grid View */}
+      <div className={styles.mobileCardList}>
+        {filteredVehicles.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "2rem", opacity: 0.6, fontSize: "0.9rem" }}>
+            No se encontraron vehículos en el stock.
+          </div>
+        ) : (
+          filteredVehicles.map((v) => (
+            <div key={v.id} className={styles.mobileVehicleCard}>
+              <div className={styles.mobileCardHeader}>
+                <div className={styles.mobileCardThumb}>
+                  {v.images && v.images[0] ? (
+                    <img src={v.images[0]} alt={`${v.brand} ${v.model}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : (
+                    <div style={{ display: "flex", width: "100%", height: "100%", alignItems: "center", justifyContent: "center", opacity: 0.5 }}>
+                      <ImageIcon size={20} />
+                    </div>
+                  )}
+                </div>
+                <div className={styles.mobileCardInfo}>
+                  <h3 className={styles.mobileCardTitle}>{v.brand} {v.model}</h3>
+                  <span className={styles.mobileCardSub}>
+                    Año {v.year} • {v.kms.toLocaleString()} km • {v.transmission === "automatica" ? "Aut" : "Man"}
+                  </span>
+                  <div className={styles.mobileCardPriceRow}>
+                    <span className={styles.priceCell} style={{ fontSize: "1.05rem" }}>
+                      {v.currency} {v.price.toLocaleString()}
+                    </span>
+                    <span className={`${styles.statusBadge} ${v.status === 'disponible' ? styles.disponible : v.status === 'reservado' ? styles.reservada : styles.vendida}`}>
+                      {v.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.mobileCardActions}>
+                <button
+                  type="button"
+                  className={styles.mobileActionBtn}
+                  style={{ color: "#38bdf8", borderColor: "rgba(56, 189, 248, 0.3)" }}
+                  onClick={() => setFinancingVehicle(v)}
+                >
+                  <Calculator size={13} /> Cuotas
+                </button>
+                <a
+                  href={`https://${tenantSession?.subdomain || "demo"}.n-autos.com/${v.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.mobileActionBtn}
+                  style={{ color: "#10b981", borderColor: "rgba(16, 185, 129, 0.3)" }}
+                >
+                  Ver Web
+                </a>
+                <button
+                  type="button"
+                  className={styles.mobileActionBtn}
+                  onClick={() => openEditModal(v)}
+                >
+                  Editar
+                </button>
+                <button
+                  type="button"
+                  className={styles.mobileActionBtn}
+                  style={{ color: "var(--danger)", borderColor: "rgba(239, 68, 68, 0.3)", flex: "0 0 38px" }}
+                  onClick={() => handleDelete(v.id)}
+                  title="Eliminar"
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
       </div>
 

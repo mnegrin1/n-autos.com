@@ -660,97 +660,107 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
 
                 return (
                   <div key={lead.id} className={styles.tableRow} style={{ backgroundColor: selectedLeads.includes(lead.id) ? 'var(--primary-light)' : undefined }}>
-                    <input 
-                      type="checkbox" 
-                      className={styles.checkbox}
-                      checked={selectedLeads.includes(lead.id)}
-                      onChange={() => toggleSelectLead(lead.id)}
-                    />
-                    <div className={styles.dateText}>
-                      <span>{formattedDate}</span>
-                      <small>{formattedTime}</small>
+                    {/* Fila Superior: Checkbox + Avatar + Nombre/Info + Acciones Rápidas */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem", width: "100%" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", minWidth: 0, flex: 1 }}>
+                        <input 
+                          type="checkbox" 
+                          className={styles.checkbox}
+                          checked={selectedLeads.includes(lead.id)}
+                          onChange={() => toggleSelectLead(lead.id)}
+                          style={{ flexShrink: 0 }}
+                        />
+                        <div className={styles.avatarCell} style={{ minWidth: 0 }}>
+                          <div className={styles.avatar}>
+                            <User size={16} />
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                            <span className={styles.nameText} style={{ fontSize: "0.92rem", fontWeight: 700 }}>{lead.name}</span>
+                            <span style={{ fontSize: "0.8rem", color: "var(--primary)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {lead.phone ? `${lead.phone} • ` : ""}{lead.email || "Sin email"}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
+                        {lead.email && (
+                          <button 
+                            onClick={() => {
+                              setEmailRecipient(lead.email);
+                              setEmailModalOpen(true);
+                            }}
+                            style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", padding: "0.25rem" }}
+                            title="Enviar Email"
+                          >
+                            <Mail size={18} />
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => handleDeleteLead(lead.id)}
+                          style={{ background: "none", border: "none", color: "var(--danger, #ef4444)", cursor: "pointer", padding: "0.25rem", opacity: 0.8 }}
+                          title="Eliminar contacto"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </div>
                     
-                    <div className={styles.avatarCell}>
-                      <div className={styles.avatar}>
-                        <User size={16} />
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column" }}>
-                        <span className={styles.emailText}>{lead.email || "Sin email"}</span>
-                        <span className={styles.nameText}>{lead.name} {lead.phone ? `• ${lead.phone}` : ""}</span>
-                      </div>
-                    </div>
+                    {/* Fila Inferior: Etiquetas + Fecha */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem", width: "100%", borderTop: "1px solid var(--border-color)", paddingTop: "0.5rem" }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", alignItems: "center" }}>
+                        {lead.tags && lead.tags.length > 0 ? lead.tags.map(tag => (
+                          <span key={tag} className={styles.tagPill} style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", padding: "0.2rem 0.5rem" }}>
+                            {tag}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveInlineTag(lead.id, lead.tags, tag)}
+                              style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", padding: 0, display: "flex", opacity: 0.7 }}
+                              title="Eliminar tag"
+                            >
+                              <X size={12} />
+                            </button>
+                          </span>
+                        )) : null}
 
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", alignItems: "center" }}>
-                      {lead.tags && lead.tags.length > 0 ? lead.tags.map(tag => (
-                        <span key={tag} className={styles.tagPill} style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", padding: "0.2rem 0.5rem" }}>
-                          {tag}
+                        {inlineTagLeadId === lead.id ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                            <input
+                              type="text"
+                              placeholder="Tag..."
+                              value={inlineTagInput}
+                              onChange={(e) => setInlineTagInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleAddInlineTag(lead.id, lead.tags);
+                                if (e.key === "Escape") setInlineTagLeadId(null);
+                              }}
+                              autoFocus
+                              style={{ padding: "0.2rem 0.4rem", fontSize: "0.75rem", borderRadius: "4px", border: "1px solid var(--primary)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", width: "80px" }}
+                            />
+                            <button
+                              onClick={() => handleAddInlineTag(lead.id, lead.tags)}
+                              style={{ background: "var(--primary)", border: "none", color: "#fff", borderRadius: "4px", padding: "0.25rem", cursor: "pointer", display: "flex" }}
+                            >
+                              <Check size={12} />
+                            </button>
+                          </div>
+                        ) : (
                           <button
-                            type="button"
-                            onClick={() => handleRemoveInlineTag(lead.id, lead.tags, tag)}
-                            style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", padding: 0, display: "flex", opacity: 0.7 }}
-                            title="Eliminar tag"
-                          >
-                            <X size={12} />
-                          </button>
-                        </span>
-                      )) : null}
-
-                      {inlineTagLeadId === lead.id ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                          <input
-                            type="text"
-                            placeholder="Tag..."
-                            value={inlineTagInput}
-                            onChange={(e) => setInlineTagInput(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") handleAddInlineTag(lead.id, lead.tags);
-                              if (e.key === "Escape") setInlineTagLeadId(null);
+                            onClick={() => {
+                              setInlineTagLeadId(lead.id);
+                              setInlineTagInput("");
                             }}
-                            autoFocus
-                            style={{ padding: "0.2rem 0.4rem", fontSize: "0.75rem", borderRadius: "4px", border: "1px solid var(--primary)", backgroundColor: "var(--bg-color)", color: "var(--text-color)", width: "80px" }}
-                          />
-                          <button
-                            onClick={() => handleAddInlineTag(lead.id, lead.tags)}
-                            style={{ background: "var(--primary)", border: "none", color: "#fff", borderRadius: "4px", padding: "0.25rem", cursor: "pointer", display: "flex" }}
+                            style={{ background: "rgba(128,128,128,0.15)", border: "1px solid var(--border-color)", color: "var(--text-color)", borderRadius: "12px", padding: "0.15rem 0.45rem", fontSize: "0.7rem", fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.15rem" }}
+                            title="Agregar etiqueta a este contacto"
                           >
-                            <Check size={12} />
+                            <Plus size={11} /> Tag
                           </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setInlineTagLeadId(lead.id);
-                            setInlineTagInput("");
-                          }}
-                          style={{ background: "rgba(128,128,128,0.15)", border: "1px stroke var(--border-color)", color: "var(--text-color)", borderRadius: "12px", padding: "0.15rem 0.45rem", fontSize: "0.7rem", fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: "0.15rem" }}
-                          title="Agregar etiqueta a este contacto"
-                        >
-                          <Plus size={11} /> Tag
-                        </button>
-                      )}
-                    </div>
+                        )}
+                      </div>
 
-                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", alignItems: "center" }}>
-                      {lead.email && (
-                        <button 
-                          onClick={() => {
-                            setEmailRecipient(lead.email);
-                            setEmailModalOpen(true);
-                          }}
-                          style={{ background: "none", border: "none", color: "var(--primary)", cursor: "pointer", opacity: 0.85 }}
-                          title="Enviar Email"
-                        >
-                          <Mail size={16} />
-                        </button>
-                      )}
-                      <button 
-                        onClick={() => handleDeleteLead(lead.id)}
-                        style={{ background: "none", border: "none", color: "var(--danger, #ef4444)", cursor: "pointer", opacity: 0.7 }}
-                        title="Eliminar lead"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <div className={styles.dateText} style={{ fontSize: "0.72rem", opacity: 0.6 }}>
+                        <span>{formattedDate} {formattedTime}</span>
+                      </div>
                     </div>
                   </div>
                 );
