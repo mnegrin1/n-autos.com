@@ -57,6 +57,14 @@ export const DEFAULT_FEATURES: FeatureDefinition[] = [
     path: "/admin/automations",
     category: "Procesos",
     enabledGlobally: true
+  },
+  {
+    id: "agenda",
+    name: "Agenda Electrónica (Cal.com)",
+    description: "Gestión de citas, visitas al showroom, entregas de vehículos y test drives con Cal.com.",
+    path: "/admin/agenda",
+    category: "Operaciones",
+    enabledGlobally: true
   }
 ];
 

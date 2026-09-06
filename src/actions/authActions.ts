@@ -33,10 +33,12 @@ export async function login(email: string, password?: string) {
   }
 
   const cleanEmail = email.toLowerCase().trim();
+  const rawPassword = password.trim();
   const client = supabaseAdmin || supabase;
   let user: any = null;
   let error: any = null;
 
+  // 1. Consultar usuario en public.users
   try {
     const res = await (client.from("users") as any)
       .select("*")
@@ -50,53 +52,71 @@ export async function login(email: string, password?: string) {
   }
 
   const isSuperAdminEmail = cleanEmail === "mauricio.negrin@n-sistemas.com";
-  const inputHash = await hashPassword(password.trim());
+  const inputHash = await hashPassword(rawPassword);
   const storedHash = getUserPasswordHash(cleanEmail) || user?.password_hash || demoPasswordStore.get(cleanEmail);
 
-  if (!user) {
-    // Si el usuario no existe en la base de datos de Supabase:
-    // Verificar si existe una contraseña guardada previamente en almacenamiento persistente o memoria
-    if (storedHash) {
-      if (storedHash !== inputHash) {
-        return { success: false, error: "Contraseña incorrecta." };
-      }
-      const namePart = cleanEmail.split("@")[0].replace(/[._-]/g, " ");
-      const formattedName = namePart
-        .split(" ")
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(" ");
-      const userSlug = cleanEmail.replace(/[^a-z0-9]/g, "-");
+  let authenticated = false;
 
-      user = {
-        id: "user-" + userSlug,
-        email: cleanEmail,
-        name: isSuperAdminEmail ? "Mauricio Negrin" : (formattedName || "Usuario Demo"),
-        role: isSuperAdminEmail ? "superadmin" : "admin",
-        agency_id: isSuperAdminEmail ? "00000000-0000-0000-0000-000000000000" : cleanEmail === "mauricionegrinmogni1@gmail.com" ? "7bdc2014-f7e0-44c3-a8b4-33152937bfa6" : "agency-" + userSlug,
-      };
-    } else {
-      return { success: false, error: "Correo electrónico o contraseña incorrectos." };
+  // 2. Intentar autenticar primero con Supabase Auth Cloud (persistencia indestructible en la nube)
+  try {
+    const authRes = await client.auth.signInWithPassword({
+      email: cleanEmail,
+      password: rawPassword,
+    });
+
+    if (authRes.data?.user) {
+      authenticated = true;
+      setUserPasswordHash(cleanEmail, inputHash);
+
+      if (!user) {
+        user = {
+          id: authRes.data.user.id,
+          email: cleanEmail,
+          name: authRes.data.user.user_metadata?.name || (isSuperAdminEmail ? "Mauricio Negrin" : "Usuario"),
+          role: isSuperAdminEmail ? "superadmin" : "admin",
+          agency_id: isSuperAdminEmail ? "00000000-0000-0000-0000-000000000000" : cleanEmail === "mauricionegrinmogni1@gmail.com" ? "7bdc2014-f7e0-44c3-a8b4-33152937bfa6" : `agency-${authRes.data.user.id}`,
+        };
+      }
     }
-  } else {
-    // Si el usuario existe en Supabase DB:
+  } catch (authErr) {
+    console.warn("Aviso: Supabase Auth signInWithPassword no disponible (usando validación local/DB):", authErr);
+  }
+
+  // 3. Fallback a validación local por hash si Supabase Auth Cloud no validó la sesión
+  if (!authenticated) {
     if (storedHash) {
-      if (storedHash !== inputHash) {
+      if (storedHash === inputHash) {
+        authenticated = true;
+      } else {
         return { success: false, error: "Contraseña incorrecta." };
       }
     } else {
       return {
         success: false,
-        error: "La cuenta no posee una contraseña configurada. Por favor, utiliza la opción '¿Olvidaste tu contraseña?' para establecer tu contraseña.",
+        error: "La cuenta no posee una contraseña configurada o las credenciales son incorrectas. Por favor, utiliza la opción '¿Olvidaste tu contraseña?' para establecer tu contraseña.",
       };
-    }
-
-    if (isSuperAdminEmail) {
-      user.role = "superadmin";
     }
   }
 
   if (!user) {
-    return { success: false, error: "No se pudo obtener el usuario." };
+    const namePart = cleanEmail.split("@")[0].replace(/[._-]/g, " ");
+    const formattedName = namePart
+      .split(" ")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+    const userSlug = cleanEmail.replace(/[^a-z0-9]/g, "-");
+
+    user = {
+      id: "user-" + userSlug,
+      email: cleanEmail,
+      name: isSuperAdminEmail ? "Mauricio Negrin" : (formattedName || "Usuario Demo"),
+      role: isSuperAdminEmail ? "superadmin" : "admin",
+      agency_id: isSuperAdminEmail ? "00000000-0000-0000-0000-000000000000" : cleanEmail === "mauricionegrinmogni1@gmail.com" ? "7bdc2014-f7e0-44c3-a8b4-33152937bfa6" : "agency-" + userSlug,
+    };
+  }
+
+  if (isSuperAdminEmail) {
+    user.role = "superadmin";
   }
 
   // Generar sesión con token firmado criptográficamente
@@ -347,6 +367,31 @@ export async function verifyOTPAndResetPassword(
     };
   }
 
+  const rawPassword = newPassword.trim();
+  try {
+    const client = supabaseAdmin || supabase;
+    if (client && client.auth && client.auth.admin) {
+      const { data: listData } = await client.auth.admin.listUsers();
+      const authUser = listData?.users?.find(
+        (u) => u.email?.toLowerCase().trim() === cleanEmail
+      );
+
+      if (authUser?.id) {
+        await client.auth.admin.updateUserById(authUser.id, {
+          password: rawPassword,
+        });
+      } else {
+        await client.auth.admin.createUser({
+          email: cleanEmail,
+          password: rawPassword,
+          email_confirm: true,
+        });
+      }
+    }
+  } catch (authErr) {
+    console.warn("Aviso: No se pudo actualizar contraseña en Supabase Auth Cloud:", authErr);
+  }
+
   setUserPasswordHash(cleanEmail, newHash);
 
   return {
@@ -411,6 +456,21 @@ export async function changePassword(currentPassword: string, newPassword: strin
     }
     updated = true;
   }
+
+  try {
+    const client = supabaseAdmin || supabase;
+    if (client && client.auth && client.auth.admin) {
+      const { data: listData } = await client.auth.admin.listUsers();
+      const authUser = listData?.users?.find(
+        (u) => u.email?.toLowerCase().trim() === cleanEmail
+      );
+      if (authUser?.id) {
+        await client.auth.admin.updateUserById(authUser.id, {
+          password: newPassword.trim(),
+        });
+      }
+    }
+  } catch (e) {}
 
   setUserPasswordHash(cleanEmail, newHash);
 

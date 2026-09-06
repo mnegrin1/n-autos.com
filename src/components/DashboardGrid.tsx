@@ -562,7 +562,7 @@ export default function DashboardGrid({ data }: { data: DashboardMetricsData }) 
           <div style={{ width: "100%" }}>
             <div className={styles.cardHeaderArea}>
               <h3 className={styles.widgetTitle}>Próximos Eventos y Agenda</h3>
-              <Link href="/admin/calendar" className={styles.cardHeaderLink}>
+              <Link href="/admin/agenda" className={styles.cardHeaderLink}>
                 Ver Agenda <ArrowRight size={14} />
               </Link>
             </div>

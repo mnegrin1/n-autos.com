@@ -35,6 +35,8 @@ export interface AgencySettingsRecord {
   trust_pillar3_desc?: string;
   trust_pillar4_title?: string;
   trust_pillar4_desc?: string;
+  calcom_link?: string;
+  calcom_active?: boolean;
   updated_at?: string;
 }
 
@@ -42,6 +44,8 @@ export const DEFAULT_AGENCY_SETTINGS: AgencySettingsRecord = {
   id: "",
   name: "Automotora",
   subdomain: "hola",
+  calcom_link: "demo-automotora/test-drive",
+  calcom_active: true,
   whatsapp: "+598 99 123 456",
   primary_color: "#10b981",
   secondary_color: "#059669",

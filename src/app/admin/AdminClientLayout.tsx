@@ -29,7 +29,8 @@ import {
   Pin,
   ChevronLeft,
   ChevronRight,
-  Globe
+  Globe,
+  Calendar
 } from "lucide-react";
 import ComposeEmailModal from "@/components/ComposeEmailModal";
 import QuickSearchModal from "@/components/QuickSearchModal";
@@ -619,6 +620,25 @@ export default function AdminClientLayout({
                 >
                   <DollarSign size={16} /> Registrar Venta
                 </Link>
+                <Link 
+                  href="/admin/agenda?action=new" 
+                  onClick={() => setShowNewDropdown(false)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.75rem",
+                    padding: "0.75rem 1rem",
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                    color: "var(--text-color)",
+                    textDecoration: "none",
+                    transition: "background-color 0.2s"
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--primary-light)"}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                >
+                  <Calendar size={16} /> Agendar Turno / Cita
+                </Link>
               </div>
             )}
           </div>
@@ -679,6 +699,16 @@ export default function AdminClientLayout({
             <Link href="/admin/crm" title="Contactos" className={`${styles.navLink} ${pathname.startsWith("/admin/crm") ? styles.activeNavLink : ""}`}>
               <Users size={18} style={{ flexShrink: 0 }} />
               {isExpanded && <span>Contactos</span>}
+            </Link>
+          )}
+          {isFeatureEnabledForUser("agenda", userEmail) && (
+            <Link 
+              href="/admin/agenda" 
+              title="Agenda / Turnos" 
+              className={`${styles.navLink} ${pathname.startsWith("/admin/agenda") || pathname.startsWith("/admin/calendar") ? styles.activeNavLink : ""}`}
+            >
+              <Calendar size={18} style={{ flexShrink: 0 }} />
+              {isExpanded && <span>Agenda / Turnos</span>}
             </Link>
           )}
           {isFeatureEnabledForUser("email", userEmail) && (

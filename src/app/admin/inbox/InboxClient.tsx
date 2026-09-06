@@ -990,7 +990,7 @@ export default function InboxClient({
               {/* Acción: Agendar Test Drive */}
               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                 <Link 
-                  href={`/admin/calendar?action=new&lead=${encodeURIComponent(currentConv.lead_name)}&phone=${associatedLead?.phone || ""}`}
+                  href={`/admin/agenda?action=new&lead=${encodeURIComponent(currentConv.lead_name)}&phone=${associatedLead?.phone || ""}`}
                   style={{ flex: 1, padding: '0.65rem', backgroundColor: 'var(--primary-light)', color: 'var(--primary)', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
                 >
                   <Calendar size={15} /> Agendar Test Drive

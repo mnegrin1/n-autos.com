@@ -14,7 +14,8 @@ import {
   Plus, 
   DollarSign, 
   ArrowRight,
-  X
+  X,
+  Calendar
 } from "lucide-react";
 
 interface SearchItem {
@@ -89,6 +90,14 @@ export default function QuickSearchModal({ isOpen, onClose, onOpenComposeEmail }
       keywords: ["correos", "boletin", "campañas", "broadcast"]
     },
     {
+      id: "nav-agenda",
+      title: "Agenda / Turnos (Cal.com)",
+      category: "Navegación",
+      icon: Calendar,
+      href: "/admin/agenda",
+      keywords: ["agenda", "calendario", "turnos", "citas", "cal.com", "test drive", "visitas"]
+    },
+    {
       id: "nav-settings",
       title: "Configuración del Sistema",
       category: "Navegación",
@@ -111,6 +120,14 @@ export default function QuickSearchModal({ isOpen, onClose, onOpenComposeEmail }
       icon: Users,
       href: "/admin/crm?action=new",
       keywords: ["agregar cliente", "crear lead"]
+    },
+    {
+      id: "act-new-appointment",
+      title: "Agendar Turno / Cita (Cal.com)",
+      category: "Acciones Rápidas",
+      icon: Calendar,
+      href: "/admin/agenda?action=new",
+      keywords: ["agendar", "turno", "cita", "test drive", "reserva", "cal.com"]
     },
     {
       id: "act-compose-email",
