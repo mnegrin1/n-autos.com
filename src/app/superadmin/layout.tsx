@@ -21,7 +21,8 @@ import {
   PanelLeftClose,
   BookOpen,
   ShieldAlert,
-  MousePointerClick
+  MousePointerClick,
+  CalendarClock
 } from "lucide-react";
 import { getBrandingRequests, subscribeBrandingRequestStore } from "@/lib/brandingRequestStore";
 import { getLandingInquiries, subscribeInquiries } from "@/lib/inquiryStore";
@@ -290,6 +291,10 @@ export default function SuperAdminLayout({
                 )}
               </span>
             )}
+          </Link>
+          <Link href="/superadmin/calendar" title="Agenda & Google Meet" className={`${styles.navLink} ${pathname.startsWith("/superadmin/calendar") ? styles.activeNavLink : ""}`}>
+            <CalendarClock size={18} style={{ flexShrink: 0, color: "#10b981" }} />
+            {isExpanded && <span>Agenda & Google Meet</span>}
           </Link>
           <Link href="/superadmin/users" title="Usuarios Globales" className={`${styles.navLink} ${pathname.startsWith("/superadmin/users") ? styles.activeNavLink : ""}`}>
             <Users size={18} style={{ flexShrink: 0 }} />

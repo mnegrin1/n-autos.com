@@ -5,8 +5,9 @@ import Link from "next/link";
 import Image from "next/image";
 import styles from "./page.module.css";
 import FreeTrialForm from "@/components/FreeTrialForm";
+import BookingCalendlyWidget from "@/components/BookingCalendlyWidget";
 import AnimatedSection from "@/components/AnimatedSection";
-import { MessageCircle, Shield, TrendingUp, Sparkles, CheckCircle2, Building2, Wrench, Headset, Rocket, Menu, X, ShieldCheck } from "lucide-react";
+import { MessageCircle, Shield, TrendingUp, Sparkles, CheckCircle2, Building2, Wrench, Headset, Rocket, Menu, X, ShieldCheck, Video, CalendarClock } from "lucide-react";
 
 export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -18,6 +19,9 @@ export default function Home() {
 
         {/* Desktop Navigation */}
         <div className={styles.desktopNav}>
+          <a href="#agendar" style={{ color: "var(--primary)", textDecoration: "none", fontSize: "0.95rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.35rem" }}>
+            <Video size={16} /> Agendar Meet
+          </a>
           <a href="#servicio" style={{ color: "var(--text-color)", textDecoration: "none", fontSize: "0.95rem", fontWeight: 600 }}>
             Servicios
           </a>
@@ -42,6 +46,13 @@ export default function Home() {
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
         <div className={styles.mobileMenuOverlay}>
+          <a 
+            href="#agendar" 
+            onClick={() => setMobileMenuOpen(false)}
+            style={{ color: "var(--primary)", textDecoration: "none", fontSize: "1.1rem", fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}
+          >
+            <Video size={18} /> Agendar Reunión Meet
+          </a>
           <a 
             href="#servicio" 
             onClick={() => setMobileMenuOpen(false)}
@@ -76,12 +87,12 @@ export default function Home() {
             Servicio tipo agencia 360°. Desarrollamos tu portal web, configuramos tu CRM de ventas, automatizamos WhatsApp e integramos MercadoLibre para que tu equipo se enfoque en cerrar operaciones.
           </p>
           <div className={styles.ctaButtons}>
-            <a href="#contacto" className="btn-primary" style={{ padding: "1rem 2rem", fontSize: "1.1rem" }}>
-              Solicitar Asesoría y Demo
+            <a href="#agendar" className="btn-primary" style={{ padding: "1rem 2rem", fontSize: "1.1rem", display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
+              <Video size={20} /> Agendar Demo por Meet
             </a>
-            <Link href="/admin" className="btn-secondary" style={{ padding: "1rem 2rem", fontSize: "1.1rem" }}>
-              Ver Demo Admin
-            </Link>
+            <a href="#contacto" className="btn-secondary" style={{ padding: "1rem 2rem", fontSize: "1.1rem" }}>
+              Solicitar Asesoría
+            </a>
           </div>
           
           <AnimatedSection direction="up" delay={0.4} className={styles.heroImageWrapper}>
@@ -177,6 +188,23 @@ export default function Home() {
               </p>
             </div>
           </div>
+        </AnimatedSection>
+
+        {/* Sección de Agendamiento por Google Meet estilo Calendly */}
+        <AnimatedSection as="section" id="agendar" className={styles.featuresSection} delay={0.2} style={{ backgroundColor: "var(--bg-color)" }}>
+          <div style={{ textAlign: "center", marginBottom: "2.5rem" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", backgroundColor: "rgba(16, 185, 129, 0.1)", color: "#10b981", padding: "0.35rem 0.85rem", borderRadius: "20px", fontSize: "0.85rem", fontWeight: 700, marginBottom: "0.75rem" }}>
+              <Video size={16} /> REUNIÓN 1 A 1 CON EL EQUIPO FUNDADOR
+            </div>
+            <h2 className={styles.sectionTitle} style={{ marginBottom: "0.5rem" }}>
+              Agendá tu Demo en Vivo por Google Meet
+            </h2>
+            <p style={{ fontSize: "1.1rem", opacity: 0.8, maxWidth: "680px", margin: "0 auto" }}>
+              Elegí el día y horario que mejor te convenga. Nuestro calendario está sincronizado en tiempo real para que reserves una sesión de asesoría estratégica sin esperas.
+            </p>
+          </div>
+
+          <BookingCalendlyWidget />
         </AnimatedSection>
 
         {/* Sección de Contacto */}

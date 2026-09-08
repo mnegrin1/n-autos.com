@@ -1,0 +1,367 @@
+.bookingContainer {
+  background-color: var(--surface-color, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.08), 0 0 1px 1px rgba(0, 0, 0, 0.04);
+  max-width: 1050px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  min-height: 560px;
+}
+
+@media (max-width: 860px) {
+  .bookingContainer {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+}
+
+/* Panel Izquierdo: Info de la Reunión */
+.leftPanel {
+  padding: 2.5rem 2rem;
+  border-right: 1px solid var(--border-color, #e2e8f0);
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.02) 0%, transparent 100%);
+}
+
+@media (max-width: 860px) {
+  .leftPanel {
+    border-right: none;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    padding: 1.75rem 1.5rem;
+  }
+}
+
+.hostBadge {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.hostAvatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+}
+
+.hostDetails h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-color, #0f172a);
+}
+
+.hostDetails span {
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.meetingTitle {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: var(--text-color, #0f172a);
+  line-height: 1.25;
+  margin: 0 0 1.25rem 0;
+}
+
+.metaList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.metaItem {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.metaIcon {
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+.meetingDescription {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  opacity: 0.75;
+  margin: 0;
+}
+
+/* Panel Derecho: Selección y Formulario */
+.rightPanel {
+  padding: 2.5rem 2.25rem;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 860px) {
+  .rightPanel {
+    padding: 1.75rem 1.5rem;
+  }
+}
+
+.stepTitle {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-color, #0f172a);
+  margin: 0 0 1.25rem 0;
+}
+
+/* Grid de Calendario */
+.calendarWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.calendarNav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.monthLabel {
+  font-size: 1rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.navButton {
+  background: var(--bg-color, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-color, #0f172a);
+  transition: all 0.15s ease;
+}
+
+.navButton:hover:not(:disabled) {
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+  border-color: #2563eb;
+}
+
+.navButton:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.calendarGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  text-align: center;
+}
+
+.dayHeader {
+  font-size: 0.75rem;
+  font-weight: 700;
+  opacity: 0.6;
+  text-transform: uppercase;
+  padding-bottom: 0.5rem;
+}
+
+.dayCell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-color, #0f172a);
+  transition: all 0.15s ease;
+}
+
+.dayCell:hover:not(:disabled) {
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+  border-color: rgba(37, 99, 235, 0.3);
+}
+
+.dayCellSelected {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+}
+
+.dayCellDisabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Grid de Horarios Disponibles */
+.slotsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.slotsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 0.65rem;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.slotButton {
+  padding: 0.75rem 0.5rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-color, #f8fafc);
+  color: var(--text-color, #0f172a);
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.slotButton:hover {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+  color: #10b981;
+  transform: translateY(-1px);
+}
+
+.slotButtonActive {
+  background: #10b981 !important;
+  color: #fff !important;
+  border-color: #10b981 !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+/* Formulario de Confirmación */
+.bookingForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.formLabel {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-color, #0f172a);
+}
+
+.formInput {
+  padding: 0.7rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-color, #f8fafc);
+  color: var(--text-color, #0f172a);
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.formInput:focus {
+  border-color: #2563eb;
+}
+
+.submitButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1.5rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  border: none;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+  transition: all 0.2s ease;
+  margin-top: 0.5rem;
+}
+
+.submitButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+}
+
+.submitButton:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* Pantalla de Éxito */
+.successCard {
+  text-align: center;
+  padding: 2rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.successIconBadge {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+}
+
+.meetButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.85rem 1.75rem;
+  border-radius: 12px;
+  background: #1a73e8;
+  color: #ffffff;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 800;
+  box-shadow: 0 4px 14px rgba(26, 115, 232, 0.35);
+  transition: all 0.2s ease;
+  margin-top: 1rem;
+}
+
+.meetButton:hover {
+  background: #1557b0;
+  transform: translateY(-2px);
+}
