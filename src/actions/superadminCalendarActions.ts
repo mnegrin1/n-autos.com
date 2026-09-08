@@ -2,14 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  getSuperadminCalendarData,
-  saveSuperadminCalendarConfig,
-  getSuperadminGoogleAuth,
-  saveSuperadminGoogleAuth,
-  clearSuperadminGoogleAuth,
-  getSuperadminMeetings,
-  addSuperadminMeeting,
-  updateSuperadminMeetingStatus,
+  getSuperadminCalendarDataAsync,
+  saveSuperadminCalendarConfigAsync,
+  getSuperadminGoogleAuthAsync,
+  saveSuperadminGoogleAuthAsync,
+  clearSuperadminGoogleAuthAsync,
+  getSuperadminMeetingsAsync,
+  addSuperadminMeetingAsync,
+  updateSuperadminMeetingStatusAsync,
   SuperadminCalendarConfig,
   SuperadminMeeting,
 } from "@/lib/superadminCalendarStore";
@@ -23,7 +23,7 @@ function safeRevalidatePath(path: string) {
 
 // --- REFRESH TOKEN HELPER ---
 async function getValidGoogleAccessToken(): Promise<string | null> {
-  const auth = getSuperadminGoogleAuth();
+  const auth = await getSuperadminGoogleAuthAsync();
   if (!auth.connected || !auth.refreshToken) return null;
 
   const now = Date.now();
@@ -54,7 +54,7 @@ async function getValidGoogleAccessToken(): Promise<string | null> {
 
     const data = await res.json();
     if (data.access_token) {
-      saveSuperadminGoogleAuth({
+      await saveSuperadminGoogleAuthAsync({
         accessToken: data.access_token,
         tokenExpiry: Date.now() + (data.expires_in || 3600) * 1000,
         refreshToken: data.refresh_token || auth.refreshToken,
@@ -73,7 +73,7 @@ async function getValidGoogleAccessToken(): Promise<string | null> {
 // --- CONSULTA Y GUARDADO DE CONFIGURACIÓN ---
 
 export async function getSuperadminCalendarSettings() {
-  const data = getSuperadminCalendarData();
+  const data = await getSuperadminCalendarDataAsync();
   return {
     config: data.config,
     googleAuth: {
@@ -123,7 +123,7 @@ export async function saveSuperadminCalendarSettings(updates: {
     };
   }
 
-  const saved = saveSuperadminCalendarConfig(filteredUpdates);
+  const saved = await saveSuperadminCalendarConfigAsync(filteredUpdates);
   safeRevalidatePath("/superadmin/calendar");
   safeRevalidatePath("/");
 
@@ -131,7 +131,7 @@ export async function saveSuperadminCalendarSettings(updates: {
 }
 
 export async function disconnectSuperadminGoogle() {
-  clearSuperadminGoogleAuth();
+  await clearSuperadminGoogleAuthAsync();
   safeRevalidatePath("/superadmin/calendar");
   return { success: true };
 }
@@ -205,7 +205,7 @@ function formatInMontevideo(date: Date) {
 
 export async function getAvailableBookingSlots(dateStr: string) {
   // dateStr viene en formato "YYYY-MM-DD"
-  const { config, googleAuth } = getSuperadminCalendarData();
+  const { config, googleAuth } = await getSuperadminCalendarDataAsync();
   const [year, month, day] = dateStr.split("-").map(Number);
   const selectedDate = new Date(year, month - 1, day);
 
@@ -354,7 +354,7 @@ export async function getAvailableBookingSlots(dateStr: string) {
   }
 
   // Incluir también reuniones internas ya confirmadas
-  const internalMeetings = getSuperadminMeetings().filter(
+  const internalMeetings = (await getSuperadminMeetingsAsync()).filter(
     (m) => m.date === dateStr && m.status === "confirmed"
   );
   for (const m of internalMeetings) {
@@ -401,7 +401,7 @@ export async function bookMeetingFromLanding(payload: {
     return { success: false, error: "Por favor completa los campos obligatorios." };
   }
 
-  const { config, googleAuth } = getSuperadminCalendarData();
+  const { config, googleAuth } = await getSuperadminCalendarDataAsync();
   const duration = config.meetingDurationMinutes || 30;
 
   const [year, month, day] = date.split("-").map(Number);
@@ -512,7 +512,7 @@ export async function bookMeetingFromLanding(payload: {
     createdAt: new Date().toISOString(),
   };
 
-  addSuperadminMeeting(newMeeting);
+  await addSuperadminMeetingAsync(newMeeting);
 
   // Registrar también en el sistema de consultas/leads para que aparezca en "Solicitudes & Consultas"
   try {
@@ -539,11 +539,11 @@ export async function bookMeetingFromLanding(payload: {
 // --- GESTIÓN DE REUNIONES PARA EL SUPERADMIN ---
 
 export async function getSuperadminMeetingsList() {
-  return getSuperadminMeetings();
+  return await getSuperadminMeetingsAsync();
 }
 
 export async function cancelSuperadminMeeting(meetingId: string) {
-  const meetings = getSuperadminMeetings();
+  const meetings = await getSuperadminMeetingsAsync();
   const target = meetings.find((m) => m.id === meetingId);
   if (!target) return { success: false, error: "Reunión no encontrada." };
 
@@ -565,7 +565,7 @@ export async function cancelSuperadminMeeting(meetingId: string) {
     }
   }
 
-  updateSuperadminMeetingStatus(meetingId, "cancelled");
+  await updateSuperadminMeetingStatusAsync(meetingId, "cancelled");
   safeRevalidatePath("/superadmin/calendar");
   return { success: true };
 }
@@ -574,7 +574,7 @@ export async function cancelSuperadminMeeting(meetingId: string) {
  * Acción para sincronizar eventos guardados en Google Calendar con el calendario interno
  */
 export async function syncGoogleEventsAction() {
-  const auth = getSuperadminGoogleAuth();
+  const auth = await getSuperadminGoogleAuthAsync();
   if (!auth.connected) {
     return {
       success: false,
@@ -597,7 +597,7 @@ export async function syncGoogleEventsAction() {
     const gRes = await fetch(
       `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(
         timeMin
-      )}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime&maxResults=100`,
+      )}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime&maxResults=250`,
       {
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
@@ -613,7 +613,7 @@ export async function syncGoogleEventsAction() {
     let importedCount = 0;
 
     if (Array.isArray(data.items)) {
-      const currentMeetings = getSuperadminMeetings();
+      const currentMeetings = await getSuperadminMeetingsAsync();
       const existingGoogleIds = new Set(
         currentMeetings.filter((m) => m.googleEventId).map((m) => m.googleEventId)
       );
@@ -657,7 +657,7 @@ export async function syncGoogleEventsAction() {
           createdAt: item.created || new Date().toISOString(),
         };
 
-        addSuperadminMeeting(googleMeeting);
+        await addSuperadminMeetingAsync(googleMeeting);
         importedCount++;
       }
     }

@@ -123,12 +123,19 @@ function SuperadminCalendarContent() {
 
     const success = searchParams.get("success");
     const error = searchParams.get("error");
+    const count = searchParams.get("count");
 
     if (success === "google_connected") {
+      const countNum = count ? Number(count) : 0;
+      const countMsg = countNum > 0 ? ` (${countNum} eventos importados)` : "";
       setStatusMessage({
         type: "success",
-        text: "¡Google Calendar conectado con éxito! Ahora puedes sincronizar tus eventos.",
+        text: `¡Google Calendar conectado y sincronizado automáticamente con éxito!${countMsg}`,
       });
+      // Asegurar refresco inmediato con los nuevos eventos
+      setTimeout(() => {
+        loadData();
+      }, 500);
     } else if (error) {
       setStatusMessage({
         type: "error",
@@ -478,25 +485,48 @@ function SuperadminCalendarContent() {
             </button>
 
             {googleAuth.connected ? (
-              <button
-                type="button"
-                onClick={handleDisconnectGoogle}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "0.5rem",
-                  padding: "0.6rem 1rem",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(239, 68, 68, 0.3)",
-                  backgroundColor: "rgba(239, 68, 68, 0.08)",
-                  color: "#ef4444",
-                  fontSize: "0.85rem",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                <Unlink size={16} /> Desconectar Google
-              </button>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <button
+                  type="button"
+                  onClick={handleSyncGoogle}
+                  disabled={isSyncing}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    padding: "0.6rem 1rem",
+                    borderRadius: "8px",
+                    border: "1px solid rgba(16, 185, 129, 0.3)",
+                    backgroundColor: "rgba(16, 185, 129, 0.1)",
+                    color: "#10b981",
+                    fontSize: "0.85rem",
+                    fontWeight: 700,
+                    cursor: isSyncing ? "not-allowed" : "pointer",
+                  }}
+                >
+                  <RefreshCw size={15} style={{ animation: isSyncing ? "spin 1s linear infinite" : "none" }} />
+                  {isSyncing ? "Sincronizando..." : "Sincronizar ahora"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDisconnectGoogle}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                    padding: "0.6rem 0.9rem",
+                    borderRadius: "8px",
+                    border: "1px solid rgba(239, 68, 68, 0.3)",
+                    backgroundColor: "rgba(239, 68, 68, 0.08)",
+                    color: "#ef4444",
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  <Unlink size={15} /> Desconectar
+                </button>
+              </div>
             ) : (
               <a
                 href="/api/auth/google?target=superadmin"
@@ -514,7 +544,7 @@ function SuperadminCalendarContent() {
                   boxShadow: "0 2px 8px rgba(37, 99, 235, 0.3)",
                 }}
               >
-                <Link2 size={18} /> Conectar con Google
+                <Link2 size={18} /> Conectar y sincronizar con Google
               </a>
             )}
           </div>

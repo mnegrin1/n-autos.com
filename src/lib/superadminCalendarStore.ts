@@ -48,13 +48,13 @@ export interface SuperadminMeeting {
   createdAt: string;
 }
 
-interface SuperadminCalendarData {
+export interface SuperadminCalendarData {
   config: SuperadminCalendarConfig;
   googleAuth: SuperadminGoogleAuth;
   meetings: SuperadminMeeting[];
 }
 
-const DEFAULT_CONFIG: SuperadminCalendarConfig = {
+export const DEFAULT_CONFIG: SuperadminCalendarConfig = {
   availableDays: [1, 2, 3, 4, 5], // Lunes a Viernes
   displayDaysAhead: 14,            // 14 días disponibles hacia adelante
   meetingDurationMinutes: 30,     // 30 minutos por reunión
@@ -98,7 +98,6 @@ function loadDataFromDisk(): SuperadminCalendarData {
       if (content.trim()) {
         const parsed = JSON.parse(content);
         
-        // Manejar migración de timeRanges si antes solo existía startTime/endTime
         let timeRanges: TimeRange[] = [];
         if (Array.isArray(parsed.config?.consultationHours?.timeRanges) && parsed.config.consultationHours.timeRanges.length > 0) {
           timeRanges = parsed.config.consultationHours.timeRanges;
@@ -127,7 +126,7 @@ function loadDataFromDisk(): SuperadminCalendarData {
       }
     }
   } catch (err) {
-    console.error("Error leyendo superadmin_calendar_data de disco:", err);
+    // Modo silencioso para entornos de solo lectura
   }
   return JSON.parse(JSON.stringify(DEFAULT_DATA));
 }
@@ -137,8 +136,122 @@ function saveDataToDisk(data: SuperadminCalendarData): void {
   try {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
   } catch (err) {
-    console.error("Error guardando superadmin_calendar_data en disco:", err);
+    // Ignorar en entornos de solo lectura (serverless / edge)
   }
+}
+
+/**
+ * Carga e hidrata el estado completo del calendario desde Supabase:
+ * 1. Google Auth desde auto_integrations (channel = 'google_calendar_superadmin')
+ * 2. Configuración desde events (title = '__superadmin_calendar_config__')
+ * 3. Reuniones desde events (event_type = 'reunion' y title != '__superadmin_calendar_config__')
+ */
+export async function getSuperadminCalendarDataAsync(): Promise<SuperadminCalendarData> {
+  const base = memoryCache || loadDataFromDisk();
+
+  if (!supabaseAdmin) {
+    memoryCache = base;
+    return base;
+  }
+
+  try {
+    // 1. Cargar Google Auth desde Supabase auto_integrations
+    const { data: authRow } = await (supabaseAdmin.from("auto_integrations") as any)
+      .select("*")
+      .eq("channel", "google_calendar_superadmin")
+      .maybeSingle();
+
+    if (authRow) {
+      base.googleAuth = {
+        connected: !!authRow.connected,
+        email: authRow.username || base.googleAuth.email,
+        accessToken: authRow.token || base.googleAuth.accessToken,
+        refreshToken: authRow.refresh_token || base.googleAuth.refreshToken,
+        tokenExpiry: authRow.expires_at ? Number(authRow.expires_at) : base.googleAuth.tokenExpiry,
+      };
+    }
+
+    // 2. Cargar Configuración desde Supabase events
+    const { data: configRow } = await (supabaseAdmin.from("events") as any)
+      .select("description")
+      .eq("title", "__superadmin_calendar_config__")
+      .maybeSingle();
+
+    if (configRow?.description) {
+      try {
+        const parsedConfig = JSON.parse(configRow.description);
+        let timeRanges: TimeRange[] = [];
+        if (Array.isArray(parsedConfig?.consultationHours?.timeRanges) && parsedConfig.consultationHours.timeRanges.length > 0) {
+          timeRanges = parsedConfig.consultationHours.timeRanges;
+        } else {
+          const s = parsedConfig?.consultationHours?.startTime || "09:00";
+          const e = parsedConfig?.consultationHours?.endTime || "18:00";
+          timeRanges = [{ startTime: s, endTime: e }];
+        }
+
+        base.config = {
+          ...DEFAULT_CONFIG,
+          ...parsedConfig,
+          consultationHours: {
+            startTime: timeRanges[0]?.startTime || "09:00",
+            endTime: timeRanges[timeRanges.length - 1]?.endTime || "18:00",
+            timeRanges,
+          },
+        };
+      } catch (e) {}
+    }
+
+    // 3. Cargar Reuniones desde Supabase events
+    const { data: meetingRows } = await (supabaseAdmin.from("events") as any)
+      .select("*")
+      .eq("event_type", "reunion")
+      .neq("title", "__superadmin_calendar_config__")
+      .order("event_date", { ascending: false });
+
+    if (Array.isArray(meetingRows) && meetingRows.length > 0) {
+      const dbMeetings: SuperadminMeeting[] = [];
+      for (const row of meetingRows) {
+        if (!row.description) continue;
+        try {
+          const meta = JSON.parse(row.description);
+          dbMeetings.push({
+            id: meta.id || row.id,
+            title: row.title || meta.title || "Reunión",
+            clientName: meta.clientName || meta.client_name || "Interesado",
+            clientEmail: meta.clientEmail || meta.client_email || "",
+            clientPhone: meta.clientPhone || meta.client_phone || undefined,
+            agencyName: meta.agencyName || meta.agency_name || undefined,
+            notes: meta.notes || undefined,
+            date: meta.date || (row.event_date ? row.event_date.split("T")[0] : ""),
+            time: meta.time || "09:00",
+            start: row.event_date || meta.start,
+            end: meta.end || row.event_date,
+            durationMinutes: meta.durationMinutes || meta.duration_minutes || 30,
+            meetUrl: meta.meetUrl || meta.meet_url || undefined,
+            googleEventId: meta.googleEventId || meta.google_event_id || undefined,
+            isGoogleEvent: !!meta.isGoogleEvent || !!meta.is_google_event,
+            status: meta.status || "confirmed",
+            createdAt: row.created_at || meta.createdAt || new Date().toISOString(),
+          });
+        } catch (e) {}
+      }
+
+      const existingIds = new Set(dbMeetings.map((m) => m.id));
+      for (const lm of base.meetings) {
+        if (!existingIds.has(lm.id)) {
+          dbMeetings.push(lm);
+        }
+      }
+      base.meetings = dbMeetings;
+    }
+
+    memoryCache = base;
+    saveDataToDisk(base);
+  } catch (err) {
+    console.warn("Aviso al sincronizar superadmin calendar con Supabase:", err);
+  }
+
+  return base;
 }
 
 export function getSuperadminCalendarData(): SuperadminCalendarData {
@@ -148,10 +261,10 @@ export function getSuperadminCalendarData(): SuperadminCalendarData {
   return memoryCache;
 }
 
-export function saveSuperadminCalendarConfig(
+export async function saveSuperadminCalendarConfigAsync(
   updates: Partial<SuperadminCalendarConfig>
-): SuperadminCalendarConfig {
-  const current = getSuperadminCalendarData();
+): Promise<SuperadminCalendarConfig> {
+  const current = await getSuperadminCalendarDataAsync();
 
   let timeRanges: TimeRange[] = current.config.consultationHours.timeRanges || [
     { startTime: "09:00", endTime: "18:00" },
@@ -186,7 +299,48 @@ export function saveSuperadminCalendarConfig(
   memoryCache = current;
   saveDataToDisk(current);
 
+  // Persistir en Supabase events
+  try {
+    if (supabaseAdmin) {
+      const { data: existing } = await (supabaseAdmin.from("events") as any)
+        .select("id")
+        .eq("title", "__superadmin_calendar_config__")
+        .maybeSingle();
+
+      if (existing?.id) {
+        await (supabaseAdmin.from("events") as any)
+          .update({
+            description: JSON.stringify(newConfig),
+            event_date: new Date().toISOString(),
+          })
+          .eq("id", existing.id);
+      } else {
+        await (supabaseAdmin.from("events") as any).insert({
+          title: "__superadmin_calendar_config__",
+          event_type: "reunion",
+          event_date: new Date().toISOString(),
+          description: JSON.stringify(newConfig),
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("Aviso guardando config en Supabase:", err);
+  }
+
   return current.config;
+}
+
+export function saveSuperadminCalendarConfig(
+  updates: Partial<SuperadminCalendarConfig>
+): SuperadminCalendarConfig {
+  saveSuperadminCalendarConfigAsync(updates).catch(() => {});
+  const current = getSuperadminCalendarData();
+  return current.config;
+}
+
+export async function getSuperadminGoogleAuthAsync(): Promise<SuperadminGoogleAuth> {
+  const current = await getSuperadminCalendarDataAsync();
+  return current.googleAuth;
 }
 
 export function getSuperadminGoogleAuth(): SuperadminGoogleAuth {
@@ -194,26 +348,91 @@ export function getSuperadminGoogleAuth(): SuperadminGoogleAuth {
   return current.googleAuth;
 }
 
-export function saveSuperadminGoogleAuth(
+export async function saveSuperadminGoogleAuthAsync(
   auth: Partial<SuperadminGoogleAuth>
-): SuperadminGoogleAuth {
-  const current = getSuperadminCalendarData();
+): Promise<SuperadminGoogleAuth> {
+  const current = await getSuperadminCalendarDataAsync();
   current.googleAuth = {
     ...current.googleAuth,
     ...auth,
   };
   memoryCache = current;
   saveDataToDisk(current);
+
+  // Persistir inmediatamente en Supabase auto_integrations
+  try {
+    if (supabaseAdmin) {
+      const payload: Record<string, any> = {
+        channel: "google_calendar_superadmin",
+        connected: current.googleAuth.connected,
+        username: current.googleAuth.email || null,
+        token: current.googleAuth.accessToken || null,
+        refresh_token: current.googleAuth.refreshToken || null,
+        expires_at: current.googleAuth.tokenExpiry || null,
+        updated_at: new Date().toISOString(),
+      };
+
+      await (supabaseAdmin.from("auto_integrations") as any)
+        .upsert([payload], { onConflict: "channel" });
+    }
+  } catch (err) {
+    console.error("Error guardando googleAuth en auto_integrations Supabase:", err);
+  }
+
   return current.googleAuth;
 }
 
-export function clearSuperadminGoogleAuth(): void {
+export function saveSuperadminGoogleAuth(
+  auth: Partial<SuperadminGoogleAuth>
+): SuperadminGoogleAuth {
+  saveSuperadminGoogleAuthAsync(auth).catch(() => {});
   const current = getSuperadminCalendarData();
+  current.googleAuth = { ...current.googleAuth, ...auth };
+  memoryCache = current;
+  saveDataToDisk(current);
+  return current.googleAuth;
+}
+
+export async function clearSuperadminGoogleAuthAsync(): Promise<void> {
+  const current = await getSuperadminCalendarDataAsync();
   current.googleAuth = {
     connected: false,
   };
   memoryCache = current;
   saveDataToDisk(current);
+
+  try {
+    if (supabaseAdmin) {
+      await (supabaseAdmin.from("auto_integrations") as any)
+        .upsert([
+          {
+            channel: "google_calendar_superadmin",
+            connected: false,
+            token: null,
+            refresh_token: null,
+            expires_at: null,
+            updated_at: new Date().toISOString(),
+          },
+        ], { onConflict: "channel" });
+    }
+  } catch (err) {
+    console.warn("Aviso desconectando Google de Supabase:", err);
+  }
+}
+
+export function clearSuperadminGoogleAuth(): void {
+  clearSuperadminGoogleAuthAsync().catch(() => {});
+  const current = getSuperadminCalendarData();
+  current.googleAuth = { connected: false };
+  memoryCache = current;
+  saveDataToDisk(current);
+}
+
+export async function getSuperadminMeetingsAsync(): Promise<SuperadminMeeting[]> {
+  const current = await getSuperadminCalendarDataAsync();
+  return current.meetings.sort(
+    (a, b) => new Date(b.start).getTime() - new Date(a.start).getTime()
+  );
 }
 
 export function getSuperadminMeetings(): SuperadminMeeting[] {
@@ -223,51 +442,133 @@ export function getSuperadminMeetings(): SuperadminMeeting[] {
   );
 }
 
-export function addSuperadminMeeting(meeting: SuperadminMeeting): SuperadminMeeting {
-  const current = getSuperadminCalendarData();
-  current.meetings = [meeting, ...current.meetings.filter((m) => m.id !== meeting.id)];
+export async function addSuperadminMeetingAsync(meeting: SuperadminMeeting): Promise<SuperadminMeeting> {
+  const current = await getSuperadminCalendarDataAsync();
+  current.meetings = [meeting, ...current.meetings.filter((m) => m.id !== meeting.id && m.googleEventId !== meeting.googleEventId)];
   memoryCache = current;
   saveDataToDisk(current);
 
   try {
     if (supabaseAdmin) {
-      (supabaseAdmin.from("events") as any)
-        .insert({
+      const { data: existing } = await (supabaseAdmin.from("events") as any)
+        .select("id, description")
+        .eq("event_type", "reunion")
+        .neq("title", "__superadmin_calendar_config__");
+
+      let existingId: string | null = null;
+      if (Array.isArray(existing)) {
+        for (const row of existing) {
+          try {
+            const meta = JSON.parse(row.description);
+            if (
+              (meeting.googleEventId && meta.googleEventId === meeting.googleEventId) ||
+              (meeting.id && meta.id === meeting.id)
+            ) {
+              existingId = row.id;
+              break;
+            }
+          } catch (e) {}
+        }
+      }
+
+      const descriptionPayload = JSON.stringify({
+        ...meeting,
+        source: "superadmin_meet",
+      });
+
+      if (existingId) {
+        await (supabaseAdmin.from("events") as any)
+          .update({
+            title: meeting.title,
+            event_date: meeting.start,
+            description: descriptionPayload,
+          })
+          .eq("id", existingId);
+      } else {
+        await (supabaseAdmin.from("events") as any).insert({
           title: meeting.title,
           event_type: "reunion",
           event_date: meeting.start,
-          end_date: meeting.end,
-          description: JSON.stringify({
-            client_name: meeting.clientName,
-            client_email: meeting.clientEmail,
-            client_phone: meeting.clientPhone,
-            agency_name: meeting.agencyName,
-            meet_url: meeting.meetUrl,
-            google_event_id: meeting.googleEventId,
-            is_google_event: meeting.isGoogleEvent,
-            status: meeting.status,
-            source: "superadmin_meet",
-          }),
-        })
-        .then(() => {})
-        .catch(() => {});
+          description: descriptionPayload,
+        });
+      }
     }
-  } catch (e) {}
+  } catch (e) {
+    console.warn("Aviso insertando reunion en Supabase:", e);
+  }
 
   return meeting;
 }
 
+export function addSuperadminMeeting(meeting: SuperadminMeeting): SuperadminMeeting {
+  addSuperadminMeetingAsync(meeting).catch(() => {});
+  const current = getSuperadminCalendarData();
+  current.meetings = [meeting, ...current.meetings.filter((m) => m.id !== meeting.id)];
+  memoryCache = current;
+  saveDataToDisk(current);
+  return meeting;
+}
+
+export async function saveSuperadminMeetingsAsync(meetings: SuperadminMeeting[]): Promise<void> {
+  const current = await getSuperadminCalendarDataAsync();
+  current.meetings = meetings;
+  memoryCache = current;
+  saveDataToDisk(current);
+}
+
 export function saveSuperadminMeetings(meetings: SuperadminMeeting[]): void {
+  saveSuperadminMeetingsAsync(meetings).catch(() => {});
   const current = getSuperadminCalendarData();
   current.meetings = meetings;
   memoryCache = current;
   saveDataToDisk(current);
 }
 
+export async function updateSuperadminMeetingStatusAsync(
+  id: string,
+  status: "confirmed" | "cancelled" | "completed"
+): Promise<boolean> {
+  const current = await getSuperadminCalendarDataAsync();
+  const meeting = current.meetings.find((m) => m.id === id);
+  if (meeting) {
+    meeting.status = status;
+    memoryCache = current;
+    saveDataToDisk(current);
+
+    try {
+      if (supabaseAdmin) {
+        const { data: rows } = await (supabaseAdmin.from("events") as any)
+          .select("id, description")
+          .eq("event_type", "reunion")
+          .neq("title", "__superadmin_calendar_config__");
+
+        if (Array.isArray(rows)) {
+          for (const row of rows) {
+            try {
+              const meta = JSON.parse(row.description);
+              if (meta.id === id || meta.googleEventId === id) {
+                meta.status = status;
+                await (supabaseAdmin.from("events") as any)
+                  .update({ description: JSON.stringify(meta) })
+                  .eq("id", row.id);
+                break;
+              }
+            } catch (e) {}
+          }
+        }
+      }
+    } catch (e) {}
+
+    return true;
+  }
+  return false;
+}
+
 export function updateSuperadminMeetingStatus(
   id: string,
   status: "confirmed" | "cancelled" | "completed"
 ): boolean {
+  updateSuperadminMeetingStatusAsync(id, status).catch(() => {});
   const current = getSuperadminCalendarData();
   const meeting = current.meetings.find((m) => m.id === id);
   if (meeting) {

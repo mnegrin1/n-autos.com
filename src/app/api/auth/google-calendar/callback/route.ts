@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { saveSuperadminGoogleAuth } from "@/lib/superadminCalendarStore";
+import { saveSuperadminGoogleAuthAsync } from "@/lib/superadminCalendarStore";
+import { syncGoogleEventsAction } from "@/actions/superadminCalendarActions";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -63,8 +64,8 @@ export async function GET(request: NextRequest) {
       console.warn("No se pudo obtener el email de Google userinfo:", e);
     }
 
-    // Guardar tokens y estado en el store persistente del Superadmin
-    saveSuperadminGoogleAuth({
+    // Guardar tokens y estado en el store persistente del Superadmin (Supabase auto_integrations)
+    await saveSuperadminGoogleAuthAsync({
       connected: true,
       email: userEmail,
       accessToken: tokenData.access_token,
@@ -72,8 +73,22 @@ export async function GET(request: NextRequest) {
       tokenExpiry: Date.now() + (tokenData.expires_in || 3600) * 1000,
     });
 
+    // Sincronizar automáticamente eventos de Google Calendar de inmediato
+    let importedCount = 0;
+    try {
+      const syncRes = await syncGoogleEventsAction();
+      if (syncRes.success && typeof syncRes.count === "number") {
+        importedCount = syncRes.count;
+      }
+    } catch (syncErr) {
+      console.warn("Aviso en auto-sincronización tras conectar Google:", syncErr);
+    }
+
     return NextResponse.redirect(
-      new URL("/superadmin/calendar?success=google_connected", request.url)
+      new URL(
+        `/superadmin/calendar?success=google_connected&synced=true&count=${importedCount}`,
+        request.url
+      )
     );
   } catch (err: any) {
     console.error("Error en callback de Google Calendar:", err);
