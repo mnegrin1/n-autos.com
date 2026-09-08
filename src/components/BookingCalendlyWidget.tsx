@@ -76,6 +76,56 @@ export default function BookingCalendlyWidget() {
     loadConfig();
   }, []);
 
+  // Helper local para generar slots de respaldo inmediatos según la configuración
+  const getFallbackSlotsForDate = (dateStr: string, currentConfig: SuperadminCalendarConfig): string[] => {
+    try {
+      const [y, m, d] = dateStr.split("-").map(Number);
+      const targetDate = new Date(y, m - 1, d);
+      const dayOfWeek = targetDate.getDay();
+      if (!currentConfig.availableDays.includes(dayOfWeek)) return [];
+
+      const duration = currentConfig.meetingDurationMinutes || 30;
+      const ranges = currentConfig.consultationHours.timeRanges?.length
+        ? currentConfig.consultationHours.timeRanges
+        : [{ startTime: currentConfig.consultationHours.startTime || "09:00", endTime: currentConfig.consultationHours.endTime || "18:00" }];
+
+      // Chequear hora actual en Montevideo (GMT-3)
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Montevideo",
+        hour12: false,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).formatToParts(new Date());
+      const map: Record<string, string> = {};
+      for (const p of parts) map[p.type] = p.value;
+      const todayStr = `${map.year}-${map.month}-${map.day}`;
+      const isToday = dateStr === todayStr;
+      const bufferMinutes = isToday ? Number(map.hour) * 60 + Number(map.minute) + 15 : -1;
+
+      const generated: string[] = [];
+      for (const r of ranges) {
+        if (!r.startTime || !r.endTime) continue;
+        const [sH, sM] = r.startTime.split(":").map(Number);
+        const [eH, eM] = r.endTime.split(":").map(Number);
+        const sTotal = sH * 60 + sM;
+        const eTotal = eH * 60 + eM;
+        for (let min = sTotal; min + duration <= eTotal; min += duration) {
+          if (isToday && min <= bufferMinutes) continue;
+          const hh = String(Math.floor(min / 60)).padStart(2, "0");
+          const mm = String(min % 60).padStart(2, "0");
+          const label = `${hh}:${mm}`;
+          if (!generated.includes(label)) generated.push(label);
+        }
+      }
+      return generated;
+    } catch (e) {
+      return ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00"];
+    }
+  };
+
   // 2. Al seleccionar una fecha, consultar horarios disponibles
   const handleSelectDate = async (dateStr: string) => {
     setSelectedDate(dateStr);
@@ -83,21 +133,79 @@ export default function BookingCalendlyWidget() {
     setIsLoadingSlots(true);
     setSlotsError(null);
 
+    // Timeout de seguridad: asegura que tras 3.5 segundos NUNCA quede en loading infinito
+    const safetyTimer = setTimeout(() => {
+      setIsLoadingSlots((currentLoading) => {
+        if (currentLoading) {
+          const fallback = getFallbackSlotsForDate(dateStr, config);
+          if (fallback.length > 0) {
+            setAvailableSlots(fallback);
+          } else {
+            setSlotsError("No quedan más horarios libres para hoy. Te invitamos a seleccionar el día de mañana.");
+          }
+          return false;
+        }
+        return false;
+      });
+    }, 3500);
+
     try {
-      const res = await getAvailableBookingSlots(dateStr);
-      if (res.success && Array.isArray(res.slots)) {
-        setAvailableSlots(res.slots);
-        if (res.slots.length === 0) {
-          setSlotsError("No hay horarios disponibles para esta fecha.");
+      // 1. Intentar fetch directo local al endpoint /api/calendar/slots (muy rápido)
+      const controller = new AbortController();
+      const fetchTimer = setTimeout(() => controller.abort(), 2500);
+
+      let fetchedData = null;
+      try {
+        const directRes = await fetch(`/api/calendar/slots?date=${encodeURIComponent(dateStr)}`, {
+          signal: controller.signal,
+          headers: { Accept: "application/json" },
+        });
+        if (directRes.ok) {
+          fetchedData = await directRes.json();
+        }
+      } catch (directErr) {
+        // Fallback a Server Action
+      } finally {
+        clearTimeout(fetchTimer);
+      }
+
+      // 2. Si no respondió el endpoint local, llamar al Server Action
+      if (!fetchedData) {
+        fetchedData = await getAvailableBookingSlots(dateStr);
+      }
+
+      clearTimeout(safetyTimer);
+
+      if (fetchedData && fetchedData.success && Array.isArray(fetchedData.slots)) {
+        if (fetchedData.slots.length > 0) {
+          setAvailableSlots(fetchedData.slots);
+          setSlotsError(null);
+        } else {
+          setAvailableSlots([]);
+          setSlotsError(fetchedData.reason || "No quedan horarios libres para esta fecha. Te invitamos a seleccionar otro día.");
         }
       } else {
-        setAvailableSlots([]);
-        setSlotsError(res.reason || "Día no disponible para consultas.");
+        const fallback = getFallbackSlotsForDate(dateStr, config);
+        if (fallback.length > 0) {
+          setAvailableSlots(fallback);
+          setSlotsError(null);
+        } else {
+          setAvailableSlots([]);
+          setSlotsError(fetchedData?.reason || "Día no disponible para consultas.");
+        }
       }
     } catch (e) {
+      clearTimeout(safetyTimer);
       console.error("Error al consultar horarios disponibles:", e);
-      setSlotsError("Error al cargar horarios. Por favor intenta de nuevo.");
+      const fallback = getFallbackSlotsForDate(dateStr, config);
+      if (fallback.length > 0) {
+        setAvailableSlots(fallback);
+        setSlotsError(null);
+      } else {
+        setSlotsError("Error al cargar horarios. Por favor intenta de nuevo.");
+      }
     } finally {
+      clearTimeout(safetyTimer);
       setIsLoadingSlots(false);
     }
   };

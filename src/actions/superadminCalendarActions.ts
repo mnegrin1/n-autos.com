@@ -136,6 +136,41 @@ export async function disconnectSuperadminGoogle() {
   return { success: true };
 }
 
+// Helper para obtener fecha y hora actual en zona horaria de Montevideo (GMT-3)
+function getMontevideoNow() {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Montevideo",
+      hour12: false,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).formatToParts(new Date());
+
+    const map: Record<string, string> = {};
+    for (const p of parts) {
+      map[p.type] = p.value;
+    }
+    return {
+      todayStr: `${map.year}-${map.month}-${map.day}`,
+      currentHour: Number(map.hour),
+      currentMinute: Number(map.minute),
+    };
+  } catch (e) {
+    const d = new Date(Date.now() - 3 * 3600 * 1000);
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(d.getUTCDate()).padStart(2, "0");
+    return {
+      todayStr: `${y}-${m}-${day}`,
+      currentHour: d.getUTCHours(),
+      currentMinute: d.getUTCMinutes(),
+    };
+  }
+}
+
 // --- GENERACIÓN DE HORARIOS DISPONIBLES (CALENDLY STYLE CON GOOGLE SYNC) ---
 
 export async function getAvailableBookingSlots(dateStr: string) {
@@ -154,16 +189,9 @@ export async function getAvailableBookingSlots(dateStr: string) {
     };
   }
 
-  // Validar si la fecha está dentro de la ventana de visualización
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const maxDate = new Date(today);
-  maxDate.setDate(maxDate.getDate() + config.displayDaysAhead);
-
-  const checkDate = new Date(selectedDate);
-  checkDate.setHours(0, 0, 0, 0);
-
-  if (checkDate < today) {
+  // Validar si la fecha está dentro de la ventana de visualización usando hora local de Montevideo
+  const montevideoNow = getMontevideoNow();
+  if (dateStr < montevideoNow.todayStr) {
     return {
       success: false,
       reason: "No se pueden seleccionar fechas pasadas.",
@@ -172,7 +200,12 @@ export async function getAvailableBookingSlots(dateStr: string) {
     };
   }
 
-  if (checkDate > maxDate) {
+  const [tY, tM, tD] = montevideoNow.todayStr.split("-").map(Number);
+  const todayDateObj = new Date(tY, tM - 1, tD);
+  const maxDateObj = new Date(todayDateObj);
+  maxDateObj.setDate(maxDateObj.getDate() + config.displayDaysAhead);
+
+  if (selectedDate > maxDateObj) {
     return {
       success: false,
       reason: `Solo se pueden agendar consultas dentro de los próximos ${config.displayDaysAhead} días.`,
@@ -180,6 +213,8 @@ export async function getAvailableBookingSlots(dateStr: string) {
       config,
     };
   }
+
+  const isToday = dateStr === montevideoNow.todayStr;
 
   // Generar todos los slots teóricos recorriendo cada franja horaria configurada
   const ranges = config.consultationHours.timeRanges?.length
@@ -211,28 +246,38 @@ export async function getAvailableBookingSlots(dateStr: string) {
         continue;
       }
 
-      // Construir fechas exactas
-      const slotStartDate = new Date(year, month - 1, day, Number(hh), Number(mm), 0);
-      const slotEndDate = new Date(year, month - 1, day, Number(endHh), Number(endMm), 0);
-
-      // Si es hoy, filtrar slots que ya pasaron
-      if (checkDate.getTime() === today.getTime()) {
-        const nowBuffer = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos de margen de anticipación
-        if (slotStartDate <= nowBuffer) {
+      // Si es hoy, filtrar slots que ya pasaron en hora local (con 15 min de margen de anticipación)
+      if (isToday) {
+        const currentLocalMinutes = montevideoNow.currentHour * 60 + montevideoNow.currentMinute;
+        const bufferMinutes = currentLocalMinutes + 15;
+        if (m <= bufferMinutes) {
           continue;
         }
       }
 
+      // Fechas ISO exactas con offset GMT-3 de Montevideo
+      const startIso = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${hh}:${mm}:00-03:00`;
+      const endIso = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${endHh}:${endMm}:00-03:00`;
+
       generatedSlots.push({
         time: timeLabel,
-        startIso: slotStartDate.toISOString(),
-        endIso: slotEndDate.toISOString(),
+        startIso,
+        endIso,
       });
     }
   }
 
   // Ordenar cronológicamente
   generatedSlots.sort((a, b) => a.time.localeCompare(b.time));
+
+  if (isToday && generatedSlots.length === 0) {
+    return {
+      success: true,
+      reason: "No quedan más horarios disponibles por hoy. Te invitamos a seleccionar el día de mañana.",
+      slots: [],
+      config,
+    };
+  }
 
   // Consultar eventos de Google Calendar si está conectado para excluir colisiones
   const busyRanges: { start: number; end: number }[] = [];
