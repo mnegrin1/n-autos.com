@@ -13,7 +13,6 @@ import {
   RefreshCw,
   Save,
   CheckCircle2,
-  HelpCircle,
   Plus,
   Trash2,
   ChevronLeft,
@@ -21,8 +20,9 @@ import {
   ChevronDown,
   ChevronUp,
   Calendar as CalendarIcon,
-  Clock,
   Sliders,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 
 interface CalendarConfigSidebarProps {
@@ -40,6 +40,7 @@ interface CalendarConfigSidebarProps {
   selectedCalendarDay: string | null;
   onSelectDay: (dateStr: string) => void;
   meetings: SuperadminMeeting[];
+  onOpenNewEvent?: () => void;
 }
 
 const DAYS_OF_WEEK = [
@@ -67,10 +68,25 @@ export default function CalendarConfigSidebar({
   selectedCalendarDay,
   onSelectDay,
   meetings,
+  onOpenNewEvent,
 }: CalendarConfigSidebarProps) {
-  const [showGoogleHelp, setShowGoogleHelp] = useState(false);
-  const [isAvailabilityOpen, setIsAvailabilityOpen] = useState(true);
-  const [isMiniCalOpen, setIsMiniCalOpen] = useState(true);
+  const [isAvailabilityOpen, setIsAvailabilityOpen] = useState(false);
+  const [isCalendarsOpen, setIsCalendarsOpen] = useState(true);
+
+  // Filtros visuales de calendarios
+  const [visibleCalendars, setVisibleCalendars] = useState<{
+    primary: boolean;
+    personal: boolean;
+    meet: boolean;
+  }>({
+    primary: true,
+    personal: true,
+    meet: true,
+  });
+
+  const toggleCalendarFilter = (key: "primary" | "personal" | "meet") => {
+    setVisibleCalendars((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const handleToggleDay = (dayId: number) => {
     onConfigChange((prev) => {
@@ -134,198 +150,324 @@ export default function CalendarConfigSidebar({
   const calYear = currentCalendarDate.getFullYear();
   const calMonth = currentCalendarDate.getMonth();
   const daysInCalMonth = new Date(calYear, calMonth + 1, 0).getDate();
-  const firstDayOfWeek = (new Date(calYear, calMonth, 1).getDay() + 6) % 7;
+  // Primer día del mes (0 = Domingo, 1 = Lunes, ...)
+  const firstDayOfWeekSundayBased = new Date(calYear, calMonth, 1).getDay();
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1rem", width: "100%" }}>
-      {/* CARD 1: ESTADO Y ACCIONES DE GOOGLE CALENDAR */}
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "0.85rem",
+        width: "100%",
+        padding: "0.5rem",
+        boxSizing: "border-box",
+      }}
+    >
+      {/* 1. BOTÓN PRINCIPAL: + CREAR (ESTILO GOOGLE CALENDAR) */}
+      <div>
+        <button
+          type="button"
+          onClick={onOpenNewEvent}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.6rem",
+            padding: "0.75rem 1.35rem",
+            borderRadius: "28px",
+            backgroundColor: "var(--surface-color)",
+            color: "var(--text-color)",
+            border: "1px solid var(--border-color)",
+            fontSize: "0.95rem",
+            fontWeight: 700,
+            cursor: "pointer",
+            boxShadow: "0 2px 8px rgba(0, 0, 0, 0.12)",
+            transition: "all 0.15s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.18)";
+            e.currentTarget.style.backgroundColor = "rgba(128, 128, 128, 0.08)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.12)";
+            e.currentTarget.style.backgroundColor = "var(--surface-color)";
+          }}
+        >
+          {/* Ícono de cruz colorida estilo Google */}
+          <div
+            style={{
+              width: "24px",
+              height: "24px",
+              borderRadius: "50%",
+              backgroundColor: "#1a73e8",
+              color: "#fff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Plus size={16} strokeWidth={3} />
+          </div>
+          <span>Crear</span>
+        </button>
+      </div>
+
+      {/* 2. MINI CALENDARIO MENSUAL (ESTILO GOOGLE CALENDAR) */}
       <div
         style={{
-          backgroundColor: "var(--surface-color)",
-          borderRadius: "14px",
-          border: "1px solid var(--border-color)",
-          padding: "1rem",
-          boxShadow: "var(--shadow-sm)",
+          backgroundColor: "transparent",
+          padding: "0.25rem 0.5rem",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
-            <div
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: "0.5rem",
+          }}
+        >
+          <span
+            style={{
+              fontWeight: 700,
+              fontSize: "0.86rem",
+              textTransform: "capitalize",
+              color: "var(--text-color)",
+            }}
+          >
+            {currentCalendarDate.toLocaleDateString("es-UY", { month: "long", year: "numeric" })}
+          </span>
+          <div style={{ display: "flex", gap: "0.25rem" }}>
+            <button
+              type="button"
+              onClick={() => onMonthChange(new Date(calYear, calMonth - 1, 1))}
               style={{
-                width: "28px",
-                height: "28px",
-                borderRadius: "8px",
-                backgroundColor: googleAuth.connected ? "rgba(16, 185, 129, 0.12)" : "rgba(59, 130, 246, 0.12)",
-                color: googleAuth.connected ? "#10b981" : "#3b82f6",
+                background: "none",
+                border: "none",
+                borderRadius: "50%",
+                width: "26px",
+                height: "26px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                cursor: "pointer",
+                color: "var(--text-color)",
+                opacity: 0.7,
               }}
             >
-              <Video size={16} />
-            </div>
-            <h3 style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: "var(--text-color)" }}>
-              Google Calendar
-            </h3>
+              <ChevronLeft size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => onMonthChange(new Date(calYear, calMonth + 1, 1))}
+              style={{
+                background: "none",
+                border: "none",
+                borderRadius: "50%",
+                width: "26px",
+                height: "26px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                color: "var(--text-color)",
+                opacity: 0.7,
+              }}
+            >
+              <ChevronRight size={16} />
+            </button>
           </div>
-
-          {googleAuth.connected ? (
-            <span
-              style={{
-                backgroundColor: "rgba(16, 185, 129, 0.15)",
-                color: "#10b981",
-                fontSize: "0.68rem",
-                padding: "0.15rem 0.45rem",
-                borderRadius: "10px",
-                fontWeight: 800,
-              }}
-            >
-              CONECTADO
-            </span>
-          ) : (
-            <span
-              style={{
-                backgroundColor: "rgba(59, 130, 246, 0.15)",
-                color: "#3b82f6",
-                fontSize: "0.68rem",
-                padding: "0.15rem 0.45rem",
-                borderRadius: "10px",
-                fontWeight: 800,
-              }}
-            >
-              AUTÓNOMO
-            </span>
-          )}
         </div>
 
-        <p style={{ margin: "0 0 0.75rem 0", fontSize: "0.76rem", opacity: 0.7, lineHeight: 1.35 }}>
-          {googleAuth.connected
-            ? `Sincronizado con ${googleAuth.email || "tu cuenta"}. Bloquea horarios en la landing.`
-            : "Modo autónomo activo. Conecta tu cuenta para sincronizar con Google."}
-        </p>
-
-        {googleAuth.connected ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-            <button
-              type="button"
-              onClick={onSyncGoogle}
-              disabled={isSyncing}
+        {/* Cuadrícula de 7 columnas (D L M X J V S) */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "2px", textAlign: "center" }}>
+          {["D", "L", "M", "X", "J", "V", "S"].map((h) => (
+            <div
+              key={h}
               style={{
-                width: "100%",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "0.4rem",
-                padding: "0.5rem 0.7rem",
-                borderRadius: "8px",
-                border: "1px solid rgba(16, 185, 129, 0.3)",
-                backgroundColor: "rgba(16, 185, 129, 0.1)",
-                color: "#10b981",
-                fontSize: "0.78rem",
+                fontSize: "0.68rem",
                 fontWeight: 700,
-                cursor: isSyncing ? "not-allowed" : "pointer",
+                opacity: 0.5,
+                paddingBottom: "4px",
               }}
             >
-              <RefreshCw size={13} style={{ animation: isSyncing ? "spin 1s linear infinite" : "none" }} />
-              {isSyncing ? "Sincronizando..." : "Sincronizar ahora"}
-            </button>
+              {h}
+            </div>
+          ))}
 
-            <button
-              type="button"
-              onClick={onDisconnectGoogle}
-              style={{
-                width: "100%",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "0.35rem",
-                padding: "0.4rem 0.6rem",
-                borderRadius: "8px",
-                border: "1px solid rgba(239, 68, 68, 0.2)",
-                backgroundColor: "transparent",
-                color: "#ef4444",
-                fontSize: "0.75rem",
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              <Unlink size={12} /> Desconectar cuenta
-            </button>
-          </div>
-        ) : (
-          <a
-            href="/api/auth/google?target=superadmin"
-            style={{
-              width: "100%",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "0.4rem",
-              padding: "0.55rem 0.75rem",
-              borderRadius: "8px",
-              backgroundColor: "#2563eb",
-              color: "#fff",
-              textDecoration: "none",
-              fontSize: "0.8rem",
-              fontWeight: 700,
-              boxShadow: "0 2px 6px rgba(37, 99, 235, 0.25)",
-            }}
-          >
-            <Link2 size={14} /> Conectar con Google
-          </a>
-        )}
+          {Array.from({ length: firstDayOfWeekSundayBased }).map((_, i) => (
+            <div key={`empty-${i}`} />
+          ))}
 
-        <div style={{ marginTop: "0.5rem", textAlign: "right" }}>
-          <button
-            type="button"
-            onClick={() => setShowGoogleHelp(!showGoogleHelp)}
-            style={{
-              background: "none",
-              border: "none",
-              color: "var(--text-color)",
-              opacity: 0.55,
-              cursor: "pointer",
-              fontSize: "0.72rem",
-              fontWeight: 600,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.2rem",
-            }}
-          >
-            <HelpCircle size={12} /> Info URIs
+          {Array.from({ length: daysInCalMonth }).map((_, i) => {
+            const dayNum = i + 1;
+            const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+            const isSelected = selectedCalendarDay === dateStr;
+
+            const today = new Date();
+            const isToday =
+              today.getFullYear() === calYear &&
+              today.getMonth() === calMonth &&
+              today.getDate() === dayNum;
+
+            return (
+              <button
+                key={dateStr}
+                type="button"
+                onClick={() => onSelectDay(dateStr)}
+                title={`${dayNum}`}
+                style={{
+                  aspectRatio: 1,
+                  borderRadius: "50%",
+                  border: "none",
+                  backgroundColor: isToday
+                    ? "#1a73e8"
+                    : isSelected
+                    ? "rgba(26, 115, 232, 0.2)"
+                    : "transparent",
+                  color: isToday ? "#ffffff" : isSelected ? "#1a73e8" : "var(--text-color)",
+                  fontWeight: isToday || isSelected ? 800 : 500,
+                  fontSize: "0.72rem",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: 0,
+                }}
+              >
+                {dayNum}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 3. SECCIÓN: MIS CALENDARIOS (COMO EN LA CAPTURA DE GOOGLE CALENDAR) */}
+      <div
+        style={{
+          borderTop: "1px solid var(--border-color)",
+          paddingTop: "0.75rem",
+        }}
+      >
+        <div
+          onClick={() => setIsCalendarsOpen(!isCalendarsOpen)}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            cursor: "pointer",
+            marginBottom: "0.4rem",
+            userSelect: "none",
+          }}
+        >
+          <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--text-color)", opacity: 0.8 }}>
+            Mis calendarios
+          </span>
+          <button type="button" style={{ background: "none", border: "none", color: "inherit", opacity: 0.6, padding: 0 }}>
+            {isCalendarsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
         </div>
 
-        {showGoogleHelp && (
-          <div
-            style={{
-              marginTop: "0.5rem",
-              padding: "0.6rem",
-              borderRadius: "8px",
-              backgroundColor: "rgba(59, 130, 246, 0.08)",
-              border: "1px solid rgba(59, 130, 246, 0.2)",
-              fontSize: "0.72rem",
-            }}
-          >
-            <div style={{ fontWeight: 700, color: "#2563eb", marginBottom: "0.2rem" }}>
-              Redirección Google Cloud:
+        {isCalendarsOpen && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+            {/* Mauricio Negrin (Google Calendar Azul) */}
+            <div
+              onClick={() => toggleCalendarFilter("primary")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                fontSize: "0.78rem",
+                cursor: "pointer",
+                padding: "0.2rem 0.3rem",
+                borderRadius: "6px",
+              }}
+            >
+              <div
+                style={{
+                  width: "14px",
+                  height: "14px",
+                  borderRadius: "3px",
+                  backgroundColor: visibleCalendars.primary ? "#0284c7" : "transparent",
+                  border: "2px solid #0284c7",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {visibleCalendars.primary && <span style={{ color: "#fff", fontSize: "10px", fontWeight: 900 }}>✓</span>}
+              </div>
+              <span style={{ fontWeight: 600 }}>{googleAuth.email ? "Mauricio Negrin" : "Google Calendar"}</span>
             </div>
-            <div style={{ fontFamily: "monospace", fontSize: "0.68rem", wordBreak: "break-all" }}>
-              <div>• http://localhost:3000/api/auth/google/callback</div>
-              <div>• https://superadmin.n-autos.com/api/auth/google/callback</div>
+
+            {/* Rutina / Personal (Naranja) */}
+            <div
+              onClick={() => toggleCalendarFilter("personal")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                fontSize: "0.78rem",
+                cursor: "pointer",
+                padding: "0.2rem 0.3rem",
+                borderRadius: "6px",
+              }}
+            >
+              <div
+                style={{
+                  width: "14px",
+                  height: "14px",
+                  borderRadius: "3px",
+                  backgroundColor: visibleCalendars.personal ? "#ea580c" : "transparent",
+                  border: "2px solid #ea580c",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {visibleCalendars.personal && <span style={{ color: "#fff", fontSize: "10px", fontWeight: 900 }}>✓</span>}
+              </div>
+              <span style={{ fontWeight: 600 }}>Rutina & Personal (Almuerzo / Comer)</span>
+            </div>
+
+            {/* Videollamadas N-Autos (Verde) */}
+            <div
+              onClick={() => toggleCalendarFilter("meet")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                fontSize: "0.78rem",
+                cursor: "pointer",
+                padding: "0.2rem 0.3rem",
+                borderRadius: "6px",
+              }}
+            >
+              <div
+                style={{
+                  width: "14px",
+                  height: "14px",
+                  borderRadius: "3px",
+                  backgroundColor: visibleCalendars.meet ? "#10b981" : "transparent",
+                  border: "2px solid #10b981",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {visibleCalendars.meet && <span style={{ color: "#fff", fontSize: "10px", fontWeight: 900 }}>✓</span>}
+              </div>
+              <span style={{ fontWeight: 600 }}>Videollamadas N-Autos</span>
             </div>
           </div>
         )}
       </div>
 
-      {/* CARD 2: CONFIGURACIÓN DE DISPONIBILIDAD (COLAPSIBLE) */}
+      {/* 4. SECCIÓN: CONFIGURACIÓN DE DISPONIBILIDAD (COLAPSIBLE) */}
       <div
         style={{
-          backgroundColor: "var(--surface-color)",
-          borderRadius: "14px",
-          border: "1px solid var(--border-color)",
-          padding: "1rem",
-          boxShadow: "var(--shadow-sm)",
+          borderTop: "1px solid var(--border-color)",
+          paddingTop: "0.75rem",
         }}
       >
         <div
@@ -335,31 +477,29 @@ export default function CalendarConfigSidebar({
             alignItems: "center",
             justifyContent: "space-between",
             cursor: "pointer",
+            marginBottom: "0.4rem",
             userSelect: "none",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
-            <Sliders size={16} style={{ opacity: 0.7 }} />
-            <h3 style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: "var(--text-color)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+            <Sliders size={14} style={{ opacity: 0.7 }} />
+            <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--text-color)", opacity: 0.8 }}>
               Disponibilidad Landing
-            </h3>
+            </span>
           </div>
-          <button
-            type="button"
-            style={{ background: "none", border: "none", color: "inherit", opacity: 0.6, cursor: "pointer", padding: 0 }}
-          >
-            {isAvailabilityOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          <button type="button" style={{ background: "none", border: "none", color: "inherit", opacity: 0.6, padding: 0 }}>
+            {isAvailabilityOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
         </div>
 
         {isAvailabilityOpen && (
-          <form onSubmit={onSaveConfig} style={{ display: "flex", flexDirection: "column", gap: "0.85rem", marginTop: "0.85rem" }}>
-            {/* 1. Días de atención */}
+          <form onSubmit={onSaveConfig} style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginTop: "0.5rem" }}>
+            {/* Días disponibles */}
             <div>
-              <label style={{ display: "block", fontSize: "0.75rem", fontWeight: 700, marginBottom: "0.35rem" }}>
+              <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, marginBottom: "0.25rem" }}>
                 Días de atención
               </label>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "3px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "2px" }}>
                 {DAYS_OF_WEEK.map((d) => {
                   const isSelected = config.availableDays.includes(d.id);
                   return (
@@ -369,13 +509,13 @@ export default function CalendarConfigSidebar({
                       onClick={() => handleToggleDay(d.id)}
                       title={d.full}
                       style={{
-                        padding: "0.4rem 0.1rem",
-                        borderRadius: "6px",
+                        padding: "0.35rem 0.1rem",
+                        borderRadius: "5px",
                         border: isSelected ? "1px solid #10b981" : "1px solid var(--border-color)",
                         backgroundColor: isSelected ? "rgba(16, 185, 129, 0.15)" : "var(--bg-color)",
                         color: isSelected ? "#10b981" : "var(--text-color)",
                         fontWeight: isSelected ? 800 : 500,
-                        fontSize: "0.72rem",
+                        fontSize: "0.68rem",
                         cursor: "pointer",
                         textAlign: "center",
                       }}
@@ -387,24 +527,23 @@ export default function CalendarConfigSidebar({
               </div>
             </div>
 
-            {/* 2. Días hacia adelante y Duración */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+            {/* Ventana de días y Duración */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.4rem" }}>
               <div>
-                <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, marginBottom: "0.3rem" }}>
-                  Ventana futuros
+                <label style={{ display: "block", fontSize: "0.7rem", fontWeight: 700, marginBottom: "0.2rem" }}>
+                  Ventana días
                 </label>
                 <select
                   value={config.displayDaysAhead}
                   onChange={(e) => onConfigChange((prev) => ({ ...prev, displayDaysAhead: Number(e.target.value) }))}
                   style={{
                     width: "100%",
-                    padding: "0.35rem 0.4rem",
+                    padding: "0.3rem 0.35rem",
                     borderRadius: "6px",
                     border: "1px solid var(--border-color)",
                     backgroundColor: "var(--bg-color)",
                     color: "var(--text-color)",
-                    fontSize: "0.75rem",
-                    fontWeight: 600,
+                    fontSize: "0.72rem",
                   }}
                 >
                   <option value={7}>7 días</option>
@@ -415,21 +554,20 @@ export default function CalendarConfigSidebar({
               </div>
 
               <div>
-                <label style={{ display: "block", fontSize: "0.72rem", fontWeight: 700, marginBottom: "0.3rem" }}>
-                  Duración cita
+                <label style={{ display: "block", fontSize: "0.7rem", fontWeight: 700, marginBottom: "0.2rem" }}>
+                  Duración
                 </label>
                 <select
                   value={config.meetingDurationMinutes}
                   onChange={(e) => onConfigChange((prev) => ({ ...prev, meetingDurationMinutes: Number(e.target.value) }))}
                   style={{
                     width: "100%",
-                    padding: "0.35rem 0.4rem",
+                    padding: "0.3rem 0.35rem",
                     borderRadius: "6px",
                     border: "1px solid var(--border-color)",
                     backgroundColor: "var(--bg-color)",
                     color: "var(--text-color)",
-                    fontSize: "0.75rem",
-                    fontWeight: 600,
+                    fontSize: "0.72rem",
                   }}
                 >
                   <option value={15}>15 mins</option>
@@ -440,12 +578,10 @@ export default function CalendarConfigSidebar({
               </div>
             </div>
 
-            {/* 3. Franjas Horarias */}
+            {/* Franjas Horarias */}
             <div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.35rem" }}>
-                <label style={{ fontSize: "0.75rem", fontWeight: 700 }}>
-                  Franjas horarias
-                </label>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.25rem" }}>
+                <label style={{ fontSize: "0.7rem", fontWeight: 700 }}>Franjas horarias</label>
                 <button
                   type="button"
                   onClick={handleAddTimeRange}
@@ -453,12 +589,12 @@ export default function CalendarConfigSidebar({
                     display: "inline-flex",
                     alignItems: "center",
                     gap: "0.15rem",
-                    padding: "0.15rem 0.45rem",
-                    borderRadius: "5px",
+                    padding: "0.15rem 0.4rem",
+                    borderRadius: "4px",
                     backgroundColor: "rgba(16, 185, 129, 0.1)",
                     border: "1px solid rgba(16, 185, 129, 0.3)",
                     color: "#10b981",
-                    fontSize: "0.7rem",
+                    fontSize: "0.68rem",
                     fontWeight: 700,
                     cursor: "pointer",
                   }}
@@ -467,7 +603,7 @@ export default function CalendarConfigSidebar({
                 </button>
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
                 {(config.consultationHours.timeRanges || [{ startTime: "09:00", endTime: "18:00" }]).map(
                   (range, idx) => (
                     <div
@@ -475,54 +611,43 @@ export default function CalendarConfigSidebar({
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: "0.35rem",
-                        padding: "0.35rem 0.45rem",
-                        borderRadius: "6px",
+                        gap: "0.25rem",
+                        padding: "0.25rem 0.35rem",
+                        borderRadius: "5px",
                         backgroundColor: "var(--bg-color)",
                         border: "1px solid var(--border-color)",
-                        fontSize: "0.75rem",
+                        fontSize: "0.72rem",
                       }}
                     >
-                      <select
+                      <input
+                        type="time"
+                        step={900}
                         value={range.startTime}
                         onChange={(e) => handleUpdateTimeRange(idx, "startTime", e.target.value)}
                         style={{
-                          padding: "0.2rem 0.3rem",
+                          padding: "0.15rem 0.25rem",
                           borderRadius: "4px",
                           border: "1px solid var(--border-color)",
                           backgroundColor: "var(--surface-color)",
                           color: "var(--text-color)",
-                          fontSize: "0.72rem",
-                          fontWeight: 600,
+                          fontSize: "0.7rem",
                         }}
-                      >
-                        {Array.from({ length: 24 }).map((_, h) => {
-                          const s = `${String(h).padStart(2, "0")}:00`;
-                          return <option key={s} value={s}>{s}</option>;
-                        })}
-                      </select>
-
-                      <span style={{ opacity: 0.5 }}>-</span>
-
-                      <select
+                      />
+                      <span>-</span>
+                      <input
+                        type="time"
+                        step={900}
                         value={range.endTime}
                         onChange={(e) => handleUpdateTimeRange(idx, "endTime", e.target.value)}
                         style={{
-                          padding: "0.2rem 0.3rem",
+                          padding: "0.15rem 0.25rem",
                           borderRadius: "4px",
                           border: "1px solid var(--border-color)",
                           backgroundColor: "var(--surface-color)",
                           color: "var(--text-color)",
-                          fontSize: "0.72rem",
-                          fontWeight: 600,
+                          fontSize: "0.7rem",
                         }}
-                      >
-                        {Array.from({ length: 24 }).map((_, h) => {
-                          const s = `${String(h).padStart(2, "0")}:00`;
-                          return <option key={s} value={s}>{s}</option>;
-                        })}
-                      </select>
-
+                      />
                       {(config.consultationHours.timeRanges || []).length > 1 && (
                         <button
                           type="button"
@@ -536,7 +661,7 @@ export default function CalendarConfigSidebar({
                             padding: "0.1rem",
                           }}
                         >
-                          <Trash2 size={12} />
+                          <Trash2 size={11} />
                         </button>
                       )}
                     </div>
@@ -545,186 +670,128 @@ export default function CalendarConfigSidebar({
               </div>
             </div>
 
-            {/* Botón Guardar */}
-            <div>
-              <button
-                type="submit"
-                disabled={isSaving}
+            <button
+              type="submit"
+              disabled={isSaving}
+              style={{
+                width: "100%",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.35rem",
+                padding: "0.5rem 0.75rem",
+                borderRadius: "7px",
+                backgroundColor: "var(--primary, #10b981)",
+                color: "#fff",
+                border: "none",
+                fontSize: "0.78rem",
+                fontWeight: 700,
+                cursor: isSaving ? "not-allowed" : "pointer",
+              }}
+            >
+              <Save size={13} />
+              {isSaving ? "Guardando..." : "Guardar Disponibilidad"}
+            </button>
+
+            {saveSuccessMsg && (
+              <div
                 style={{
-                  width: "100%",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "0.4rem",
-                  padding: "0.55rem 0.8rem",
-                  borderRadius: "8px",
-                  backgroundColor: "var(--primary, #10b981)",
-                  color: "#fff",
-                  border: "none",
-                  fontSize: "0.8rem",
+                  color: "#10b981",
+                  fontSize: "0.7rem",
                   fontWeight: 700,
-                  cursor: isSaving ? "not-allowed" : "pointer",
-                  boxShadow: "0 2px 6px rgba(16, 185, 129, 0.25)",
+                  textAlign: "center",
                 }}
               >
-                <Save size={14} />
-                {isSaving ? "Guardando..." : "Guardar Disponibilidad"}
-              </button>
-
-              {saveSuccessMsg && (
-                <div
-                  style={{
-                    marginTop: "0.4rem",
-                    color: "#10b981",
-                    fontSize: "0.72rem",
-                    fontWeight: 700,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "0.25rem",
-                  }}
-                >
-                  <CheckCircle2 size={13} /> {saveSuccessMsg}
-                </div>
-              )}
-            </div>
+                ✓ {saveSuccessMsg}
+              </div>
+            )}
           </form>
         )}
       </div>
 
-      {/* CARD 3: MINI CALENDARIO MENSUAL (COLAPSIBLE) */}
+      {/* 5. SECCIÓN: ESTADO GOOGLE CALENDAR */}
       <div
         style={{
-          backgroundColor: "var(--surface-color)",
-          borderRadius: "14px",
-          border: "1px solid var(--border-color)",
-          padding: "1rem",
-          boxShadow: "var(--shadow-sm)",
+          borderTop: "1px solid var(--border-color)",
+          paddingTop: "0.75rem",
+          fontSize: "0.75rem",
         }}
       >
-        <div
-          onClick={() => setIsMiniCalOpen(!isMiniCalOpen)}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            cursor: "pointer",
-            userSelect: "none",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.45rem" }}>
-            <CalendarIcon size={16} style={{ opacity: 0.7 }} />
-            <h3 style={{ margin: 0, fontSize: "0.9rem", fontWeight: 700, color: "var(--text-color)" }}>
-              Navegar Mes
-            </h3>
-          </div>
-          <button
-            type="button"
-            style={{ background: "none", border: "none", color: "inherit", opacity: 0.6, cursor: "pointer", padding: 0 }}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.4rem" }}>
+          <span style={{ fontWeight: 700, opacity: 0.8 }}>Cuenta de Google</span>
+          <span
+            style={{
+              fontSize: "0.65rem",
+              fontWeight: 800,
+              padding: "0.1rem 0.4rem",
+              borderRadius: "8px",
+              backgroundColor: googleAuth.connected ? "rgba(16, 185, 129, 0.15)" : "rgba(59, 130, 246, 0.15)",
+              color: googleAuth.connected ? "#10b981" : "#3b82f6",
+            }}
           >
-            {isMiniCalOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-          </button>
+            {googleAuth.connected ? "CONECTADO" : "AUTÓNOMO"}
+          </span>
         </div>
 
-        {isMiniCalOpen && (
-          <div style={{ marginTop: "0.85rem" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-              <span style={{ fontWeight: 700, fontSize: "0.82rem", textTransform: "capitalize" }}>
-                {currentCalendarDate.toLocaleDateString("es-UY", { month: "long", year: "numeric" })}
-              </span>
-              <div style={{ display: "flex", gap: "0.2rem" }}>
-                <button
-                  type="button"
-                  onClick={() => onMonthChange(new Date(calYear, calMonth - 1, 1))}
-                  style={{
-                    background: "none",
-                    border: "1px solid var(--border-color)",
-                    borderRadius: "5px",
-                    width: "22px",
-                    height: "22px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                    color: "var(--text-color)",
-                  }}
-                >
-                  <ChevronLeft size={13} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onMonthChange(new Date(calYear, calMonth + 1, 1))}
-                  style={{
-                    background: "none",
-                    border: "1px solid var(--border-color)",
-                    borderRadius: "5px",
-                    width: "22px",
-                    height: "22px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    cursor: "pointer",
-                    color: "var(--text-color)",
-                  }}
-                >
-                  <ChevronRight size={13} />
-                </button>
-              </div>
-            </div>
+        {googleAuth.connected ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+            <button
+              type="button"
+              onClick={onSyncGoogle}
+              disabled={isSyncing}
+              style={{
+                width: "100%",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.35rem",
+                padding: "0.4rem 0.6rem",
+                borderRadius: "6px",
+                border: "1px solid rgba(16, 185, 129, 0.3)",
+                backgroundColor: "rgba(16, 185, 129, 0.08)",
+                color: "#10b981",
+                fontSize: "0.74rem",
+                fontWeight: 700,
+                cursor: isSyncing ? "not-allowed" : "pointer",
+              }}
+            >
+              <RefreshCw size={12} style={{ animation: isSyncing ? "spin 1s linear infinite" : "none" }} />
+              {isSyncing ? "Sincronizando..." : "Sincronizar"}
+            </button>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "2px", textAlign: "center" }}>
-              {["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"].map((h) => (
-                <div key={h} style={{ fontSize: "0.65rem", fontWeight: 700, opacity: 0.5, paddingBottom: "2px" }}>
-                  {h}
-                </div>
-              ))}
-
-              {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-                <div key={`empty-${i}`} />
-              ))}
-
-              {Array.from({ length: daysInCalMonth }).map((_, i) => {
-                const dayNum = i + 1;
-                const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
-                const dayMeetings = meetings.filter((m) => m.date === dateStr && m.status !== "cancelled");
-                const isSelected = selectedCalendarDay === dateStr;
-
-                return (
-                  <button
-                    key={dateStr}
-                    type="button"
-                    onClick={() => onSelectDay(dateStr)}
-                    title={`${dayNum} - ${dayMeetings.length} eventos`}
-                    style={{
-                      aspectRatio: 1.1,
-                      borderRadius: "5px",
-                      border: isSelected ? "2px solid #2563eb" : "1px solid transparent",
-                      backgroundColor: isSelected
-                        ? "rgba(37, 99, 235, 0.15)"
-                        : dayMeetings.length > 0
-                        ? "rgba(16, 185, 129, 0.1)"
-                        : "transparent",
-                      color: isSelected ? "#2563eb" : "var(--text-color)",
-                      fontWeight: isSelected || dayMeetings.length > 0 ? 800 : 500,
-                      fontSize: "0.72rem",
-                      cursor: "pointer",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "1px",
-                      padding: 0,
-                    }}
-                  >
-                    <span>{dayNum}</span>
-                    {dayMeetings.length > 0 && (
-                      <span style={{ width: "4px", height: "4px", borderRadius: "50%", backgroundColor: "#10b981" }} />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+            <button
+              type="button"
+              onClick={onDisconnectGoogle}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#ef4444",
+                fontSize: "0.7rem",
+                cursor: "pointer",
+                textAlign: "center",
+                opacity: 0.8,
+              }}
+            >
+              Desconectar Google
+            </button>
           </div>
+        ) : (
+          <a
+            href="/api/auth/google?target=superadmin"
+            style={{
+              display: "block",
+              textAlign: "center",
+              padding: "0.45rem 0.6rem",
+              borderRadius: "6px",
+              backgroundColor: "#2563eb",
+              color: "#fff",
+              textDecoration: "none",
+              fontSize: "0.75rem",
+              fontWeight: 700,
+            }}
+          >
+            Conectar con Google
+          </a>
         )}
       </div>
     </div>

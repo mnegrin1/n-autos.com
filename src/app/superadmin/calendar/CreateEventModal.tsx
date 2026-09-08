@@ -20,10 +20,12 @@ interface CreateEventModalProps {
 }
 
 const TIME_OPTIONS: string[] = [];
-for (let h = 7; h <= 23; h++) {
+for (let h = 0; h <= 23; h++) {
   const hh = String(h).padStart(2, "0");
   TIME_OPTIONS.push(`${hh}:00`);
+  TIME_OPTIONS.push(`${hh}:15`);
   TIME_OPTIONS.push(`${hh}:30`);
+  TIME_OPTIONS.push(`${hh}:45`);
 }
 
 export default function CreateEventModal({

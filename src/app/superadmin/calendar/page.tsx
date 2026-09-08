@@ -34,11 +34,24 @@ import {
   Plus,
   PanelLeftClose,
   PanelLeftOpen,
+  Menu,
 } from "lucide-react";
 import WeeklyCalendarView from "./WeeklyCalendarView";
 import CalendarConfigSidebar from "./CalendarConfigSidebar";
 import EventDetailModal from "./EventDetailModal";
 import CreateEventModal from "./CreateEventModal";
+
+function getWeekNumber(d: Date): number {
+  const target = new Date(d.valueOf());
+  const dayNr = (d.getDay() + 6) % 7;
+  target.setDate(target.getDate() - dayNr + 3);
+  const firstThursday = target.valueOf();
+  target.setMonth(0, 1);
+  if (target.getDay() !== 4) {
+    target.setMonth(0, 1 + ((4 - target.getDay() + 7) % 7));
+  }
+  return 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000);
+}
 
 function SuperadminCalendarContent() {
   const searchParams = useSearchParams();
@@ -339,93 +352,300 @@ function SuperadminCalendarContent() {
     return true;
   });
 
+  const currentMonthYearLabel = selectedWeekStart.toLocaleDateString("es-UY", {
+    month: "long",
+    year: "numeric",
+  });
+  const weekNumber = getWeekNumber(selectedWeekStart);
+
   return (
-    <div style={{ width: "100%", padding: "0.75rem 1.25rem", paddingBottom: "4rem", boxSizing: "border-box" }}>
-      {/* ENCABEZADO SUPERIOR */}
-      <div
+    <div
+      style={{
+        margin: "-2rem",
+        height: "calc(100vh - 60px)",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        backgroundColor: "var(--bg-color)",
+        color: "var(--text-color)",
+      }}
+    >
+      {/* 1. BARRA SUPERIOR ESTILO GOOGLE CALENDAR */}
+      <header
         style={{
-          marginBottom: "1.25rem",
+          height: "54px",
+          minHeight: "54px",
+          borderBottom: "1px solid var(--border-color)",
+          backgroundColor: "var(--surface-color)",
           display: "flex",
-          flexWrap: "wrap",
           alignItems: "center",
           justifyContent: "space-between",
-          gap: "1rem",
+          padding: "0 1rem",
+          gap: "0.75rem",
+          zIndex: 20,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <div
+        {/* Izquierda: Menú toggle, Logo Calendar, Hoy, Flechas, Mes y Badge Semana */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+          <button
+            type="button"
+            onClick={() => setIsSidebarVisible(!isSidebarVisible)}
+            title="Alternar barra lateral"
             style={{
-              width: "42px",
-              height: "42px",
-              borderRadius: "12px",
-              backgroundColor: "rgba(16, 185, 129, 0.12)",
-              color: "#10b981",
+              background: "none",
+              border: "none",
+              color: "inherit",
+              cursor: "pointer",
+              padding: "0.4rem",
+              borderRadius: "50%",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <CalendarClock size={22} />
+            <Menu size={20} />
+          </button>
+
+          {/* Logo Google Calendar Style con número del día actual */}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <div
+              style={{
+                width: "36px",
+                height: "36px",
+                borderRadius: "8px",
+                backgroundColor: "#1a73e8",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "1.1rem",
+                fontWeight: 900,
+                boxShadow: "0 2px 6px rgba(26, 115, 232, 0.4)",
+              }}
+            >
+              {todayObj.getDate()}
+            </div>
+            <span style={{ fontSize: "1.3rem", fontWeight: 700, letterSpacing: "-0.5px" }}>
+              Calendar
+            </span>
           </div>
-          <div>
-            <h1 style={{ margin: 0, fontSize: "1.6rem", fontWeight: 800, color: "var(--text-color)" }}>
-              Agenda & Calendario Superadmin
-            </h1>
-            <p style={{ margin: 0, fontSize: "0.84rem", opacity: 0.7 }}>
-              Configuración de disponibilidad y vista semanal sincronizada con Google Calendar.
-            </p>
+
+          {/* Botón Hoy */}
+          <button
+            type="button"
+            onClick={handleTodayWeek}
+            style={{
+              marginLeft: "0.8rem",
+              padding: "0.4rem 0.9rem",
+              borderRadius: "20px",
+              border: "1px solid var(--border-color)",
+              backgroundColor: "var(--bg-color)",
+              color: "var(--text-color)",
+              fontSize: "0.84rem",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Hoy
+          </button>
+
+          {/* Flechas de Navegación < > */}
+          <div style={{ display: "flex", alignItems: "center", gap: "1px" }}>
+            <button
+              type="button"
+              onClick={handlePrevWeek}
+              title="Semana anterior"
+              style={{
+                background: "none",
+                border: "none",
+                borderRadius: "50%",
+                width: "30px",
+                height: "30px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                color: "inherit",
+              }}
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={handleNextWeek}
+              title="Semana siguiente"
+              style={{
+                background: "none",
+                border: "none",
+                borderRadius: "50%",
+                width: "30px",
+                height: "30px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                color: "inherit",
+              }}
+            >
+              <ChevronRight size={18} />
+            </button>
           </div>
+
+          {/* Mes y Año (ej: "Septiembre de 2026") */}
+          <span
+            style={{
+              fontSize: "1.25rem",
+              fontWeight: 600,
+              textTransform: "capitalize",
+              marginLeft: "0.4rem",
+            }}
+          >
+            {currentMonthYearLabel}
+          </span>
+
+          {/* Badge Semana (ej: "Semana 37") */}
+          <span
+            style={{
+              fontSize: "0.72rem",
+              fontWeight: 700,
+              padding: "0.15rem 0.55rem",
+              borderRadius: "12px",
+              backgroundColor: "rgba(128, 128, 128, 0.12)",
+              color: "var(--text-color)",
+              opacity: 0.85,
+            }}
+          >
+            Semana {weekNumber}
+          </span>
         </div>
 
-        {/* Acciones del Encabezado */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
-          {/* Botón para ocultar/mostrar panel lateral */}
-          <button
-            type="button"
-            onClick={() => setIsSidebarVisible(!isSidebarVisible)}
-            title={isSidebarVisible ? "Ocultar panel lateral" : "Mostrar panel lateral"}
+        {/* Derecha: Búsqueda, Filtros, Selector Vista (Semana / Lista), Sincronizar Google */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+          {/* Búsqueda */}
+          <div style={{ position: "relative", minWidth: "160px" }}>
+            <Search size={14} style={{ position: "absolute", left: "9px", top: "50%", transform: "translateY(-50%)", opacity: 0.5 }} />
+            <input
+              type="text"
+              placeholder="Buscar evento..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "0.35rem 0.6rem 0.35rem 1.8rem",
+                borderRadius: "8px",
+                border: "1px solid var(--border-color)",
+                backgroundColor: "var(--bg-color)",
+                color: "var(--text-color)",
+                fontSize: "0.8rem",
+              }}
+            />
+          </div>
+
+          {/* Filtro rápido */}
+          <div
             style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.4rem",
-              padding: "0.55rem 0.85rem",
-              borderRadius: "10px",
-              backgroundColor: isSidebarVisible ? "var(--surface-color)" : "rgba(59, 130, 246, 0.12)",
-              border: `1px solid ${isSidebarVisible ? "var(--border-color)" : "rgba(59, 130, 246, 0.3)"}`,
-              color: isSidebarVisible ? "var(--text-color)" : "#3b82f6",
-              fontSize: "0.82rem",
-              fontWeight: 700,
-              cursor: "pointer",
+              display: "flex",
+              backgroundColor: "var(--bg-color)",
+              padding: "2px",
+              borderRadius: "8px",
+              border: "1px solid var(--border-color)",
             }}
           >
-            {isSidebarVisible ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
-            <span>{isSidebarVisible ? "Ocultar Opciones" : "Mostrar Opciones"}</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setMeetingFilter("all")}
+              style={{
+                padding: "0.3rem 0.55rem",
+                borderRadius: "6px",
+                border: "none",
+                backgroundColor: meetingFilter === "all" ? "var(--surface-color)" : "transparent",
+                color: meetingFilter === "all" ? "#1a73e8" : "var(--text-color)",
+                fontWeight: 600,
+                fontSize: "0.76rem",
+                cursor: "pointer",
+              }}
+            >
+              Todos ({meetings.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setMeetingFilter("meet")}
+              style={{
+                padding: "0.3rem 0.55rem",
+                borderRadius: "6px",
+                border: "none",
+                backgroundColor: meetingFilter === "meet" ? "var(--surface-color)" : "transparent",
+                color: meetingFilter === "meet" ? "#10b981" : "var(--text-color)",
+                fontWeight: 600,
+                fontSize: "0.76rem",
+                cursor: "pointer",
+              }}
+            >
+              Meet
+            </button>
+            <button
+              type="button"
+              onClick={() => setMeetingFilter("google")}
+              style={{
+                padding: "0.3rem 0.55rem",
+                borderRadius: "6px",
+                border: "none",
+                backgroundColor: meetingFilter === "google" ? "var(--surface-color)" : "transparent",
+                color: meetingFilter === "google" ? "#0284c7" : "var(--text-color)",
+                fontWeight: 600,
+                fontSize: "0.76rem",
+                cursor: "pointer",
+              }}
+            >
+              Google
+            </button>
+          </div>
 
-          {/* Botón Nuevo Evento */}
-          <button
-            type="button"
-            onClick={handleOpenNewEvent}
+          {/* Selector de modo Semana / Lista */}
+          <div
             style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.4rem",
-              padding: "0.55rem 1rem",
-              borderRadius: "10px",
-              backgroundColor: "var(--primary, #10b981)",
-              border: "none",
-              color: "#fff",
-              fontSize: "0.82rem",
-              fontWeight: 700,
-              cursor: "pointer",
-              boxShadow: "0 2px 6px rgba(16, 185, 129, 0.25)",
+              display: "flex",
+              backgroundColor: "var(--bg-color)",
+              padding: "2px",
+              borderRadius: "8px",
+              border: "1px solid var(--border-color)",
             }}
           >
-            <Plus size={15} />
-            <span>Nuevo Evento</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("week")}
+              style={{
+                padding: "0.3rem 0.65rem",
+                borderRadius: "6px",
+                border: "none",
+                backgroundColor: viewMode === "week" ? "var(--surface-color)" : "transparent",
+                color: viewMode === "week" ? "#1a73e8" : "var(--text-color)",
+                fontWeight: viewMode === "week" ? 800 : 500,
+                fontSize: "0.78rem",
+                cursor: "pointer",
+              }}
+            >
+              Semana
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("list")}
+              style={{
+                padding: "0.3rem 0.65rem",
+                borderRadius: "6px",
+                border: "none",
+                backgroundColor: viewMode === "list" ? "var(--surface-color)" : "transparent",
+                color: viewMode === "list" ? "#1a73e8" : "var(--text-color)",
+                fontWeight: viewMode === "list" ? 800 : 500,
+                fontSize: "0.78rem",
+                cursor: "pointer",
+              }}
+            >
+              Lista
+            </button>
+          </div>
 
-          {/* Botón Sincronizar Google */}
+          {/* Sincronizar Google */}
           <button
             type="button"
             onClick={handleSyncGoogle}
@@ -433,70 +653,70 @@ function SuperadminCalendarContent() {
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: "0.4rem",
-              padding: "0.55rem 0.95rem",
-              borderRadius: "10px",
+              gap: "0.35rem",
+              padding: "0.4rem 0.8rem",
+              borderRadius: "8px",
               backgroundColor: "var(--surface-color)",
               border: "1px solid var(--border-color)",
               color: "var(--text-color)",
-              fontSize: "0.82rem",
+              fontSize: "0.78rem",
               fontWeight: 700,
               cursor: isSyncing ? "not-allowed" : "pointer",
-              boxShadow: "var(--shadow-sm)",
             }}
           >
-            <RefreshCw size={14} style={{ animation: isSyncing ? "spin 1s linear infinite" : "none" }} />
-            {isSyncing ? "Sincronizando..." : "Sincronizar Google"}
+            <RefreshCw size={13} style={{ animation: isSyncing ? "spin 1s linear infinite" : "none" }} />
+            {isSyncing ? "Sincronizando..." : "Sincronizar"}
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* BANNER DE ESTADO */}
+      {/* Banner de Estado flotante/condicional */}
       {statusMessage && (
         <div
           style={{
-            padding: "0.8rem 1.15rem",
-            borderRadius: "12px",
-            marginBottom: "1.25rem",
+            padding: "0.6rem 1rem",
+            backgroundColor:
+              statusMessage.type === "success" ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.12)",
+            borderBottom: `1px solid ${statusMessage.type === "success" ? "rgba(16, 185, 129, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
+            color: statusMessage.type === "success" ? "#10b981" : "#ef4444",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            backgroundColor:
-              statusMessage.type === "success" ? "rgba(16, 185, 129, 0.12)" : "rgba(239, 68, 68, 0.12)",
-            border: `1px solid ${statusMessage.type === "success" ? "rgba(16, 185, 129, 0.3)" : "rgba(239, 68, 68, 0.3)"}`,
-            color: statusMessage.type === "success" ? "#10b981" : "#ef4444",
+            fontSize: "0.82rem",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-            {statusMessage.type === "success" ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
-            <span style={{ fontWeight: 600, fontSize: "0.88rem" }}>{statusMessage.text}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            {statusMessage.type === "success" ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+            <span>{statusMessage.text}</span>
           </div>
           <button
             onClick={() => setStatusMessage(null)}
             style={{ background: "none", border: "none", color: "inherit", cursor: "pointer" }}
           >
-            <XCircle size={16} />
+            <XCircle size={15} />
           </button>
         </div>
       )}
 
-      {/* LAYOUT PRINCIPAL DE 2 COLUMNAS (FLUIDO RESPONSIVO) */}
+      {/* 2. CUERPO PRINCIPAL (SIDEBAR + CALENDARIO SEMANAL) */}
       <div
         style={{
+          flex: 1,
           display: "flex",
-          gap: "1.25rem",
-          alignItems: "flex-start",
+          overflow: "hidden",
           width: "100%",
         }}
       >
-        {/* COLUMNA IZQUIERDA: CONFIGURACIÓN & MINI CALENDARIO */}
+        {/* Barra lateral Google Calendar Style */}
         {isSidebarVisible && (
-          <div
+          <aside
             style={{
-              flex: "0 0 310px",
-              maxWidth: "310px",
-              width: "310px",
-              minWidth: "270px",
+              width: "250px",
+              minWidth: "250px",
+              maxWidth: "250px",
+              borderRight: "1px solid var(--border-color)",
+              overflowY: "auto",
+              backgroundColor: "var(--surface-color)",
             }}
           >
             <CalendarConfigSidebar
@@ -514,275 +734,24 @@ function SuperadminCalendarContent() {
               selectedCalendarDay={selectedCalendarDay}
               onSelectDay={handleSelectDayFromMini}
               meetings={meetings}
+              onOpenNewEvent={handleOpenNewEvent}
             />
-          </div>
+          </aside>
         )}
 
-        {/* COLUMNA DERECHA / CENTRAL: CALENDARIO SEMANAL EN GRANDE */}
+        {/* Cuadrícula o Lista */}
         <div
           style={{
             flex: "1 1 0%",
-            minWidth: 0,
+            height: "100%",
+            overflow: "hidden",
             display: "flex",
             flexDirection: "column",
-            gap: "1rem",
-            width: "100%",
+            padding: "0.4rem 0.5rem",
           }}
         >
-          {/* BARRA DE NAVEGACIÓN Y CONTROLES DE LA SEMANA */}
-          <div
-            style={{
-              backgroundColor: "var(--surface-color)",
-              borderRadius: "16px",
-              border: "1px solid var(--border-color)",
-              padding: "1rem 1.25rem",
-              display: "flex",
-              flexWrap: "wrap",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "1rem",
-              boxShadow: "var(--shadow-sm)",
-            }}
-          >
-            {/* Navegación Semanal */}
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <button
-                type="button"
-                onClick={handlePrevWeek}
-                title="Semana anterior"
-                style={{
-                  width: "32px",
-                  height: "32px",
-                  borderRadius: "8px",
-                  border: "1px solid var(--border-color)",
-                  backgroundColor: "var(--bg-color)",
-                  color: "var(--text-color)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                }}
-              >
-                <ChevronLeft size={16} />
-              </button>
-
-              <button
-                type="button"
-                onClick={handleTodayWeek}
-                style={{
-                  padding: "0.4rem 0.85rem",
-                  borderRadius: "8px",
-                  border: "1px solid var(--border-color)",
-                  backgroundColor: "var(--bg-color)",
-                  color: "var(--text-color)",
-                  fontSize: "0.82rem",
-                  fontWeight: 700,
-                  cursor: "pointer",
-                }}
-              >
-                Hoy
-              </button>
-
-              <button
-                type="button"
-                onClick={handleNextWeek}
-                title="Semana siguiente"
-                style={{
-                  width: "32px",
-                  height: "32px",
-                  borderRadius: "8px",
-                  border: "1px solid var(--border-color)",
-                  backgroundColor: "var(--bg-color)",
-                  color: "var(--text-color)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                }}
-              >
-                <ChevronRight size={16} />
-              </button>
-
-              <span
-                style={{
-                  marginLeft: "0.5rem",
-                  fontWeight: 800,
-                  fontSize: "1.05rem",
-                  color: "var(--text-color)",
-                  textTransform: "capitalize",
-                }}
-              >
-                {weekLabel}
-              </span>
-
-              {selectedCalendarDay && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedCalendarDay(null)}
-                  style={{
-                    padding: "0.25rem 0.6rem",
-                    borderRadius: "6px",
-                    border: "1px solid var(--border-color)",
-                    backgroundColor: "rgba(37, 99, 235, 0.1)",
-                    color: "#2563eb",
-                    fontSize: "0.75rem",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                  }}
-                >
-                  Día filtrado: {selectedCalendarDay} ✕
-                </button>
-              )}
-            </div>
-
-            {/* Controles de vista y filtros */}
-            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.6rem" }}>
-              {/* Selector de modo de vista */}
-              <div
-                style={{
-                  display: "flex",
-                  backgroundColor: "var(--bg-color)",
-                  padding: "3px",
-                  borderRadius: "8px",
-                  border: "1px solid var(--border-color)",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setViewMode("week")}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "0.35rem",
-                    padding: "0.35rem 0.75rem",
-                    borderRadius: "6px",
-                    border: "none",
-                    backgroundColor: viewMode === "week" ? "var(--surface-color)" : "transparent",
-                    color: viewMode === "week" ? "#10b981" : "var(--text-color)",
-                    fontWeight: viewMode === "week" ? 800 : 500,
-                    fontSize: "0.8rem",
-                    cursor: "pointer",
-                    boxShadow: viewMode === "week" ? "var(--shadow-sm)" : "none",
-                  }}
-                >
-                  <CalendarDays size={14} /> Semana
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode("list")}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "0.35rem",
-                    padding: "0.35rem 0.75rem",
-                    borderRadius: "6px",
-                    border: "none",
-                    backgroundColor: viewMode === "list" ? "var(--surface-color)" : "transparent",
-                    color: viewMode === "list" ? "#10b981" : "var(--text-color)",
-                    fontWeight: viewMode === "list" ? 800 : 500,
-                    fontSize: "0.8rem",
-                    cursor: "pointer",
-                    boxShadow: viewMode === "list" ? "var(--shadow-sm)" : "none",
-                  }}
-                >
-                  <List size={14} /> Lista
-                </button>
-              </div>
-
-              {/* Filtro rápido */}
-              <div
-                style={{
-                  display: "flex",
-                  backgroundColor: "var(--bg-color)",
-                  padding: "3px",
-                  borderRadius: "8px",
-                  border: "1px solid var(--border-color)",
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setMeetingFilter("all")}
-                  style={{
-                    padding: "0.35rem 0.6rem",
-                    borderRadius: "6px",
-                    border: "none",
-                    backgroundColor: meetingFilter === "all" ? "var(--surface-color)" : "transparent",
-                    color: meetingFilter === "all" ? "#10b981" : "var(--text-color)",
-                    fontWeight: 600,
-                    fontSize: "0.78rem",
-                    cursor: "pointer",
-                  }}
-                >
-                  Todos ({meetings.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMeetingFilter("meet")}
-                  style={{
-                    padding: "0.35rem 0.6rem",
-                    borderRadius: "6px",
-                    border: "none",
-                    backgroundColor: meetingFilter === "meet" ? "var(--surface-color)" : "transparent",
-                    color: meetingFilter === "meet" ? "#10b981" : "var(--text-color)",
-                    fontWeight: 600,
-                    fontSize: "0.78rem",
-                    cursor: "pointer",
-                  }}
-                >
-                  Meet Landing
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMeetingFilter("google")}
-                  style={{
-                    padding: "0.35rem 0.6rem",
-                    borderRadius: "6px",
-                    border: "none",
-                    backgroundColor: meetingFilter === "google" ? "var(--surface-color)" : "transparent",
-                    color: meetingFilter === "google" ? "#2563eb" : "var(--text-color)",
-                    fontWeight: 600,
-                    fontSize: "0.78rem",
-                    cursor: "pointer",
-                  }}
-                >
-                  Google
-                </button>
-              </div>
-
-              {/* Barra de Búsqueda */}
-              <div style={{ position: "relative", minWidth: "160px" }}>
-                <Search size={14} style={{ position: "absolute", left: "9px", top: "50%", transform: "translateY(-50%)", opacity: 0.5 }} />
-                <input
-                  type="text"
-                  placeholder="Buscar evento..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "0.35rem 0.6rem 0.35rem 1.8rem",
-                    borderRadius: "8px",
-                    border: "1px solid var(--border-color)",
-                    backgroundColor: "var(--bg-color)",
-                    color: "var(--text-color)",
-                    fontSize: "0.8rem",
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* VISTA PRINCIPAL: SEMANAL O LISTA */}
           {isLoading ? (
-            <div
-              style={{
-                backgroundColor: "var(--surface-color)",
-                borderRadius: "16px",
-                border: "1px solid var(--border-color)",
-                padding: "4rem",
-                textAlign: "center",
-                opacity: 0.6,
-              }}
-            >
+            <div style={{ padding: "4rem", textAlign: "center", opacity: 0.6 }}>
               Cargando eventos del calendario...
             </div>
           ) : viewMode === "week" ? (
@@ -795,7 +764,7 @@ function SuperadminCalendarContent() {
               onDragCreate={handleDragCreate}
             />
           ) : (
-            /* VISTA DE LISTA */
+            /* Vista de lista */
             <div
               style={{
                 backgroundColor: "var(--surface-color)",
@@ -803,6 +772,8 @@ function SuperadminCalendarContent() {
                 border: "1px solid var(--border-color)",
                 padding: "1.5rem",
                 boxShadow: "var(--shadow-sm)",
+                overflowY: "auto",
+                flex: 1,
               }}
             >
               {filteredMeetings.length === 0 ? (

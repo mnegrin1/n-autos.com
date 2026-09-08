@@ -1,16 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { SuperadminMeeting } from "@/lib/superadminCalendarStore";
-import {
-  Calendar as CalendarIcon,
-  Video,
-  Clock,
-  ExternalLink,
-  Plus,
-  User,
-  Sparkles,
-} from "lucide-react";
+import { Video, Clock, ChevronRight } from "lucide-react";
 
 interface WeekDayInfo {
   dateObj: Date;
@@ -29,27 +21,35 @@ interface WeeklyCalendarViewProps {
   onDragCreate?: (range: { date: string; startTime: string; endTime: string }) => void;
 }
 
-const HOURS = [
-  "07:00",
-  "08:00",
-  "09:00",
-  "10:00",
-  "11:00",
-  "12:00",
-  "13:00",
-  "14:00",
-  "15:00",
-  "16:00",
-  "17:00",
-  "18:00",
-  "19:00",
-  "20:00",
-  "21:00",
-  "22:00",
-  "23:00",
-];
+const HOUR_HEIGHT = 60; // 1 minuto = 1 píxel exacto
+const TOTAL_HOURS = 24;
+const TOTAL_GRID_HEIGHT = TOTAL_HOURS * HOUR_HEIGHT; // 1440px
 
-function getMontevideoNowTime() {
+// Formatear minutos (0 - 1440) a "HH:mm"
+function minutesToTimeString(minutes: number): string {
+  const bounded = Math.max(0, Math.min(1439, minutes));
+  const h = Math.floor(bounded / 60);
+  const m = bounded % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+// Convertir "HH:mm" a minutos desde medianoche
+function timeStringToMinutes(timeStr: string): number {
+  if (!timeStr) return 0;
+  const [h, m] = timeStr.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+// Formatear hora estilo Google Calendar ("1 PM", "2 PM", "12 AM")
+function formatHourLabel(h: number): string {
+  if (h === 0) return "12 AM";
+  if (h < 12) return `${h} AM`;
+  if (h === 12) return "12 PM";
+  return `${h - 12} PM`;
+}
+
+// Helper para hora actual en Montevideo
+function getMontevideoNowMinutes() {
   try {
     const parts = new Intl.DateTimeFormat("en-US", {
       timeZone: "America/Montevideo",
@@ -58,17 +58,77 @@ function getMontevideoNowTime() {
       minute: "2-digit",
     }).formatToParts(new Date());
 
-    let hour = 0;
-    let minute = 0;
+    let h = 0;
+    let m = 0;
     for (const p of parts) {
-      if (p.type === "hour") hour = Number(p.value);
-      if (p.type === "minute") minute = Number(p.value);
+      if (p.type === "hour") h = Number(p.value);
+      if (p.type === "minute") m = Number(p.value);
     }
-    return { hour, minute };
+    return h * 60 + m;
   } catch (e) {
     const d = new Date(Date.now() - 3 * 3600 * 1000);
-    return { hour: d.getUTCHours(), minute: d.getUTCMinutes() };
+    return d.getUTCHours() * 60 + d.getUTCMinutes();
   }
+}
+
+// Asignación de colores idéntica a la captura de Google Calendar del usuario
+function getEventColors(m: SuperadminMeeting) {
+  const isMeet = m.meetUrl || m.id.startsWith("meet-");
+  const titleLower = (m.title || "").toLowerCase();
+  const notesLower = (m.notes || "").toLowerCase();
+  const emailLower = (m.clientEmail || "").toLowerCase();
+
+  // Naranja de Google Calendar para eventos personales/rutina (almuerzo, siesta, comer, dormir)
+  const isPersonalRoutine =
+    titleLower.includes("almuerzo") ||
+    titleLower.includes("siesta") ||
+    titleLower.includes("comer") ||
+    (titleLower.includes("dormir") && notesLower.includes("estudian")) ||
+    emailLower.includes("estudian");
+
+  if (isMeet) {
+    return {
+      bg: "#10b981",
+      border: "#059669",
+      text: "#ffffff",
+      type: "meet",
+    };
+  }
+
+  if (isPersonalRoutine) {
+    return {
+      bg: "#ea580c", // Naranja vibrante de Google Calendar
+      border: "#c2410c",
+      text: "#ffffff",
+      type: "personal",
+    };
+  }
+
+  // Azul estándar de Google Calendar
+  if (m.isGoogleEvent || m.id.startsWith("gcal-")) {
+    return {
+      bg: "#0284c7", // Azul Google Calendar
+      border: "#0369a1",
+      text: "#ffffff",
+      type: "google",
+    };
+  }
+
+  // Eventos manuales creados en superadmin
+  return {
+    bg: "#6366f1",
+    border: "#4f46e5",
+    text: "#ffffff",
+    type: "manual",
+  };
+}
+
+interface PositionedMeeting {
+  meeting: SuperadminMeeting;
+  startMinutes: number;
+  endMinutes: number;
+  colIndex: number;
+  totalCols: number;
 }
 
 export default function WeeklyCalendarView({
@@ -79,32 +139,39 @@ export default function WeeklyCalendarView({
   onSelectDay,
   onDragCreate,
 }: WeeklyCalendarViewProps) {
-  // Estado para arrastrar y seleccionar intervalo
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [nowMinutes, setNowMinutes] = useState<number>(() => getMontevideoNowMinutes());
+
+  // Estado de arrastre con discretización en 15 minutos
   const [dragState, setDragState] = useState<{
     isDragging: boolean;
     dayStr: string | null;
-    startHour: string | null;
-    currentHour: string | null;
+    startMinutes: number;
+    currentMinutes: number;
   }>({
     isDragging: false,
     dayStr: null,
-    startHour: null,
-    currentHour: null,
+    startMinutes: 0,
+    currentMinutes: 0,
   });
 
-  // Hora actual en Montevideo para la línea indicadora
-  const [nowTime, setNowTime] = useState<{ hour: number; minute: number }>(() =>
-    getMontevideoNowTime()
-  );
-
+  // Actualizar hora actual cada minuto
   useEffect(() => {
     const timer = setInterval(() => {
-      setNowTime(getMontevideoNowTime());
+      setNowMinutes(getMontevideoNowMinutes());
     }, 60000);
     return () => clearInterval(timer);
   }, []);
 
-  // Agrupar reuniones por día
+  // Auto-scroll inicial a las 08:00 AM (o 1 hora antes de la hora actual)
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      const scrollHour = Math.max(7, Math.floor(nowMinutes / 60) - 1);
+      scrollContainerRef.current.scrollTop = scrollHour * HOUR_HEIGHT;
+    }
+  }, []);
+
+  // 1. Agrupar reuniones por día
   const meetingsByDay: Record<string, SuperadminMeeting[]> = {};
   for (const day of weekDays) {
     meetingsByDay[day.dateStr] = [];
@@ -117,37 +184,132 @@ export default function WeeklyCalendarView({
     }
   }
 
-  // Ordenar reuniones de cada día por hora
-  for (const dateStr in meetingsByDay) {
-    meetingsByDay[dateStr].sort((a, b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
+  // 2. Calcular posicionamiento lado a lado para eventos solapados (Google Calendar overlapping algorithm)
+  const positionedByDay: Record<string, PositionedMeeting[]> = {};
+
+  for (const day of weekDays) {
+    const dayMeetings = [...(meetingsByDay[day.dateStr] || [])];
+
+    const parsed = dayMeetings.map((m) => {
+      const startMin = timeStringToMinutes(m.time || "09:00");
+      const duration = m.durationMinutes || 30;
+      const endMin = Math.min(1440, startMin + duration);
+      return {
+        meeting: m,
+        startMinutes: startMin,
+        endMinutes: endMin,
+      };
+    });
+
+    // Ordenar por hora de inicio ascendente y duración descendente
+    parsed.sort((a, b) => a.startMinutes - b.startMinutes || b.endMinutes - a.endMinutes);
+
+    // Agrupar en clusters solapados
+    const clusters: Array<typeof parsed> = [];
+    let currentCluster: typeof parsed = [];
+    let clusterEnd = -1;
+
+    for (const item of parsed) {
+      if (currentCluster.length === 0) {
+        currentCluster.push(item);
+        clusterEnd = item.endMinutes;
+      } else if (item.startMinutes < clusterEnd) {
+        currentCluster.push(item);
+        clusterEnd = Math.max(clusterEnd, item.endMinutes);
+      } else {
+        clusters.push(currentCluster);
+        currentCluster = [item];
+        clusterEnd = item.endMinutes;
+      }
+    }
+    if (currentCluster.length > 0) {
+      clusters.push(currentCluster);
+    }
+
+    // Para cada cluster, asignar columnas libres
+    const result: PositionedMeeting[] = [];
+    for (const cluster of clusters) {
+      const columns: Array<number> = []; // Guarda el endMinutes de cada columna
+
+      for (const item of cluster) {
+        let placedCol = -1;
+        for (let col = 0; col < columns.length; col++) {
+          if (columns[col] <= item.startMinutes) {
+            placedCol = col;
+            columns[col] = item.endMinutes;
+            break;
+          }
+        }
+        if (placedCol === -1) {
+          placedCol = columns.length;
+          columns.push(item.endMinutes);
+        }
+
+        result.push({
+          meeting: item.meeting,
+          startMinutes: item.startMinutes,
+          endMinutes: item.endMinutes,
+          colIndex: placedCol,
+          totalCols: 1, // Se actualizará abajo
+        });
+      }
+
+      // Total de columnas en este cluster
+      const totalCols = Math.max(1, columns.length);
+      const clusterEventIds = new Set(cluster.map((c) => c.meeting.id));
+      for (const res of result) {
+        if (clusterEventIds.has(res.meeting.id)) {
+          res.totalCols = totalCols;
+        }
+      }
+    }
+
+    positionedByDay[day.dateStr] = result;
   }
 
-  // Manejadores de arrastre
-  const handleCellMouseDown = (dayStr: string, hourStr: string) => {
+  // Manejadores de arrastre con discretización en 15 minutos
+  const handleColumnMouseDown = (e: React.MouseEvent<HTMLDivElement>, dayStr: string) => {
+    if (e.button !== 0) return; // Solo clic izquierdo
+    const rect = e.currentTarget.getBoundingClientRect();
+    const offsetY = e.clientY - rect.top;
+    const rawMinutes = Math.max(0, Math.min(1425, Math.floor((offsetY / HOUR_HEIGHT) * 60)));
+    const snapped = Math.floor(rawMinutes / 15) * 15;
+
     setDragState({
       isDragging: true,
       dayStr,
-      startHour: hourStr,
-      currentHour: hourStr,
+      startMinutes: snapped,
+      currentMinutes: snapped + 15,
     });
   };
 
-  const handleCellMouseEnter = (dayStr: string, hourStr: string) => {
-    if (dragState.isDragging && dragState.dayStr === dayStr) {
-      setDragState((prev) => ({ ...prev, currentHour: hourStr }));
+  const handleColumnMouseMove = (e: React.MouseEvent<HTMLDivElement>, dayStr: string) => {
+    if (!dragState.isDragging || dragState.dayStr !== dayStr) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const offsetY = e.clientY - rect.top;
+    const rawMinutes = Math.max(0, Math.min(1425, Math.floor((offsetY / HOUR_HEIGHT) * 60)));
+    const snapped = Math.floor(rawMinutes / 15) * 15;
+
+    if (snapped !== dragState.currentMinutes) {
+      setDragState((prev) => ({
+        ...prev,
+        currentMinutes: snapped,
+      }));
     }
   };
 
   const handleMouseUp = () => {
-    if (dragState.isDragging && dragState.dayStr && dragState.startHour && dragState.currentHour) {
-      const h1 = parseInt(dragState.startHour.split(":")[0], 10);
-      const h2 = parseInt(dragState.currentHour.split(":")[0], 10);
-      const minH = Math.min(h1, h2);
-      const maxH = Math.max(h1, h2);
+    if (dragState.isDragging && dragState.dayStr) {
+      let minMin = Math.min(dragState.startMinutes, dragState.currentMinutes);
+      let maxMin = Math.max(dragState.startMinutes, dragState.currentMinutes);
 
-      const startTime = `${String(minH).padStart(2, "0")}:00`;
-      const endH = maxH === minH ? minH + 1 : maxH + 1;
-      const endTime = `${String(Math.min(23, endH)).padStart(2, "0")}:${endH > 23 ? "59" : "00"}`;
+      // Si fue un clic simple sin arrastre, por defecto crear bloque de 30 minutos
+      if (minMin === maxMin || maxMin - minMin < 15) {
+        maxMin = Math.min(1440, minMin + 30);
+      }
+
+      const startTime = minutesToTimeString(minMin);
+      const endTime = minutesToTimeString(maxMin);
 
       if (onDragCreate) {
         onDragCreate({
@@ -157,68 +319,63 @@ export default function WeeklyCalendarView({
         });
       }
     }
-    setDragState({ isDragging: false, dayStr: null, startHour: null, currentHour: null });
-  };
 
-  // Calcular rango activo de arrastre
-  let dragMinHour = -1;
-  let dragMaxHour = -1;
-  if (dragState.isDragging && dragState.startHour && dragState.currentHour) {
-    const h1 = parseInt(dragState.startHour.split(":")[0], 10);
-    const h2 = parseInt(dragState.currentHour.split(":")[0], 10);
-    dragMinHour = Math.min(h1, h2);
-    dragMaxHour = Math.max(h1, h2);
-  }
+    setDragState({
+      isDragging: false,
+      dayStr: null,
+      startMinutes: 0,
+      currentMinutes: 0,
+    });
+  };
 
   return (
     <div
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
       style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        width: "100%",
         backgroundColor: "var(--surface-color)",
-        borderRadius: "16px",
         border: "1px solid var(--border-color)",
+        borderRadius: "16px",
         overflow: "hidden",
         boxShadow: "var(--shadow-sm)",
         userSelect: dragState.isDragging ? "none" : "auto",
-        display: "flex",
-        flexDirection: "column",
-        width: "100%",
       }}
     >
-      {/* CUADRÍCULA SEMANAL: ENCABEZADO DE DÍAS */}
+      {/* 1. ENCABEZADO DE DÍAS (GOOGLE CALENDAR STYLE) */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "68px repeat(7, minmax(130px, 1fr))",
+          gridTemplateColumns: "64px repeat(7, 1fr)",
           borderBottom: "1px solid var(--border-color)",
           backgroundColor: "var(--bg-color)",
-          overflowX: "auto",
-          position: "sticky",
-          top: 0,
           zIndex: 10,
         }}
       >
-        {/* Columna de hora vacía en encabezado */}
+        {/* Celda superior izquierda: Zona horaria GMT-03 */}
         <div
           style={{
-            padding: "0.75rem 0.5rem",
             borderRight: "1px solid var(--border-color)",
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
-            justifyContent: "center",
-            fontSize: "0.72rem",
+            justifyContent: "flex-end",
+            padding: "0.5rem 0.25rem",
+            fontSize: "0.68rem",
             fontWeight: 800,
+            color: "var(--text-color)",
             opacity: 0.5,
             letterSpacing: "0.5px",
           }}
         >
-          HORA
+          GMT-03
         </div>
 
-        {/* 7 Columnas de días */}
+        {/* 7 Columnas de días de la semana */}
         {weekDays.map((day) => {
-          const dayMeetings = meetingsByDay[day.dateStr] || [];
           const isSelected = selectedCalendarDay === day.dateStr;
 
           return (
@@ -226,367 +383,296 @@ export default function WeeklyCalendarView({
               key={day.dateStr}
               onClick={() => onSelectDay(day.dateStr)}
               style={{
-                padding: "0.75rem 0.5rem",
+                padding: "0.6rem 0.4rem",
                 textAlign: "center",
                 borderRight: "1px solid var(--border-color)",
                 backgroundColor: isSelected
                   ? "rgba(37, 99, 235, 0.08)"
                   : day.isToday
-                  ? "rgba(16, 185, 129, 0.06)"
+                  ? "rgba(26, 115, 232, 0.04)"
                   : "transparent",
                 cursor: "pointer",
                 transition: "background-color 0.15s",
               }}
             >
+              {/* Nombre de día (LUN, MAR, MIÉ, ...) */}
               <div
                 style={{
-                  fontSize: "0.75rem",
+                  fontSize: "0.72rem",
                   textTransform: "uppercase",
-                  fontWeight: 700,
-                  color: day.isToday ? "#10b981" : "var(--text-color)",
+                  fontWeight: 800,
+                  letterSpacing: "0.5px",
+                  color: day.isToday ? "#1a73e8" : "var(--text-color)",
                   opacity: day.isToday ? 1 : 0.65,
                 }}
               >
                 {day.dayName}
               </div>
 
+              {/* Número de día grande (Google Calendar blue circle si es hoy) */}
               <div
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  width: "32px",
-                  height: "32px",
+                  width: "36px",
+                  height: "36px",
                   borderRadius: "50%",
-                  marginTop: "0.2rem",
-                  fontSize: "1.05rem",
-                  fontWeight: 900,
-                  backgroundColor: day.isToday
-                    ? "#10b981"
-                    : isSelected
-                    ? "#2563eb"
-                    : "transparent",
-                  color: day.isToday || isSelected ? "#fff" : "var(--text-color)",
-                  boxShadow: day.isToday ? "0 2px 8px rgba(16, 185, 129, 0.35)" : "none",
+                  marginTop: "0.15rem",
+                  fontSize: "1.25rem",
+                  fontWeight: 800,
+                  backgroundColor: day.isToday ? "#1a73e8" : isSelected ? "#2563eb" : "transparent",
+                  color: day.isToday || isSelected ? "#ffffff" : "var(--text-color)",
+                  boxShadow: day.isToday ? "0 2px 6px rgba(26, 115, 232, 0.4)" : "none",
                 }}
               >
                 {day.dayNum}
               </div>
-
-              {dayMeetings.length > 0 && (
-                <div style={{ marginTop: "0.2rem" }}>
-                  <span
-                    style={{
-                      display: "inline-block",
-                      fontSize: "0.68rem",
-                      fontWeight: 700,
-                      padding: "0.1rem 0.45rem",
-                      borderRadius: "10px",
-                      backgroundColor: day.isToday
-                        ? "rgba(16, 185, 129, 0.2)"
-                        : "rgba(59, 130, 246, 0.15)",
-                      color: day.isToday ? "#10b981" : "#3b82f6",
-                    }}
-                  >
-                    {dayMeetings.length} {dayMeetings.length === 1 ? "evento" : "eventos"}
-                  </span>
-                </div>
-              )}
             </div>
           );
         })}
       </div>
 
-      {/* CUERPO DE LA CUADRÍCULA: FILAS POR HORA */}
+      {/* 2. CUERPO DE LA CUADRÍCULA 24H (CON SCROLL CONTINUO Y EVENTOS POSICIONADOS) */}
       <div
+        ref={scrollContainerRef}
         style={{
-          maxHeight: "750px",
+          flex: 1,
           overflowY: "auto",
-          overflowX: "auto",
+          overflowX: "hidden",
           position: "relative",
+          backgroundColor: "var(--surface-color)",
         }}
       >
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "68px repeat(7, minmax(130px, 1fr))",
-            minWidth: "980px",
+            gridTemplateColumns: "64px repeat(7, 1fr)",
+            height: `${TOTAL_GRID_HEIGHT}px`,
+            position: "relative",
           }}
         >
-          {HOURS.map((hourStr, hourIdx) => {
-            const currentHourNum = parseInt(hourStr.split(":")[0], 10);
-
-            return (
-              <React.Fragment key={hourStr}>
-                {/* Etiqueta de hora a la izquierda */}
-                <div
+          {/* Columna de etiquetas horarias a la izquierda */}
+          <div
+            style={{
+              borderRight: "1px solid var(--border-color)",
+              backgroundColor: "var(--bg-color)",
+              position: "relative",
+              userSelect: "none",
+            }}
+          >
+            {Array.from({ length: TOTAL_HOURS }).map((_, h) => (
+              <div
+                key={h}
+                style={{
+                  height: `${HOUR_HEIGHT}px`,
+                  position: "relative",
+                  borderBottom: "1px solid var(--border-color)",
+                  boxSizing: "border-box",
+                }}
+              >
+                <span
                   style={{
-                    padding: "0.6rem 0.5rem",
-                    borderRight: "1px solid var(--border-color)",
-                    borderBottom: "1px solid var(--border-color)",
-                    fontSize: "0.74rem",
+                    position: "absolute",
+                    top: "-8px",
+                    right: "8px",
+                    fontSize: "0.68rem",
                     fontWeight: 700,
                     color: "var(--text-color)",
-                    opacity: 0.6,
-                    textAlign: "right",
-                    backgroundColor: "var(--bg-color)",
-                    userSelect: "none",
+                    opacity: 0.5,
                   }}
                 >
-                  {hourStr}
-                </div>
+                  {formatHourLabel(h)}
+                </span>
+              </div>
+            ))}
+          </div>
 
-                {/* Celdas para cada día en esta hora */}
-                {weekDays.map((day) => {
-                  const dayMeetings = meetingsByDay[day.dateStr] || [];
+          {/* 7 Columnas de Días */}
+          {weekDays.map((day) => {
+            const dayPositioned = positionedByDay[day.dateStr] || [];
 
-                  // Filtrar eventos que caen dentro de esta hora (o si es 07:00 incluir más tempranos, si es 23:00 más tardíos)
-                  const cellMeetings = dayMeetings.filter((m) => {
-                    const [mHour] = (m.time || "00:00").split(":").map(Number);
-                    if (hourIdx === 0 && mHour < currentHourNum) {
-                      return true; // Eventos tempranos antes de las 7am
-                    }
-                    if (hourIdx === HOURS.length - 1 && mHour > currentHourNum) {
-                      return true; // Eventos tardíos después de las 23hs
-                    }
-                    return mHour === currentHourNum;
-                  });
+            // Selección activa de arrastre en este día
+            const isDraggingThisDay = dragState.isDragging && dragState.dayStr === day.dateStr;
+            const dragMin = isDraggingThisDay
+              ? Math.min(dragState.startMinutes, dragState.currentMinutes)
+              : 0;
+            const dragMax = isDraggingThisDay
+              ? Math.max(dragState.startMinutes, dragState.currentMinutes)
+              : 0;
+            const dragHeight = Math.max(15, dragMax - dragMin);
 
-                  // Comprobar si esta celda está dentro de la selección activa por arrastre
-                  const isCellDragged =
-                    dragState.isDragging &&
-                    dragState.dayStr === day.dateStr &&
-                    currentHourNum >= dragMinHour &&
-                    currentHourNum <= dragMaxHour;
+            return (
+              <div
+                key={day.dateStr}
+                onMouseDown={(e) => handleColumnMouseDown(e, day.dateStr)}
+                onMouseMove={(e) => handleColumnMouseMove(e, day.dateStr)}
+                style={{
+                  borderRight: "1px solid var(--border-color)",
+                  position: "relative",
+                  height: `${TOTAL_GRID_HEIGHT}px`,
+                  backgroundColor: day.isToday ? "rgba(26, 115, 232, 0.015)" : "transparent",
+                  cursor: "cell",
+                }}
+              >
+                {/* Líneas horizontales de cada hora */}
+                {Array.from({ length: TOTAL_HOURS }).map((_, h) => (
+                  <div
+                    key={h}
+                    style={{
+                      height: `${HOUR_HEIGHT}px`,
+                      borderBottom: "1px solid var(--border-color)",
+                      opacity: 0.6,
+                      boxSizing: "border-box",
+                      pointerEvents: "none",
+                    }}
+                  />
+                ))}
 
-                  // Indicador de hora actual
-                  const isCurrentHourCell = day.isToday && nowTime.hour === currentHourNum;
-                  const currentMinutePercent = Math.min(100, Math.max(0, (nowTime.minute / 60) * 100));
+                {/* Línea roja indicadora de Hora Actual (Google Calendar Red Line) */}
+                {day.isToday && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      right: 0,
+                      top: `${nowMinutes}px`,
+                      height: "2px",
+                      backgroundColor: "#ea4335",
+                      zIndex: 8,
+                      pointerEvents: "none",
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: "10px",
+                        height: "10px",
+                        borderRadius: "50%",
+                        backgroundColor: "#ea4335",
+                        marginLeft: "-5px",
+                        boxShadow: "0 0 6px rgba(234, 67, 53, 0.6)",
+                      }}
+                    />
+                  </div>
+                )}
+
+                {/* Recuadro visual de selección por arrastre (15 min discretized) */}
+                {isDraggingThisDay && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: "2px",
+                      right: "2px",
+                      top: `${dragMin}px`,
+                      height: `${dragHeight}px`,
+                      backgroundColor: "rgba(26, 115, 232, 0.25)",
+                      border: "2px dashed #1a73e8",
+                      borderRadius: "6px",
+                      zIndex: 9,
+                      pointerEvents: "none",
+                      display: "flex",
+                      flexDirection: "column",
+                      padding: "4px 6px",
+                      boxSizing: "border-box",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "0.72rem",
+                        fontWeight: 800,
+                        color: "#1a73e8",
+                        backgroundColor: "rgba(255, 255, 255, 0.9)",
+                        padding: "1px 5px",
+                        borderRadius: "4px",
+                        alignSelf: "flex-start",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                      }}
+                    >
+                      {minutesToTimeString(dragMin)} - {minutesToTimeString(dragMax || dragMin + 15)}
+                    </span>
+                  </div>
+                )}
+
+                {/* Eventos posicionados en el día */}
+                {dayPositioned.map((pos) => {
+                  const m = pos.meeting;
+                  const colors = getEventColors(m);
+                  const top = pos.startMinutes;
+                  const height = Math.max(22, pos.endMinutes - pos.startMinutes - 2);
+
+                  // Ancho y posición lateral para eventos solapados lado a lado
+                  const widthPercent = 100 / pos.totalCols;
+                  const leftPercent = pos.colIndex * widthPercent;
 
                   return (
                     <div
-                      key={`${day.dateStr}-${hourStr}`}
-                      onMouseDown={() => handleCellMouseDown(day.dateStr, hourStr)}
-                      onMouseEnter={() => handleCellMouseEnter(day.dateStr, hourStr)}
-                      title="Arrastra para agendar un evento en este horario"
+                      key={m.id}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectMeeting(m);
+                      }}
+                      title={`${m.title} (${m.time} hs) - Clic para detalles`}
                       style={{
-                        borderRight: "1px solid var(--border-color)",
-                        borderBottom: "1px solid var(--border-color)",
-                        minHeight: "62px",
-                        padding: "3px",
-                        backgroundColor: isCellDragged
-                          ? "rgba(16, 185, 129, 0.18)"
-                          : day.isToday
-                          ? "rgba(16, 185, 129, 0.02)"
-                          : "transparent",
-                        outline: isCellDragged ? "2px dashed #10b981" : "none",
-                        outlineOffset: "-2px",
+                        position: "absolute",
+                        top: `${top}px`,
+                        height: `${height}px`,
+                        left: `calc(${leftPercent}% + 2px)`,
+                        width: `calc(${widthPercent}% - 4px)`,
+                        backgroundColor: colors.bg,
+                        color: colors.text,
+                        borderRadius: "5px",
+                        padding: height < 35 ? "2px 5px" : "4px 7px",
+                        fontSize: "0.74rem",
+                        lineHeight: 1.25,
+                        overflow: "hidden",
+                        cursor: "pointer",
+                        zIndex: 4,
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.18)",
+                        boxSizing: "border-box",
                         display: "flex",
                         flexDirection: "column",
-                        gap: "3px",
-                        position: "relative",
-                        cursor: "crosshair",
-                        transition: "background-color 0.1s",
+                        transition: "filter 0.1s",
                       }}
+                      onMouseEnter={(e) => (e.currentTarget.style.filter = "brightness(1.08)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.filter = "brightness(1)")}
                     >
-                      {/* Indicador de hora actual en vivo */}
-                      {isCurrentHourCell && (
+                      {/* Título en negrita */}
+                      <div
+                        style={{
+                          fontWeight: 800,
+                          fontSize: height < 30 ? "0.7rem" : "0.75rem",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        {colors.type === "meet" && <Video size={11} style={{ flexShrink: 0 }} />}
+                        <span>{m.title || m.clientName}</span>
+                      </div>
+
+                      {/* Horario si la tarjeta tiene suficiente altura */}
+                      {height >= 34 && (
                         <div
                           style={{
-                            position: "absolute",
-                            left: 0,
-                            right: 0,
-                            top: `${currentMinutePercent}%`,
-                            height: "2px",
-                            backgroundColor: "#ef4444",
-                            zIndex: 5,
-                            pointerEvents: "none",
-                            display: "flex",
-                            alignItems: "center",
+                            fontSize: "0.68rem",
+                            opacity: 0.9,
+                            fontWeight: 600,
+                            marginTop: "1px",
                           }}
                         >
-                          <div
-                            style={{
-                              width: "8px",
-                              height: "8px",
-                              borderRadius: "50%",
-                              backgroundColor: "#ef4444",
-                              marginLeft: "-4px",
-                              boxShadow: "0 0 6px #ef4444",
-                            }}
-                          />
+                          {m.time} – {minutesToTimeString(pos.endMinutes)}
                         </div>
                       )}
-
-                      {/* Tag flotante de arrastre si es la primera celda seleccionada */}
-                      {isCellDragged && currentHourNum === dragMinHour && (
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: "2px",
-                            right: "2px",
-                            backgroundColor: "#10b981",
-                            color: "#fff",
-                            fontSize: "0.65rem",
-                            fontWeight: 800,
-                            padding: "0.1rem 0.4rem",
-                            borderRadius: "4px",
-                            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-                            zIndex: 6,
-                            pointerEvents: "none",
-                          }}
-                        >
-                          {String(dragMinHour).padStart(2, "0")}:00 - {String(dragMaxHour + 1).padStart(2, "0")}:00
-                        </div>
-                      )}
-
-                      {/* Renderizado de eventos en la celda */}
-                      {cellMeetings.map((m) => {
-                        const isGoogle = m.isGoogleEvent || m.id.startsWith("gcal-");
-                        const isMeet = !isGoogle && (m.meetUrl || m.id.startsWith("meet-"));
-                        const isManual = !isGoogle && !isMeet;
-
-                        // Colores de tarjeta
-                        const badgeBg = isGoogle
-                          ? "rgba(59, 130, 246, 0.14)"
-                          : isMeet
-                          ? "rgba(16, 185, 129, 0.15)"
-                          : "rgba(139, 92, 246, 0.15)";
-
-                        const borderColor = isGoogle
-                          ? "#3b82f6"
-                          : isMeet
-                          ? "#10b981"
-                          : "#8b5cf6";
-
-                        const badgeText = isGoogle
-                          ? "#3b82f6"
-                          : isMeet
-                          ? "#10b981"
-                          : "#8b5cf6";
-
-                        return (
-                          <div
-                            key={m.id}
-                            onMouseDown={(e) => e.stopPropagation()}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onSelectMeeting(m);
-                            }}
-                            title={`${m.title} (${m.time} hs) - Clic para ver detalles`}
-                            style={{
-                              padding: "0.35rem 0.45rem",
-                              borderRadius: "6px",
-                              backgroundColor: badgeBg,
-                              borderLeft: `3px solid ${borderColor}`,
-                              borderTop: `1px solid ${badgeBg}`,
-                              borderRight: `1px solid ${badgeBg}`,
-                              borderBottom: `1px solid ${badgeBg}`,
-                              cursor: "pointer",
-                              fontSize: "0.75rem",
-                              lineHeight: 1.25,
-                              transition: "transform 0.1s, box-shadow 0.1s",
-                              boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-                              position: "relative",
-                              zIndex: 2,
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                gap: "2px",
-                                marginBottom: "2px",
-                              }}
-                            >
-                              <span
-                                style={{
-                                  fontWeight: 800,
-                                  color: badgeText,
-                                  fontSize: "0.7rem",
-                                }}
-                              >
-                                {m.time}
-                              </span>
-
-                              {isGoogle ? (
-                                <span
-                                  style={{
-                                    fontSize: "0.62rem",
-                                    fontWeight: 700,
-                                    backgroundColor: "rgba(59, 130, 246, 0.2)",
-                                    color: "#3b82f6",
-                                    padding: "0.05rem 0.35rem",
-                                    borderRadius: "4px",
-                                  }}
-                                >
-                                  Google
-                                </span>
-                              ) : isMeet ? (
-                                <span
-                                  style={{
-                                    fontSize: "0.62rem",
-                                    fontWeight: 700,
-                                    backgroundColor: "rgba(16, 185, 129, 0.2)",
-                                    color: "#10b981",
-                                    padding: "0.05rem 0.35rem",
-                                    borderRadius: "4px",
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    gap: "2px",
-                                  }}
-                                >
-                                  <Video size={9} /> Meet
-                                </span>
-                              ) : (
-                                <span
-                                  style={{
-                                    fontSize: "0.62rem",
-                                    fontWeight: 700,
-                                    backgroundColor: "rgba(139, 92, 246, 0.2)",
-                                    color: "#8b5cf6",
-                                    padding: "0.05rem 0.35rem",
-                                    borderRadius: "4px",
-                                  }}
-                                >
-                                  Agenda
-                                </span>
-                              )}
-                            </div>
-
-                            <div
-                              style={{
-                                fontWeight: 700,
-                                color: "var(--text-color)",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {m.title || m.clientName}
-                            </div>
-
-                            {m.clientName && m.title !== m.clientName && (
-                              <div
-                                style={{
-                                  fontSize: "0.68rem",
-                                  opacity: 0.75,
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {m.clientName}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
                     </div>
                   );
                 })}
-              </React.Fragment>
+              </div>
             );
           })}
         </div>
