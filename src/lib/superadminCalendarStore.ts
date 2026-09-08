@@ -2,16 +2,22 @@ import fs from "fs";
 import path from "path";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-export interface ConsultationHours {
+export interface TimeRange {
   startTime: string; // ej: "09:00"
-  endTime: string;   // ej: "18:00"
+  endTime: string;   // ej: "14:00"
+}
+
+export interface ConsultationHours {
+  startTime?: string; // Retrocompatibilidad: ej "09:00"
+  endTime?: string;   // Retrocompatibilidad: ej "18:00"
+  timeRanges: TimeRange[]; // Lista de franjas horarias (ej: [{ startTime: "09:00", endTime: "14:00" }, { startTime: "17:00", endTime: "19:00" }])
 }
 
 export interface SuperadminCalendarConfig {
   availableDays: number[]; // 0: Dom, 1: Lun, 2: Mar, 3: Mie, 4: Jue, 5: Vie, 6: Sab
   displayDaysAhead: number; // Ventana de días futuros a mostrar a interesados (ej: 14)
   meetingDurationMinutes: number; // Duración de reuniones (ej: 30)
-  consultationHours: ConsultationHours; // Horarios de consulta (inicio y fin)
+  consultationHours: ConsultationHours; // Horarios de consulta (franjas horarias)
 }
 
 export interface SuperadminGoogleAuth {
@@ -37,6 +43,7 @@ export interface SuperadminMeeting {
   durationMinutes: number;
   meetUrl?: string;
   googleEventId?: string;
+  isGoogleEvent?: boolean;
   status: "confirmed" | "cancelled" | "completed";
   createdAt: string;
 }
@@ -54,6 +61,9 @@ const DEFAULT_CONFIG: SuperadminCalendarConfig = {
   consultationHours: {
     startTime: "09:00",
     endTime: "18:00",
+    timeRanges: [
+      { startTime: "09:00", endTime: "18:00" },
+    ],
   },
 };
 
@@ -87,13 +97,25 @@ function loadDataFromDisk(): SuperadminCalendarData {
       const content = fs.readFileSync(filePath, "utf-8");
       if (content.trim()) {
         const parsed = JSON.parse(content);
+        
+        // Manejar migración de timeRanges si antes solo existía startTime/endTime
+        let timeRanges: TimeRange[] = [];
+        if (Array.isArray(parsed.config?.consultationHours?.timeRanges) && parsed.config.consultationHours.timeRanges.length > 0) {
+          timeRanges = parsed.config.consultationHours.timeRanges;
+        } else {
+          const s = parsed.config?.consultationHours?.startTime || "09:00";
+          const e = parsed.config?.consultationHours?.endTime || "18:00";
+          timeRanges = [{ startTime: s, endTime: e }];
+        }
+
         return {
           config: {
             ...DEFAULT_CONFIG,
             ...(parsed.config || {}),
             consultationHours: {
-              ...DEFAULT_CONFIG.consultationHours,
-              ...(parsed.config?.consultationHours || {}),
+              startTime: timeRanges[0]?.startTime || "09:00",
+              endTime: timeRanges[timeRanges.length - 1]?.endTime || "18:00",
+              timeRanges,
             },
           },
           googleAuth: {
@@ -131,6 +153,18 @@ export function saveSuperadminCalendarConfig(
 ): SuperadminCalendarConfig {
   const current = getSuperadminCalendarData();
 
+  let timeRanges: TimeRange[] = current.config.consultationHours.timeRanges || [
+    { startTime: "09:00", endTime: "18:00" },
+  ];
+
+  if (Array.isArray(updates.consultationHours?.timeRanges) && updates.consultationHours.timeRanges.length > 0) {
+    timeRanges = updates.consultationHours.timeRanges.filter(
+      (r) => r && typeof r.startTime === "string" && typeof r.endTime === "string"
+    );
+  } else if (updates.consultationHours?.startTime && updates.consultationHours?.endTime) {
+    timeRanges = [{ startTime: updates.consultationHours.startTime, endTime: updates.consultationHours.endTime }];
+  }
+
   const newConfig: SuperadminCalendarConfig = {
     availableDays: Array.isArray(updates.availableDays)
       ? updates.availableDays.filter((d) => typeof d === "number" && d >= 0 && d <= 6)
@@ -142,8 +176,9 @@ export function saveSuperadminCalendarConfig(
       ? updates.meetingDurationMinutes
       : current.config.meetingDurationMinutes,
     consultationHours: {
-      startTime: updates.consultationHours?.startTime || current.config.consultationHours.startTime,
-      endTime: updates.consultationHours?.endTime || current.config.consultationHours.endTime,
+      startTime: timeRanges[0]?.startTime || "09:00",
+      endTime: timeRanges[timeRanges.length - 1]?.endTime || "18:00",
+      timeRanges,
     },
   };
 
@@ -194,7 +229,6 @@ export function addSuperadminMeeting(meeting: SuperadminMeeting): SuperadminMeet
   memoryCache = current;
   saveDataToDisk(current);
 
-  // Guardar también en Supabase events como respaldo
   try {
     if (supabaseAdmin) {
       (supabaseAdmin.from("events") as any)
@@ -210,6 +244,7 @@ export function addSuperadminMeeting(meeting: SuperadminMeeting): SuperadminMeet
             agency_name: meeting.agencyName,
             meet_url: meeting.meetUrl,
             google_event_id: meeting.googleEventId,
+            is_google_event: meeting.isGoogleEvent,
             status: meeting.status,
             source: "superadmin_meet",
           }),
@@ -220,6 +255,13 @@ export function addSuperadminMeeting(meeting: SuperadminMeeting): SuperadminMeet
   } catch (e) {}
 
   return meeting;
+}
+
+export function saveSuperadminMeetings(meetings: SuperadminMeeting[]): void {
+  const current = getSuperadminCalendarData();
+  current.meetings = meetings;
+  memoryCache = current;
+  saveDataToDisk(current);
 }
 
 export function updateSuperadminMeetingStatus(

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition, useId, Suspense } from "react";
+import { useState, useEffect, useId, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   getSuperadminCalendarSettings,
@@ -8,10 +8,12 @@ import {
   getSuperadminMeetingsList,
   cancelSuperadminMeeting,
   disconnectSuperadminGoogle,
+  syncGoogleEventsAction,
 } from "@/actions/superadminCalendarActions";
 import {
   SuperadminCalendarConfig,
   SuperadminMeeting,
+  TimeRange,
 } from "@/lib/superadminCalendarStore";
 import {
   CalendarClock,
@@ -24,13 +26,18 @@ import {
   Phone,
   Mail,
   Building2,
-  ExternalLink,
   Save,
   Link2,
   Unlink,
-  MessageSquare,
   Search,
-  Filter,
+  RefreshCw,
+  Plus,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  HelpCircle,
+  Info,
+  Check,
 } from "lucide-react";
 
 const DAYS_OF_WEEK = [
@@ -45,15 +52,17 @@ const DAYS_OF_WEEK = [
 
 function SuperadminCalendarContent() {
   const searchParams = useSearchParams();
-  const startTimeSelectId = useId();
-  const endTimeSelectId = useId();
 
   // Estados de datos
   const [config, setConfig] = useState<SuperadminCalendarConfig>({
     availableDays: [1, 2, 3, 4, 5],
     displayDaysAhead: 14,
     meetingDurationMinutes: 30,
-    consultationHours: { startTime: "09:00", endTime: "18:00" },
+    consultationHours: {
+      startTime: "09:00",
+      endTime: "18:00",
+      timeRanges: [{ startTime: "09:00", endTime: "18:00" }],
+    },
   });
   const [googleAuth, setGoogleAuth] = useState<{ connected: boolean; email: string | null }>({
     connected: false,
@@ -62,8 +71,18 @@ function SuperadminCalendarContent() {
   const [meetings, setMeetings] = useState<SuperadminMeeting[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [showGoogleHelp, setShowGoogleHelp] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState("");
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Estados de vista de calendario visual
+  const [currentCalendarDate, setCurrentCalendarDate] = useState<Date>(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d;
+  });
+  const [selectedCalendarDay, setSelectedCalendarDay] = useState<string | null>(null);
 
   // Filtros de reuniones
   const [meetingFilter, setMeetingFilter] = useState<"upcoming" | "all" | "past" | "cancelled">("upcoming");
@@ -79,8 +98,14 @@ function SuperadminCalendarContent() {
         getSuperadminMeetingsList(),
       ]);
 
-      if (settingsRes) {
-        setConfig(settingsRes.config);
+      if (settingsRes && settingsRes.config) {
+        const c = settingsRes.config;
+        if (!c.consultationHours.timeRanges || c.consultationHours.timeRanges.length === 0) {
+          c.consultationHours.timeRanges = [
+            { startTime: c.consultationHours.startTime || "09:00", endTime: c.consultationHours.endTime || "18:00" },
+          ];
+        }
+        setConfig(c);
         setGoogleAuth(settingsRes.googleAuth);
       }
       if (Array.isArray(meetingsRes)) {
@@ -96,24 +121,23 @@ function SuperadminCalendarContent() {
   useEffect(() => {
     loadData();
 
-    // Comprobar parámetros de URL tras OAuth
     const success = searchParams.get("success");
     const error = searchParams.get("error");
 
     if (success === "google_connected") {
       setStatusMessage({
         type: "success",
-        text: "¡Google Calendar conectado y sincronizado con éxito!",
+        text: "¡Google Calendar conectado con éxito! Ahora puedes sincronizar tus eventos.",
       });
     } else if (error) {
       setStatusMessage({
         type: "error",
-        text: `No se pudo conectar Google Calendar: ${error}`,
+        text: `Aviso de conexión con Google: ${error}. El calendario autónomo por defecto sigue funcionando al 100%.`,
       });
     }
   }, [searchParams]);
 
-  // Toggle de día disponible
+  // Manejo de días disponibles
   const handleToggleDay = (dayId: number) => {
     setConfig((prev) => {
       const exists = prev.availableDays.includes(dayId);
@@ -124,7 +148,56 @@ function SuperadminCalendarContent() {
     });
   };
 
-  // Guardar configuración (los 4 campos estrictos)
+  // Manejo de franjas horarias múltiples
+  const handleAddTimeRange = () => {
+    setConfig((prev) => {
+      const currentRanges = prev.consultationHours.timeRanges || [];
+      const newRange: TimeRange = { startTime: "17:00", endTime: "19:00" };
+      return {
+        ...prev,
+        consultationHours: {
+          ...prev.consultationHours,
+          timeRanges: [...currentRanges, newRange],
+        },
+      };
+    });
+  };
+
+  const handleRemoveTimeRange = (index: number) => {
+    setConfig((prev) => {
+      const currentRanges = prev.consultationHours.timeRanges || [];
+      if (currentRanges.length <= 1) return prev;
+      const filtered = currentRanges.filter((_, i) => i !== index);
+      return {
+        ...prev,
+        consultationHours: {
+          ...prev.consultationHours,
+          timeRanges: filtered,
+        },
+      };
+    });
+  };
+
+  const handleUpdateTimeRange = (index: number, field: "startTime" | "endTime", value: string) => {
+    setConfig((prev) => {
+      const currentRanges = [...(prev.consultationHours.timeRanges || [])];
+      if (currentRanges[index]) {
+        currentRanges[index] = {
+          ...currentRanges[index],
+          [field]: value,
+        };
+      }
+      return {
+        ...prev,
+        consultationHours: {
+          ...prev.consultationHours,
+          timeRanges: currentRanges,
+        },
+      };
+    });
+  };
+
+  // Guardar configuración
   const handleSaveConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
@@ -134,7 +207,7 @@ function SuperadminCalendarContent() {
       const res = await saveSuperadminCalendarSettings(config);
       if (res.success) {
         setConfig(res.config);
-        setSaveSuccessMsg("¡Disponibilidad y horarios actualizados correctamente!");
+        setSaveSuccessMsg("¡Disponibilidad y franjas horarias actualizadas correctamente!");
         setTimeout(() => setSaveSuccessMsg(""), 4000);
       }
     } catch (err) {
@@ -145,13 +218,32 @@ function SuperadminCalendarContent() {
     }
   };
 
+  // Sincronizar eventos con Google
+  const handleSyncGoogle = async () => {
+    setIsSyncing(true);
+    setStatusMessage(null);
+    try {
+      const res = await syncGoogleEventsAction();
+      if (res.success) {
+        setStatusMessage({ type: "success", text: res.message || "Eventos sincronizados con éxito." });
+        loadData();
+      } else {
+        setStatusMessage({ type: "error", text: res.error || "No se pudo sincronizar con Google." });
+      }
+    } catch (e: any) {
+      setStatusMessage({ type: "error", text: e?.message || "Error al conectar con Google." });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   // Desconectar Google
   const handleDisconnectGoogle = async () => {
     if (!confirm("¿Seguro que deseas desconectar tu cuenta de Google Calendar?")) return;
     try {
       await disconnectSuperadminGoogle();
       setGoogleAuth({ connected: false, email: null });
-      setStatusMessage({ type: "success", text: "Google Calendar desconectado." });
+      setStatusMessage({ type: "success", text: "Google Calendar desconectado. El calendario continúa en modo autónomo." });
       setTimeout(() => setStatusMessage(null), 3000);
     } catch (e) {
       console.error("Error desconectando Google:", e);
@@ -179,7 +271,11 @@ function SuperadminCalendarContent() {
   const filteredMeetings = meetings.filter((m) => {
     const meetingDate = new Date(m.start);
 
-    // Filtro por estado / temporalidad
+    // Si hay un día seleccionado en el calendario visual
+    if (selectedCalendarDay && m.date !== selectedCalendarDay) {
+      return false;
+    }
+
     if (meetingFilter === "upcoming") {
       if (m.status === "cancelled") return false;
       if (meetingDate < now) return false;
@@ -190,7 +286,6 @@ function SuperadminCalendarContent() {
       if (m.status !== "cancelled") return false;
     }
 
-    // Búsqueda textual
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchName = m.clientName.toLowerCase().includes(q);
@@ -203,11 +298,17 @@ function SuperadminCalendarContent() {
     return true;
   });
 
+  // Helpers de calendario mensual
+  const calYear = currentCalendarDate.getFullYear();
+  const calMonth = currentCalendarDate.getMonth();
+  const daysInCalMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const firstDayOfWeek = (new Date(calYear, calMonth, 1).getDay() + 6) % 7;
+
   return (
     <div style={{ maxWidth: "1200px", margin: "0 auto", paddingBottom: "4rem" }}>
       {/* Encabezado */}
-      <div style={{ marginBottom: "2rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem" }}>
+      <div style={{ marginBottom: "2rem", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "1rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
           <div
             style={{
               width: "42px",
@@ -224,16 +325,42 @@ function SuperadminCalendarContent() {
           </div>
           <div>
             <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 800, color: "var(--text-color)" }}>
-              Agenda de Reuniones & Google Meet
+              Agenda de Videollamadas & Google Meet
             </h1>
             <p style={{ margin: 0, fontSize: "0.9rem", opacity: 0.7 }}>
-              Configuración de disponibilidad sincronizada para el agendamiento estilo Calendly de la landing page.
+              Calendario del Superadmin para gestionar consultas 1 a 1 y disponibilidad de la landing page.
             </p>
           </div>
         </div>
+
+        {/* Botón de Sincronización Directa de Google */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <button
+            type="button"
+            onClick={handleSyncGoogle}
+            disabled={isSyncing}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              padding: "0.65rem 1.15rem",
+              borderRadius: "10px",
+              backgroundColor: "var(--surface-color)",
+              border: "1px solid var(--border-color)",
+              color: "var(--text-color)",
+              fontSize: "0.85rem",
+              fontWeight: 700,
+              cursor: isSyncing ? "not-allowed" : "pointer",
+              boxShadow: "var(--shadow-sm)",
+            }}
+          >
+            <RefreshCw size={16} style={{ animation: isSyncing ? "spin 1s linear infinite" : "none" }} />
+            {isSyncing ? "Sincronizando..." : "Sincronizar eventos con Google"}
+          </button>
+        </div>
       </div>
 
-      {/* Banner de Estado / Notificación */}
+      {/* Banner de Notificación */}
       {statusMessage && (
         <div
           style={{
@@ -262,7 +389,7 @@ function SuperadminCalendarContent() {
         </div>
       )}
 
-      {/* SECCIÓN 1: SINCRONIZACIÓN CON GOOGLE */}
+      {/* SECCIÓN 1: ESTADO DE SINCRONIZACIÓN GOOGLE / MODO AUTÓNOMO */}
       <div
         style={{
           backgroundColor: "var(--surface-color)",
@@ -310,27 +437,46 @@ function SuperadminCalendarContent() {
                 ) : (
                   <span
                     style={{
-                      backgroundColor: "rgba(245, 158, 11, 0.15)",
-                      color: "#f59e0b",
+                      backgroundColor: "rgba(59, 130, 246, 0.15)",
+                      color: "#3b82f6",
                       fontSize: "0.75rem",
                       padding: "0.2rem 0.6rem",
                       borderRadius: "20px",
                       fontWeight: 700,
                     }}
                   >
-                    PENDIENTE
+                    MODO AUTÓNOMO ACTIVO
                   </span>
                 )}
               </div>
               <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.85rem", opacity: 0.75 }}>
                 {googleAuth.connected
-                  ? `Sincronizado con la cuenta ${googleAuth.email || "de Google"}. Los eventos ocupados se descuentan automáticamente y las reuniones generan link de Google Meet.`
-                  : "Conecta tu Google Calendar para bloquear horarios ocupados en tiempo real y generar salas de Google Meet para los interesados de la landing."}
+                  ? `Sincronizado con ${googleAuth.email || "tu cuenta de Google"}. Los eventos ocupados se descuentan en tiempo real.`
+                  : "Tu calendario por defecto está listo y vacío para recibir reservas desde la landing page. Puedes conectar Google Calendar para sincronizar tus eventos."}
               </p>
             </div>
           </div>
 
-          <div>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <button
+              type="button"
+              onClick={() => setShowGoogleHelp(!showGoogleHelp)}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--text-color)",
+                opacity: 0.7,
+                display: "flex",
+                alignItems: "center",
+                gap: "0.3rem",
+                cursor: "pointer",
+                fontSize: "0.8rem",
+                fontWeight: 600,
+              }}
+            >
+              <HelpCircle size={16} /> Configuración Google Cloud
+            </button>
+
             {googleAuth.connected ? (
               <button
                 type="button"
@@ -347,19 +493,18 @@ function SuperadminCalendarContent() {
                   fontSize: "0.85rem",
                   fontWeight: 600,
                   cursor: "pointer",
-                  transition: "all 0.2s",
                 }}
               >
                 <Unlink size={16} /> Desconectar Google
               </button>
             ) : (
               <a
-                href="/api/auth/google-calendar"
+                href="/api/auth/google?target=superadmin"
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "0.5rem",
-                  padding: "0.7rem 1.25rem",
+                  padding: "0.65rem 1.25rem",
                   borderRadius: "10px",
                   backgroundColor: "#2563eb",
                   color: "#fff",
@@ -367,7 +512,6 @@ function SuperadminCalendarContent() {
                   fontSize: "0.9rem",
                   fontWeight: 700,
                   boxShadow: "0 2px 8px rgba(37, 99, 235, 0.3)",
-                  transition: "all 0.2s",
                 }}
               >
                 <Link2 size={18} /> Conectar con Google
@@ -375,9 +519,37 @@ function SuperadminCalendarContent() {
             )}
           </div>
         </div>
+
+        {/* Panel de Ayuda para Desarrollador Google (Error 400 redirect_uri_mismatch) */}
+        {showGoogleHelp && (
+          <div
+            style={{
+              marginTop: "1.25rem",
+              padding: "1rem 1.25rem",
+              borderRadius: "12px",
+              backgroundColor: "rgba(59, 130, 246, 0.06)",
+              border: "1px solid rgba(59, 130, 246, 0.2)",
+              fontSize: "0.85rem",
+            }}
+          >
+            <div style={{ fontWeight: 700, color: "#2563eb", marginBottom: "0.4rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              <Info size={16} /> Para habilitar Google Calendar en tu Google Cloud Console:
+            </div>
+            <p style={{ margin: "0 0 0.5rem 0", opacity: 0.85 }}>
+              Si al conectar Google te muestra <code>Error 400: redirect_uri_mismatch</code>, debes agregar la siguiente URI en tu consola de Google Cloud (en <em>APIs y Servicios &gt; Credenciales &gt; IDs de cliente de OAuth 2.0 &gt; URIs de redireccionamiento autorizados</em>):
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem", backgroundColor: "var(--bg-color)", padding: "0.6rem 0.85rem", borderRadius: "8px", fontFamily: "monospace", fontSize: "0.8rem", border: "1px solid var(--border-color)" }}>
+              <div>• <strong>http://localhost:3000/api/auth/google/callback</strong> (para pruebas locales)</div>
+              <div>• <strong>https://superadmin.n-autos.com/api/auth/google/callback</strong> (para producción)</div>
+            </div>
+            <span style={{ display: "block", marginTop: "0.5rem", fontSize: "0.8rem", opacity: 0.7 }}>
+              * Mientras tanto, no te preocupes: el sistema trabaja de forma autónoma con su propio calendario interno.
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* SECCIÓN 2: FORMULARIO DE DISPONIBILIDAD (LOS 4 CAMPOS EXCLUSIVOS) */}
+      {/* SECCIÓN 2: CONFIGURACIÓN DE DISPONIBILIDAD (LOS 4 CAMPOS CON FRANJAS MÚLTIPLES) */}
       <div
         style={{
           backgroundColor: "var(--surface-color)",
@@ -393,7 +565,7 @@ function SuperadminCalendarContent() {
             Configuración de Horarios de Consulta & Disponibilidad
           </h2>
           <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.85rem", opacity: 0.7 }}>
-            Define las reglas con las que los interesados podrán elegir fecha y hora desde el espacio de agendamiento en la landing.
+            Define qué días y en qué franjas horarias podrán agendarte una consulta o videollamada.
           </p>
         </div>
 
@@ -424,18 +596,14 @@ function SuperadminCalendarContent() {
                         display: "flex",
                         alignItems: "center",
                         gap: "0.4rem",
-                        transition: "all 0.15s ease",
                       }}
                     >
-                      {isSelected && <CheckCircle2 size={16} />}
+                      {isSelected && <Check size={16} />}
                       {d.name}
                     </button>
                   );
                 })}
               </div>
-              <span style={{ fontSize: "0.8rem", opacity: 0.6, display: "block", marginTop: "0.4rem" }}>
-                Los días no marcados aparecerán deshabilitados en el calendario de la landing.
-              </span>
             </div>
 
             {/* 2. CUÁNTOS DÍAS SE MUESTRAN A LOS INTERESADOS */}
@@ -467,7 +635,7 @@ function SuperadminCalendarContent() {
                 ))}
               </div>
               <div style={{ marginTop: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                <span style={{ fontSize: "0.8rem", opacity: 0.7 }}>O valor personalizado:</span>
+                <span style={{ fontSize: "0.8rem", opacity: 0.7 }}>O valor exacto:</span>
                 <input
                   type="number"
                   min={1}
@@ -485,14 +653,14 @@ function SuperadminCalendarContent() {
                     fontWeight: 600,
                   }}
                 />
-                <span style={{ fontSize: "0.8rem", opacity: 0.7 }}>días hacia adelante</span>
+                <span style={{ fontSize: "0.8rem", opacity: 0.7 }}>días</span>
               </div>
             </div>
 
             {/* 3. TIEMPOS DE DURACIÓN DE LAS REUNIONES */}
             <div>
               <label style={{ display: "block", fontSize: "0.9rem", fontWeight: 700, marginBottom: "0.6rem", color: "var(--text-color)" }}>
-                3. Tiempo de duración de las reuniones
+                3. Tiempo de duración de las consultas
               </label>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 {[15, 30, 45, 60].map((mins) => (
@@ -517,79 +685,126 @@ function SuperadminCalendarContent() {
                   </button>
                 ))}
               </div>
-              <span style={{ fontSize: "0.8rem", opacity: 0.6, display: "block", marginTop: "0.4rem" }}>
-                Determina el espaciado de los turnos en el agendamiento.
-              </span>
             </div>
 
-            {/* 4. HORARIOS DE CONSULTA */}
+            {/* 4. HORARIOS DE CONSULTA (FRANJAS HORARIAS MÚLTIPLES OPCIONALES) */}
             <div style={{ gridColumn: "1 / -1" }}>
-              <label style={{ display: "block", fontSize: "0.9rem", fontWeight: 700, marginBottom: "0.6rem", color: "var(--text-color)" }}>
-                4. Horarios de consulta (Jornada diaria de atención)
-              </label>
-              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "1rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <label htmlFor={startTimeSelectId} style={{ fontSize: "0.85rem", fontWeight: 600 }}>Hora Inicio:</label>
-                  <select
-                    id={startTimeSelectId}
-                    value={config.consultationHours.startTime}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        consultationHours: { ...config.consultationHours, startTime: e.target.value },
-                      })
-                    }
-                    style={{
-                      padding: "0.5rem 0.75rem",
-                      borderRadius: "8px",
-                      border: "1px solid var(--border-color)",
-                      backgroundColor: "var(--bg-color)",
-                      color: "var(--text-color)",
-                      fontSize: "0.9rem",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {Array.from({ length: 24 }).map((_, h) => {
-                      const timeStr = `${String(h).padStart(2, "0")}:00`;
-                      return <option key={timeStr} value={timeStr}>{timeStr} hs</option>;
-                    })}
-                  </select>
-                </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <label htmlFor={endTimeSelectId} style={{ fontSize: "0.85rem", fontWeight: 600 }}>Hora Fin:</label>
-                  <select
-                    id={endTimeSelectId}
-                    value={config.consultationHours.endTime}
-                    onChange={(e) =>
-                      setConfig({
-                        ...config,
-                        consultationHours: { ...config.consultationHours, endTime: e.target.value },
-                      })
-                    }
-                    style={{
-                      padding: "0.5rem 0.75rem",
-                      borderRadius: "8px",
-                      border: "1px solid var(--border-color)",
-                      backgroundColor: "var(--bg-color)",
-                      color: "var(--text-color)",
-                      fontSize: "0.9rem",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                    }}
-                  >
-                    {Array.from({ length: 24 }).map((_, h) => {
-                      const timeStr = `${String(h).padStart(2, "0")}:00`;
-                      return <option key={timeStr} value={timeStr}>{timeStr} hs</option>;
-                    })}
-                  </select>
-                </div>
-
-                <span style={{ fontSize: "0.85rem", opacity: 0.7 }}>
-                  (Las consultas se agendarán entre las {config.consultationHours.startTime} y las {config.consultationHours.endTime} hs)
-                </span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.6rem" }}>
+                <label style={{ fontSize: "0.9rem", fontWeight: 700, color: "var(--text-color)" }}>
+                  4. Horarios de consulta (Franjas horarias disponibles)
+                </label>
+                <button
+                  type="button"
+                  onClick={handleAddTimeRange}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.35rem",
+                    padding: "0.35rem 0.75rem",
+                    borderRadius: "8px",
+                    backgroundColor: "rgba(16, 185, 129, 0.1)",
+                    border: "1px solid rgba(16, 185, 129, 0.3)",
+                    color: "#10b981",
+                    fontSize: "0.8rem",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  <Plus size={14} /> Agregar otra franja horaria
+                </button>
               </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                {(config.consultationHours.timeRanges || [{ startTime: "09:00", endTime: "18:00" }]).map(
+                  (range, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        alignItems: "center",
+                        gap: "1rem",
+                        padding: "0.75rem 1rem",
+                        borderRadius: "10px",
+                        backgroundColor: "var(--bg-color)",
+                        border: "1px solid var(--border-color)",
+                      }}
+                    >
+                      <span style={{ fontSize: "0.85rem", fontWeight: 700, minWidth: "80px", color: "var(--text-color)" }}>
+                        Franja #{idx + 1}:
+                      </span>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <span style={{ fontSize: "0.8rem", opacity: 0.7 }}>Desde:</span>
+                        <select
+                          value={range.startTime}
+                          onChange={(e) => handleUpdateTimeRange(idx, "startTime", e.target.value)}
+                          style={{
+                            padding: "0.45rem 0.65rem",
+                            borderRadius: "8px",
+                            border: "1px solid var(--border-color)",
+                            backgroundColor: "var(--surface-color)",
+                            color: "var(--text-color)",
+                            fontSize: "0.85rem",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                          }}
+                        >
+                          {Array.from({ length: 24 }).map((_, h) => {
+                            const timeStr = `${String(h).padStart(2, "0")}:00`;
+                            return <option key={timeStr} value={timeStr}>{timeStr} hs</option>;
+                          })}
+                        </select>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <span style={{ fontSize: "0.8rem", opacity: 0.7 }}>Hasta:</span>
+                        <select
+                          value={range.endTime}
+                          onChange={(e) => handleUpdateTimeRange(idx, "endTime", e.target.value)}
+                          style={{
+                            padding: "0.45rem 0.65rem",
+                            borderRadius: "8px",
+                            border: "1px solid var(--border-color)",
+                            backgroundColor: "var(--surface-color)",
+                            color: "var(--text-color)",
+                            fontSize: "0.85rem",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                          }}
+                        >
+                          {Array.from({ length: 24 }).map((_, h) => {
+                            const timeStr = `${String(h).padStart(2, "0")}:00`;
+                            return <option key={timeStr} value={timeStr}>{timeStr} hs</option>;
+                          })}
+                        </select>
+                      </div>
+
+                      {(config.consultationHours.timeRanges || []).length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveTimeRange(idx)}
+                          title="Eliminar esta franja"
+                          style={{
+                            marginLeft: "auto",
+                            background: "none",
+                            border: "none",
+                            color: "#ef4444",
+                            cursor: "pointer",
+                            padding: "0.3rem",
+                          }}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
+                  )
+                )}
+              </div>
+
+              <span style={{ fontSize: "0.8rem", opacity: 0.6, display: "block", marginTop: "0.5rem" }}>
+                Ejemplo: De 09:00 a 14:00 y de 17:00 a 19:00 (las horas intermedias quedarán libres para almuerzo/descanso).
+              </span>
             </div>
           </div>
 
@@ -610,7 +825,6 @@ function SuperadminCalendarContent() {
                 fontSize: "0.95rem",
                 fontWeight: 700,
                 cursor: isSaving ? "not-allowed" : "pointer",
-                opacity: isSaving ? 0.7 : 1,
                 boxShadow: "0 2px 8px rgba(16, 185, 129, 0.3)",
               }}
             >
@@ -627,7 +841,7 @@ function SuperadminCalendarContent() {
         </form>
       </div>
 
-      {/* SECCIÓN 3: LISTADO Y GESTIÓN DE REUNIONES */}
+      {/* SECCIÓN 3: VISTA DE CALENDARIO MENSUAL & REUNIONES */}
       <div
         style={{
           backgroundColor: "var(--surface-color)",
@@ -640,15 +854,35 @@ function SuperadminCalendarContent() {
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: "1rem", marginBottom: "1.5rem" }}>
           <div>
             <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, color: "var(--text-color)" }}>
-              Reuniones Agendadas por Google Meet
+              Calendario y Reuniones Agendadas
             </h2>
             <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.85rem", opacity: 0.7 }}>
-              Citas reservadas desde la landing page para demostraciones y asesorías.
+              {selectedCalendarDay
+                ? `Mostrando eventos para el ${selectedCalendarDay}. Haz clic en "Ver todas" para reiniciar.`
+                : "Calendario por defecto del Superadmin sincronizable con Google."}
             </p>
           </div>
 
-          {/* Filtros rápidos y buscador */}
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.75rem" }}>
+            {selectedCalendarDay && (
+              <button
+                type="button"
+                onClick={() => setSelectedCalendarDay(null)}
+                style={{
+                  padding: "0.4rem 0.75rem",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border-color)",
+                  backgroundColor: "var(--bg-color)",
+                  color: "#2563eb",
+                  fontWeight: 700,
+                  fontSize: "0.8rem",
+                  cursor: "pointer",
+                }}
+              >
+                Ver todas las fechas ✕
+              </button>
+            )}
+
             <div style={{ display: "flex", backgroundColor: "var(--bg-color)", padding: "3px", borderRadius: "8px", border: "1px solid var(--border-color)" }}>
               <button
                 type="button"
@@ -716,16 +950,16 @@ function SuperadminCalendarContent() {
               </button>
             </div>
 
-            <div style={{ position: "relative", minWidth: "200px" }}>
-              <Search size={16} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", opacity: 0.5 }} />
+            <div style={{ position: "relative", minWidth: "180px" }}>
+              <Search size={15} style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", opacity: 0.5 }} />
               <input
                 type="text"
-                placeholder="Buscar cliente, automotora..."
+                placeholder="Buscar reunión..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
                   width: "100%",
-                  padding: "0.45rem 0.75rem 0.45rem 2rem",
+                  padding: "0.4rem 0.75rem 0.4rem 2rem",
                   borderRadius: "8px",
                   border: "1px solid var(--border-color)",
                   backgroundColor: "var(--bg-color)",
@@ -734,6 +968,78 @@ function SuperadminCalendarContent() {
                 }}
               />
             </div>
+          </div>
+        </div>
+
+        {/* Mini Calendario de Navegación Visual */}
+        <div style={{ marginBottom: "1.5rem", padding: "1rem", borderRadius: "12px", backgroundColor: "var(--bg-color)", border: "1px solid var(--border-color)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
+            <span style={{ fontWeight: 700, fontSize: "0.95rem", textTransform: "capitalize" }}>
+              {currentCalendarDate.toLocaleDateString("es-UY", { month: "long", year: "numeric" })}
+            </span>
+            <div style={{ display: "flex", gap: "0.35rem" }}>
+              <button
+                type="button"
+                onClick={() => setCurrentCalendarDate(new Date(calYear, calMonth - 1, 1))}
+                style={{ background: "none", border: "1px solid var(--border-color)", borderRadius: "6px", width: "28px", height: "28px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-color)" }}
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrentCalendarDate(new Date(calYear, calMonth + 1, 1))}
+                style={{ background: "none", border: "1px solid var(--border-color)", borderRadius: "6px", width: "28px", height: "28px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-color)" }}
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: "4px", textAlign: "center" }}>
+            {["Lu", "Ma", "Mi", "Ju", "Vi", "Sá", "Do"].map((h) => (
+              <div key={h} style={{ fontSize: "0.75rem", fontWeight: 700, opacity: 0.6, paddingBottom: "4px" }}>
+                {h}
+              </div>
+            ))}
+
+            {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+              <div key={`empty-${i}`} />
+            ))}
+
+            {Array.from({ length: daysInCalMonth }).map((_, i) => {
+              const dayNum = i + 1;
+              const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+              const dayMeetings = meetings.filter((m) => m.date === dateStr && m.status !== "cancelled");
+              const isSelected = selectedCalendarDay === dateStr;
+
+              return (
+                <button
+                  key={dateStr}
+                  type="button"
+                  onClick={() => setSelectedCalendarDay(isSelected ? null : dateStr)}
+                  style={{
+                    aspectRatio: 1.3,
+                    borderRadius: "8px",
+                    border: isSelected ? "2px solid #2563eb" : "1px solid transparent",
+                    backgroundColor: isSelected ? "rgba(37, 99, 235, 0.15)" : dayMeetings.length > 0 ? "rgba(16, 185, 129, 0.1)" : "transparent",
+                    color: isSelected ? "#2563eb" : "var(--text-color)",
+                    fontWeight: isSelected || dayMeetings.length > 0 ? 800 : 500,
+                    fontSize: "0.85rem",
+                    cursor: "pointer",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "2px",
+                  }}
+                >
+                  <span>{dayNum}</span>
+                  {dayMeetings.length > 0 && (
+                    <span style={{ width: "5px", height: "5px", borderRadius: "50%", backgroundColor: "#10b981" }} />
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -754,10 +1060,10 @@ function SuperadminCalendarContent() {
           >
             <CalendarIcon size={36} style={{ opacity: 0.3, marginBottom: "0.5rem" }} />
             <p style={{ margin: 0, fontWeight: 600, fontSize: "0.95rem" }}>
-              No se encontraron reuniones {meetingFilter === "upcoming" ? "próximas" : ""}.
+              No hay reuniones agendadas {meetingFilter === "upcoming" ? "próximas" : ""}.
             </p>
             <p style={{ margin: "0.25rem 0 0 0", fontSize: "0.85rem", opacity: 0.6 }}>
-              Cuando un interesado agende una consulta desde la landing page aparecerá listada aquí con su enlace de Google Meet.
+              Tu calendario autónomo está limpio. Cuando los interesados reserven una consulta desde la landing aparecerán aquí.
             </p>
           </div>
         ) : (
@@ -783,7 +1089,6 @@ function SuperadminCalendarContent() {
                     opacity: isCancelled ? 0.6 : 1,
                   }}
                 >
-                  {/* Fecha y Horario */}
                   <div style={{ display: "flex", alignItems: "center", gap: "1rem", minWidth: "220px" }}>
                     <div
                       style={{
@@ -816,12 +1121,11 @@ function SuperadminCalendarContent() {
                         {m.time} hs ({m.durationMinutes} min)
                       </div>
                       <div style={{ fontSize: "0.8rem", opacity: 0.6, marginTop: "2px" }}>
-                        {isCancelled ? "Cancelada" : isPast ? "Reunión finalizada" : "Próxima sesión"}
+                        {isCancelled ? "Cancelada" : isPast ? "Reunión finalizada" : m.isGoogleEvent ? "Google Calendar" : "Consulta Landing"}
                       </div>
                     </div>
                   </div>
 
-                  {/* Info del Cliente */}
                   <div style={{ flex: 1, minWidth: "250px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                       <span style={{ fontWeight: 800, fontSize: "1rem", color: "var(--text-color)" }}>
@@ -847,9 +1151,11 @@ function SuperadminCalendarContent() {
                     </div>
 
                     <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.85rem", marginTop: "0.35rem", fontSize: "0.85rem", opacity: 0.8 }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
-                        <Mail size={14} style={{ opacity: 0.6 }} /> {m.clientEmail}
-                      </span>
+                      {m.clientEmail && (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+                          <Mail size={14} style={{ opacity: 0.6 }} /> {m.clientEmail}
+                        </span>
+                      )}
                       {m.clientPhone && (
                         <a
                           href={`https://wa.me/${m.clientPhone.replace(/[^0-9]/g, "")}`}
@@ -869,7 +1175,6 @@ function SuperadminCalendarContent() {
                     )}
                   </div>
 
-                  {/* Enlace a Google Meet & Acciones */}
                   <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                     {m.meetUrl && !isCancelled && (
                       <a

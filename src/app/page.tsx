@@ -88,7 +88,7 @@ export default function Home() {
           </p>
           <div className={styles.ctaButtons}>
             <a href="#agendar" className="btn-primary" style={{ padding: "1rem 2rem", fontSize: "1.1rem", display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
-              <Video size={20} /> Agendar Demo por Meet
+              <Video size={20} /> Agendar Videollamada
             </a>
             <a href="#contacto" className="btn-secondary" style={{ padding: "1rem 2rem", fontSize: "1.1rem" }}>
               Solicitar Asesoría
@@ -197,7 +197,7 @@ export default function Home() {
               <Video size={16} /> REUNIÓN 1 A 1 CON EL EQUIPO FUNDADOR
             </div>
             <h2 className={styles.sectionTitle} style={{ marginBottom: "0.5rem" }}>
-              Agendá tu Demo en Vivo por Google Meet
+              Agendá tu Videollamada o Consulta por Google Meet
             </h2>
             <p style={{ fontSize: "1.1rem", opacity: 0.8, maxWidth: "680px", margin: "0 auto" }}>
               Elegí el día y horario que mejor te convenga. Nuestro calendario está sincronizado en tiempo real para que reserves una sesión de asesoría estratégica sin esperas.

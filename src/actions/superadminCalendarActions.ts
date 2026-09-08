@@ -95,8 +95,9 @@ export async function saveSuperadminCalendarSettings(updates: {
   displayDaysAhead?: number;
   meetingDurationMinutes?: number;
   consultationHours?: {
-    startTime: string;
-    endTime: string;
+    startTime?: string;
+    endTime?: string;
+    timeRanges?: Array<{ startTime: string; endTime: string }>;
   };
 }) {
   const filteredUpdates: Partial<SuperadminCalendarConfig> = {};
@@ -111,9 +112,14 @@ export async function saveSuperadminCalendarSettings(updates: {
     filteredUpdates.meetingDurationMinutes = Math.max(10, Math.min(180, updates.meetingDurationMinutes));
   }
   if (updates.consultationHours) {
+    let timeRanges = updates.consultationHours.timeRanges || [];
+    if (!timeRanges.length && updates.consultationHours.startTime && updates.consultationHours.endTime) {
+      timeRanges = [{ startTime: updates.consultationHours.startTime, endTime: updates.consultationHours.endTime }];
+    }
     filteredUpdates.consultationHours = {
-      startTime: updates.consultationHours.startTime || "09:00",
-      endTime: updates.consultationHours.endTime || "18:00",
+      startTime: timeRanges[0]?.startTime || updates.consultationHours.startTime || "09:00",
+      endTime: timeRanges[timeRanges.length - 1]?.endTime || updates.consultationHours.endTime || "18:00",
+      timeRanges,
     };
   }
 
@@ -175,43 +181,58 @@ export async function getAvailableBookingSlots(dateStr: string) {
     };
   }
 
-  // Generar todos los slots teóricos entre startTime y endTime
-  const [startH, startM] = config.consultationHours.startTime.split(":").map(Number);
-  const [endH, endM] = config.consultationHours.endTime.split(":").map(Number);
-  const duration = config.meetingDurationMinutes;
+  // Generar todos los slots teóricos recorriendo cada franja horaria configurada
+  const ranges = config.consultationHours.timeRanges?.length
+    ? config.consultationHours.timeRanges
+    : [{ startTime: config.consultationHours.startTime || "09:00", endTime: config.consultationHours.endTime || "18:00" }];
 
-  const startMinutes = startH * 60 + startM;
-  const endMinutes = endH * 60 + endM;
-
+  const duration = config.meetingDurationMinutes || 30;
   const generatedSlots: { time: string; startIso: string; endIso: string }[] = [];
 
-  for (let m = startMinutes; m + duration <= endMinutes; m += duration) {
-    const hh = String(Math.floor(m / 60)).padStart(2, "0");
-    const mm = String(m % 60).padStart(2, "0");
-    const endMins = m + duration;
-    const endHh = String(Math.floor(endMins / 60)).padStart(2, "0");
-    const endMm = String(endMins % 60).padStart(2, "0");
+  for (const range of ranges) {
+    if (!range.startTime || !range.endTime) continue;
+    const [startH, startM] = range.startTime.split(":").map(Number);
+    const [endH, endM] = range.endTime.split(":").map(Number);
 
-    const timeLabel = `${hh}:${mm}`;
+    const startMinutes = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
 
-    // Construir fechas exactas
-    const slotStartDate = new Date(year, month - 1, day, Number(hh), Number(mm), 0);
-    const slotEndDate = new Date(year, month - 1, day, Number(endHh), Number(endMm), 0);
+    for (let m = startMinutes; m + duration <= endMinutes; m += duration) {
+      const hh = String(Math.floor(m / 60)).padStart(2, "0");
+      const mm = String(m % 60).padStart(2, "0");
+      const endMins = m + duration;
+      const endHh = String(Math.floor(endMins / 60)).padStart(2, "0");
+      const endMm = String(endMins % 60).padStart(2, "0");
 
-    // Si es hoy, filtrar slots que ya pasaron
-    if (checkDate.getTime() === today.getTime()) {
-      const nowBuffer = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos de margen de anticipación
-      if (slotStartDate <= nowBuffer) {
+      const timeLabel = `${hh}:${mm}`;
+
+      // Evitar duplicados si dos rangos se solaparan
+      if (generatedSlots.some((s) => s.time === timeLabel)) {
         continue;
       }
-    }
 
-    generatedSlots.push({
-      time: timeLabel,
-      startIso: slotStartDate.toISOString(),
-      endIso: slotEndDate.toISOString(),
-    });
+      // Construir fechas exactas
+      const slotStartDate = new Date(year, month - 1, day, Number(hh), Number(mm), 0);
+      const slotEndDate = new Date(year, month - 1, day, Number(endHh), Number(endMm), 0);
+
+      // Si es hoy, filtrar slots que ya pasaron
+      if (checkDate.getTime() === today.getTime()) {
+        const nowBuffer = new Date(Date.now() + 15 * 60 * 1000); // 15 minutos de margen de anticipación
+        if (slotStartDate <= nowBuffer) {
+          continue;
+        }
+      }
+
+      generatedSlots.push({
+        time: timeLabel,
+        startIso: slotStartDate.toISOString(),
+        endIso: slotEndDate.toISOString(),
+      });
+    }
   }
+
+  // Ordenar cronológicamente
+  generatedSlots.sort((a, b) => a.time.localeCompare(b.time));
 
   // Consultar eventos de Google Calendar si está conectado para excluir colisiones
   const busyRanges: { start: number; end: number }[] = [];
@@ -328,9 +349,9 @@ export async function bookMeetingFromLanding(payload: {
         const conferenceRequestId = `meet-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
         
         const gcalPayload = {
-          summary: `Demo N-Autos: ${payload.agencyName || clientName}`,
+          summary: `Videollamada N-Autos: ${payload.agencyName || clientName}`,
           description: [
-            `Reunión de asesoría y demostración de la plataforma N-Autos.`,
+            `Videollamada de asesoría y consulta sobre la plataforma N-Autos.`,
             `Cliente: ${clientName}`,
             `Email: ${clientEmail}`,
             `Teléfono/WhatsApp: ${payload.clientPhone || "No especificado"}`,
@@ -418,7 +439,7 @@ export async function bookMeetingFromLanding(payload: {
   // Registrar también en el sistema de consultas/leads para que aparezca en "Solicitudes & Consultas"
   try {
     await submitLandingInquiryAction({
-      agencyName: payload.agencyName || "Interesado en Demo",
+      agencyName: payload.agencyName || "Interesado en Videollamada",
       userName: clientName,
       userEmail: clientEmail,
       phone: payload.clientPhone,
@@ -470,3 +491,109 @@ export async function cancelSuperadminMeeting(meetingId: string) {
   safeRevalidatePath("/superadmin/calendar");
   return { success: true };
 }
+
+/**
+ * Acción para sincronizar eventos guardados en Google Calendar con el calendario interno
+ */
+export async function syncGoogleEventsAction() {
+  const auth = getSuperadminGoogleAuth();
+  if (!auth.connected) {
+    return {
+      success: false,
+      error: "Google Calendar aún no está conectado. El calendario funciona actualmente en modo interno autónomo.",
+    };
+  }
+
+  const token = await getValidGoogleAccessToken();
+  if (!token) {
+    return {
+      success: false,
+      error: "No se pudo obtener el token de acceso de Google. Vuelve a autorizar tu cuenta.",
+    };
+  }
+
+  try {
+    const timeMin = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
+    const timeMax = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
+
+    const gRes = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(
+        timeMin
+      )}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime&maxResults=100`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      }
+    );
+
+    if (!gRes.ok) {
+      const errData = await gRes.json().catch(() => ({}));
+      return { success: false, error: errData.error?.message || "Error al consultar Google Calendar" };
+    }
+
+    const data = await gRes.json();
+    let importedCount = 0;
+
+    if (Array.isArray(data.items)) {
+      const currentMeetings = getSuperadminMeetings();
+      const existingGoogleIds = new Set(
+        currentMeetings.filter((m) => m.googleEventId).map((m) => m.googleEventId)
+      );
+
+      for (const item of data.items) {
+        if (item.status === "cancelled") continue;
+        if (existingGoogleIds.has(item.id)) continue;
+
+        const startStr = item.start?.dateTime || item.start?.date;
+        const endStr = item.end?.dateTime || item.end?.date;
+        if (!startStr) continue;
+
+        const startDate = new Date(startStr);
+        const endDate = endStr ? new Date(endStr) : new Date(startDate.getTime() + 30 * 60 * 1000);
+
+        const date = startDate.toISOString().split("T")[0];
+        const time = `${String(startDate.getHours()).padStart(2, "0")}:${String(
+          startDate.getMinutes()
+        ).padStart(2, "0")}`;
+
+        const durationMinutes = Math.max(15, Math.round((endDate.getTime() - startDate.getTime()) / (60 * 1000)));
+
+        const meetUrl =
+          item.hangoutLink ||
+          item.conferenceData?.entryPoints?.find((ep: any) => ep.entryPointType === "video")?.uri;
+
+        const googleMeeting: SuperadminMeeting = {
+          id: `gcal-${item.id}`,
+          title: item.summary || "Evento Google Calendar",
+          clientName: item.creator?.displayName || item.creator?.email || "Google Calendar",
+          clientEmail: item.creator?.email || "",
+          notes: item.description || "Sincronizado desde Google Calendar",
+          date,
+          time,
+          start: startDate.toISOString(),
+          end: endDate.toISOString(),
+          durationMinutes,
+          meetUrl,
+          googleEventId: item.id,
+          isGoogleEvent: true,
+          status: "confirmed",
+          createdAt: item.created || new Date().toISOString(),
+        };
+
+        addSuperadminMeeting(googleMeeting);
+        importedCount++;
+      }
+    }
+
+    safeRevalidatePath("/superadmin/calendar");
+    return {
+      success: true,
+      count: importedCount,
+      message: `Se sincronizaron correctamente los eventos de Google Calendar (${importedCount} nuevos eventos importados).`,
+    };
+  } catch (err: any) {
+    console.error("Error al sincronizar eventos de Google Calendar:", err);
+    return { success: false, error: err?.message || "Error inesperado al sincronizar con Google" };
+  }
+}
+

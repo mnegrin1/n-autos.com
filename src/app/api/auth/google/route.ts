@@ -1,26 +1,44 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 
-export async function GET() {
-  const { data: config } = await (supabase.from("google_config") as any).select("*").single();
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const target = searchParams.get("target") || "admin";
 
-  if (!config || !config.clientId) {
-    return NextResponse.redirect(
-      new URL("/admin/calendar?error=config_missing", "http://localhost:3000")
-    );
+  let clientId = process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+
+  if (!clientId) {
+    const { data: config } = await (supabase.from("google_config") as any).select("*").single();
+    if (config?.clientId) {
+      clientId = config.clientId;
+    }
   }
 
-  const redirectUri = "http://localhost:3000/api/auth/google/callback";
-  
-  // URL de autorización de Google para OAuth 2.0
-  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` + 
+  if (!clientId) {
+    const redirectErrorUrl = target === "superadmin" ? "/superadmin/calendar?error=config_missing" : "/admin/calendar?error=config_missing";
+    return NextResponse.redirect(new URL(redirectErrorUrl, request.url));
+  }
+
+  // Usar el origin actual o fallback a localhost:3000
+  const origin = request.nextUrl.origin;
+  const redirectUri = origin.includes("localhost")
+    ? "http://localhost:3000/api/auth/google/callback"
+    : `${origin}/api/auth/google/callback`;
+
+  const authUrl =
+    `https://accounts.google.com/o/oauth2/v2/auth?` +
     new URLSearchParams({
-      client_id: config.clientId,
+      client_id: clientId,
       redirect_uri: redirectUri,
       response_type: "code",
-      scope: "https://www.googleapis.com/auth/calendar",
+      scope: [
+        "https://www.googleapis.com/auth/calendar",
+        "https://www.googleapis.com/auth/calendar.events",
+        "https://www.googleapis.com/auth/userinfo.email",
+      ].join(" "),
       access_type: "offline",
-      prompt: "consent"
+      prompt: "consent",
+      state: target,
     }).toString();
 
   return NextResponse.redirect(authUrl);

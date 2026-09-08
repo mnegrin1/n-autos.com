@@ -154,7 +154,7 @@ export default function BookingCalendlyWidget() {
     if (!confirmedMeeting) return "#";
     const title = encodeURIComponent(confirmedMeeting.title);
     const details = encodeURIComponent(
-      `Asesoría comercial y demo en vivo de N-Autos.\nEnlace a Google Meet: ${confirmedMeeting.meetUrl || ""}`
+      `Videollamada de asesoría y consulta personalizada con N-Autos.\nEnlace a Google Meet: ${confirmedMeeting.meetUrl || ""}`
     );
     const location = encodeURIComponent(confirmedMeeting.meetUrl || "Google Meet");
 
@@ -219,7 +219,7 @@ export default function BookingCalendlyWidget() {
         </div>
 
         <h2 className={styles.meetingTitle}>
-          Asesoría Estratégica & Demo de Plataforma
+          Videollamada de Asesoría & Consulta Personalizada
         </h2>
 
         <div className={styles.metaList}>
@@ -238,8 +238,8 @@ export default function BookingCalendlyWidget() {
         </div>
 
         <p className={styles.meetingDescription}>
-          Agendá una reunión de 30 minutos para analizar el flujo digital de tu automotora,
-          ver la plataforma en vivo y resolver cualquier duda técnica o comercial.
+          Agendá una videollamada para analizar el flujo digital de tu automotora,
+          resolver consultas y ver cómo optimizar la gestión comercial.
         </p>
       </div>
 
