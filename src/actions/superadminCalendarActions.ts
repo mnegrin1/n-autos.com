@@ -9,6 +9,7 @@ import {
   clearSuperadminGoogleAuthAsync,
   getSuperadminMeetingsAsync,
   addSuperadminMeetingAsync,
+  addSuperadminMeetingsBatchAsync,
   updateSuperadminMeetingStatusAsync,
   SuperadminCalendarConfig,
   SuperadminMeeting,
@@ -591,76 +592,108 @@ export async function syncGoogleEventsAction() {
   }
 
   try {
-    const timeMin = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
-    const timeMax = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
+    const timeMin = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const timeMax = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
 
-    const gRes = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(
-        timeMin
-      )}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime&maxResults=250`,
-      {
+    // 1. Obtener calendarios disponibles (primary + secundarios)
+    const calendarIds: string[] = ["primary"];
+    try {
+      const listRes = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList", {
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
+      });
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        if (Array.isArray(listData.items)) {
+          for (const cal of listData.items) {
+            if (cal.id && cal.id !== "primary" && cal.selected !== false) {
+              calendarIds.push(cal.id);
+            }
+          }
+        }
       }
+    } catch (e) {
+      console.warn("Aviso obteniendo calendarList:", e);
+    }
+
+    const currentMeetings = await getSuperadminMeetingsAsync();
+    const existingGoogleIds = new Set(
+      currentMeetings.filter((m) => m.googleEventId).map((m) => m.googleEventId)
     );
 
-    if (!gRes.ok) {
-      const errData = await gRes.json().catch(() => ({}));
-      return { success: false, error: errData.error?.message || "Error al consultar Google Calendar" };
-    }
+    const meetingsToInsert: SuperadminMeeting[] = [];
 
-    const data = await gRes.json();
-    let importedCount = 0;
+    // 2. Consultar eventos de cada calendario
+    for (const calId of calendarIds) {
+      try {
+        const gRes = await fetch(
+          `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
+            calId
+          )}/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(
+            timeMax
+          )}&singleEvents=true&orderBy=startTime&maxResults=250`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: "no-store",
+          }
+        );
 
-    if (Array.isArray(data.items)) {
-      const currentMeetings = await getSuperadminMeetingsAsync();
-      const existingGoogleIds = new Set(
-        currentMeetings.filter((m) => m.googleEventId).map((m) => m.googleEventId)
-      );
+        if (!gRes.ok) continue;
 
-      for (const item of data.items) {
-        if (item.status === "cancelled") continue;
-        if (existingGoogleIds.has(item.id)) continue;
+        const data = await gRes.json();
+        if (Array.isArray(data.items)) {
+          for (const item of data.items) {
+            if (item.status === "cancelled") continue;
+            if (existingGoogleIds.has(item.id)) continue;
 
-        const startStr = item.start?.dateTime || item.start?.date;
-        const endStr = item.end?.dateTime || item.end?.date;
-        if (!startStr) continue;
+            const startStr = item.start?.dateTime || item.start?.date;
+            const endStr = item.end?.dateTime || item.end?.date;
+            if (!startStr) continue;
 
-        const startDate = new Date(startStr);
-        const endDate = endStr ? new Date(endStr) : new Date(startDate.getTime() + 30 * 60 * 1000);
+            const startDate = new Date(startStr);
+            const endDate = endStr ? new Date(endStr) : new Date(startDate.getTime() + 30 * 60 * 1000);
 
-        const localFormatted = formatInMontevideo(startDate);
-        const date = localFormatted.date;
-        const time = localFormatted.time;
+            const localFormatted = formatInMontevideo(startDate);
+            const date = localFormatted.date;
+            const time = localFormatted.time;
 
-        const durationMinutes = Math.max(15, Math.round((endDate.getTime() - startDate.getTime()) / (60 * 1000)));
+            const durationMinutes = Math.max(
+              15,
+              Math.round((endDate.getTime() - startDate.getTime()) / (60 * 1000))
+            );
 
-        const meetUrl =
-          item.hangoutLink ||
-          item.conferenceData?.entryPoints?.find((ep: any) => ep.entryPointType === "video")?.uri;
+            const meetUrl =
+              item.hangoutLink ||
+              item.conferenceData?.entryPoints?.find((ep: any) => ep.entryPointType === "video")?.uri;
 
-        const googleMeeting: SuperadminMeeting = {
-          id: `gcal-${item.id}`,
-          title: item.summary || "Evento Google Calendar",
-          clientName: item.creator?.displayName || item.creator?.email || "Google Calendar",
-          clientEmail: item.creator?.email || "",
-          notes: item.description || "Sincronizado desde Google Calendar",
-          date,
-          time,
-          start: startDate.toISOString(),
-          end: endDate.toISOString(),
-          durationMinutes,
-          meetUrl,
-          googleEventId: item.id,
-          isGoogleEvent: true,
-          status: "confirmed",
-          createdAt: item.created || new Date().toISOString(),
-        };
+            meetingsToInsert.push({
+              id: `gcal-${item.id}`,
+              title: item.summary || "Evento Google Calendar",
+              clientName: item.creator?.displayName || item.creator?.email || "Google Calendar",
+              clientEmail: item.creator?.email || "",
+              notes: item.description || "Sincronizado desde Google Calendar",
+              date,
+              time,
+              start: startDate.toISOString(),
+              end: endDate.toISOString(),
+              durationMinutes,
+              meetUrl,
+              googleEventId: item.id,
+              isGoogleEvent: true,
+              status: "confirmed",
+              createdAt: item.created || new Date().toISOString(),
+            });
 
-        await addSuperadminMeetingAsync(googleMeeting);
-        importedCount++;
+            existingGoogleIds.add(item.id);
+          }
+        }
+      } catch (calErr) {
+        console.warn(`Aviso consultando calendario ${calId}:`, calErr);
       }
     }
+
+    // 3. Inserción rápida en bloque (batch)
+    const importedCount = await addSuperadminMeetingsBatchAsync(meetingsToInsert);
 
     safeRevalidatePath("/superadmin/calendar");
     return {
@@ -672,5 +705,115 @@ export async function syncGoogleEventsAction() {
     console.error("Error al sincronizar eventos de Google Calendar:", err);
     return { success: false, error: err?.message || "Error inesperado al sincronizar con Google" };
   }
+}
+
+/**
+ * Acción para crear un evento manual desde la cuadrícula del Superadmin (ej: arrastrando o botón)
+ */
+export async function createSuperadminManualEventAction(payload: {
+  title: string;
+  date: string; // "YYYY-MM-DD"
+  startTime: string; // "HH:mm"
+  endTime: string;   // "HH:mm"
+  clientName?: string;
+  clientEmail?: string;
+  clientPhone?: string;
+  notes?: string;
+  syncToGoogle?: boolean;
+}) {
+  const { title, date, startTime, endTime } = payload;
+  if (!title?.trim() || !date || !startTime || !endTime) {
+    return { success: false, error: "Completa el título, fecha y horario del evento." };
+  }
+
+  const [y, m, d] = date.split("-").map(Number);
+  const [sH, sM] = startTime.split(":").map(Number);
+  const [eH, eM] = endTime.split(":").map(Number);
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const startIso = `${y}-${pad(m)}-${pad(d)}T${pad(sH)}:${pad(sM)}:00-03:00`;
+  const endIso = `${y}-${pad(m)}-${pad(d)}T${pad(eH)}:${pad(eM)}:00-03:00`;
+
+  const startMin = sH * 60 + sM;
+  const endMin = eH * 60 + eM;
+  const durationMinutes = Math.max(15, endMin - startMin);
+
+  let googleEventId: string | undefined = undefined;
+  let meetUrl: string | undefined = undefined;
+
+  const auth = await getSuperadminGoogleAuthAsync();
+  if (payload.syncToGoogle && auth.connected) {
+    const token = await getValidGoogleAccessToken();
+    if (token) {
+      try {
+        const gcalPayload: any = {
+          summary: title.trim(),
+          description: [
+            payload.notes || "Evento creado desde el panel Superadmin N-Autos.",
+            payload.clientName ? `Contacto: ${payload.clientName}` : "",
+            payload.clientEmail ? `Email: ${payload.clientEmail}` : "",
+            payload.clientPhone ? `Teléfono: ${payload.clientPhone}` : "",
+          ]
+            .filter(Boolean)
+            .join("\n"),
+          start: { dateTime: startIso, timeZone: "America/Montevideo" },
+          end: { dateTime: endIso, timeZone: "America/Montevideo" },
+        };
+
+        if (payload.clientEmail) {
+          gcalPayload.attendees = [
+            { email: payload.clientEmail, displayName: payload.clientName || payload.clientEmail },
+          ];
+        }
+
+        const createRes = await fetch(
+          "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(gcalPayload),
+          }
+        );
+
+        if (createRes.ok) {
+          const gEvent = await createRes.json();
+          googleEventId = gEvent.id;
+          meetUrl = gEvent.hangoutLink;
+        }
+      } catch (err) {
+        console.warn("Aviso creando evento manual en Google Calendar:", err);
+      }
+    }
+  }
+
+  const newMeeting: SuperadminMeeting = {
+    id: `manual-${Date.now()}`,
+    title: title.trim(),
+    clientName: payload.clientName?.trim() || "Interno / Superadmin",
+    clientEmail: payload.clientEmail?.trim() || "",
+    clientPhone: payload.clientPhone?.trim(),
+    notes: payload.notes?.trim(),
+    date,
+    time: startTime,
+    start: startIso,
+    end: endIso,
+    durationMinutes,
+    meetUrl,
+    googleEventId,
+    isGoogleEvent: false,
+    status: "confirmed",
+    createdAt: new Date().toISOString(),
+  };
+
+  await addSuperadminMeetingAsync(newMeeting);
+  safeRevalidatePath("/superadmin/calendar");
+
+  return {
+    success: true,
+    meeting: newMeeting,
+  };
 }
 

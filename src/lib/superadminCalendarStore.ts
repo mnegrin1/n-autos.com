@@ -509,6 +509,83 @@ export function addSuperadminMeeting(meeting: SuperadminMeeting): SuperadminMeet
   return meeting;
 }
 
+export async function addSuperadminMeetingsBatchAsync(
+  meetings: SuperadminMeeting[]
+): Promise<number> {
+  if (!meetings || meetings.length === 0) return 0;
+
+  const current = await getSuperadminCalendarDataAsync();
+  const existingMeetingIds = new Set(current.meetings.map((m) => m.id));
+  const existingGoogleIds = new Set(
+    current.meetings.filter((m) => m.googleEventId).map((m) => m.googleEventId)
+  );
+
+  const newMeetingsToKeep = meetings.filter(
+    (m) => !existingMeetingIds.has(m.id) && (!m.googleEventId || !existingGoogleIds.has(m.googleEventId))
+  );
+
+  if (newMeetingsToKeep.length === 0) {
+    return 0;
+  }
+
+  // Actualizar estado local
+  current.meetings = [...newMeetingsToKeep, ...current.meetings];
+  memoryCache = current;
+  saveDataToDisk(current);
+
+  // Inserción en batch en Supabase events
+  if (supabaseAdmin) {
+    try {
+      const { data: dbExisting } = await (supabaseAdmin.from("events") as any)
+        .select("id, description")
+        .eq("event_type", "reunion")
+        .neq("title", "__superadmin_calendar_config__");
+
+      const dbExistingGoogleIds = new Set<string>();
+      const dbExistingIds = new Set<string>();
+
+      if (Array.isArray(dbExisting)) {
+        for (const row of dbExisting) {
+          dbExistingIds.add(row.id);
+          if (row.description) {
+            try {
+              const meta = JSON.parse(row.description);
+              if (meta.googleEventId) dbExistingGoogleIds.add(meta.googleEventId);
+              if (meta.id) dbExistingIds.add(meta.id);
+            } catch (e) {}
+          }
+        }
+      }
+
+      const rowsToInsert = [];
+      for (const m of newMeetingsToKeep) {
+        if (m.googleEventId && dbExistingGoogleIds.has(m.googleEventId)) continue;
+        if (m.id && dbExistingIds.has(m.id)) continue;
+
+        rowsToInsert.push({
+          title: m.title || "Reunión",
+          event_type: "reunion",
+          event_date: m.start,
+          description: JSON.stringify({
+            ...m,
+            source: "superadmin_meet",
+          }),
+        });
+      }
+
+      const chunkSize = 50;
+      for (let i = 0; i < rowsToInsert.length; i += chunkSize) {
+        const chunk = rowsToInsert.slice(i, i + chunkSize);
+        await (supabaseAdmin.from("events") as any).insert(chunk);
+      }
+    } catch (dbErr) {
+      console.error("Error en batch insert a Supabase events:", dbErr);
+    }
+  }
+
+  return newMeetingsToKeep.length;
+}
+
 export async function saveSuperadminMeetingsAsync(meetings: SuperadminMeeting[]): Promise<void> {
   const current = await getSuperadminCalendarDataAsync();
   current.meetings = meetings;

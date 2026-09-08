@@ -31,10 +31,14 @@ import {
   Video,
   CalendarDays,
   List,
+  Plus,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import WeeklyCalendarView from "./WeeklyCalendarView";
 import CalendarConfigSidebar from "./CalendarConfigSidebar";
 import EventDetailModal from "./EventDetailModal";
+import CreateEventModal from "./CreateEventModal";
 
 function SuperadminCalendarContent() {
   const searchParams = useSearchParams();
@@ -82,10 +86,50 @@ function SuperadminCalendarContent() {
   });
   const [selectedCalendarDay, setSelectedCalendarDay] = useState<string | null>(null);
 
+  // Estados para barra lateral y creación de eventos
+  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createModalData, setCreateModalData] = useState<{
+    date: string;
+    startTime: string;
+    endTime: string;
+  }>({
+    date: "",
+    startTime: "10:00",
+    endTime: "11:00",
+  });
+
   // Filtros de reuniones
   const [meetingFilter, setMeetingFilter] = useState<"all" | "upcoming" | "google" | "meet">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+
+  const handleDragCreate = (range: { date: string; startTime: string; endTime: string }) => {
+    setCreateModalData(range);
+    setIsCreateModalOpen(true);
+  };
+
+  const handleOpenNewEvent = () => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, "0");
+    const d = String(today.getDate()).padStart(2, "0");
+    setCreateModalData({
+      date: `${y}-${m}-${d}`,
+      startTime: "10:00",
+      endTime: "11:00",
+    });
+    setIsCreateModalOpen(true);
+  };
+
+  const handleEventCreated = (newMeeting: SuperadminMeeting) => {
+    setMeetings((prev) => [newMeeting, ...prev.filter((m) => m.id !== newMeeting.id)]);
+    setStatusMessage({
+      type: "success",
+      text: `Evento "${newMeeting.title}" agendado con éxito.`,
+    });
+    setTimeout(() => setStatusMessage(null), 4000);
+  };
 
   // Cargar datos
   const loadData = async () => {
@@ -296,11 +340,11 @@ function SuperadminCalendarContent() {
   });
 
   return (
-    <div style={{ maxWidth: "1440px", margin: "0 auto", paddingBottom: "4rem" }}>
+    <div style={{ width: "100%", padding: "0.75rem 1.25rem", paddingBottom: "4rem", boxSizing: "border-box" }}>
       {/* ENCABEZADO SUPERIOR */}
       <div
         style={{
-          marginBottom: "1.75rem",
+          marginBottom: "1.25rem",
           display: "flex",
           flexWrap: "wrap",
           alignItems: "center",
@@ -311,8 +355,8 @@ function SuperadminCalendarContent() {
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
           <div
             style={{
-              width: "44px",
-              height: "44px",
+              width: "42px",
+              height: "42px",
               borderRadius: "12px",
               backgroundColor: "rgba(16, 185, 129, 0.12)",
               color: "#10b981",
@@ -321,20 +365,67 @@ function SuperadminCalendarContent() {
               justifyContent: "center",
             }}
           >
-            <CalendarClock size={24} />
+            <CalendarClock size={22} />
           </div>
           <div>
-            <h1 style={{ margin: 0, fontSize: "1.75rem", fontWeight: 800, color: "var(--text-color)" }}>
-              Agenda de Videollamadas & Google Meet
+            <h1 style={{ margin: 0, fontSize: "1.6rem", fontWeight: 800, color: "var(--text-color)" }}>
+              Agenda & Calendario Superadmin
             </h1>
-            <p style={{ margin: 0, fontSize: "0.88rem", opacity: 0.7 }}>
+            <p style={{ margin: 0, fontSize: "0.84rem", opacity: 0.7 }}>
               Configuración de disponibilidad y vista semanal sincronizada con Google Calendar.
             </p>
           </div>
         </div>
 
         {/* Acciones del Encabezado */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+          {/* Botón para ocultar/mostrar panel lateral */}
+          <button
+            type="button"
+            onClick={() => setIsSidebarVisible(!isSidebarVisible)}
+            title={isSidebarVisible ? "Ocultar panel lateral" : "Mostrar panel lateral"}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.4rem",
+              padding: "0.55rem 0.85rem",
+              borderRadius: "10px",
+              backgroundColor: isSidebarVisible ? "var(--surface-color)" : "rgba(59, 130, 246, 0.12)",
+              border: `1px solid ${isSidebarVisible ? "var(--border-color)" : "rgba(59, 130, 246, 0.3)"}`,
+              color: isSidebarVisible ? "var(--text-color)" : "#3b82f6",
+              fontSize: "0.82rem",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            {isSidebarVisible ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
+            <span>{isSidebarVisible ? "Ocultar Opciones" : "Mostrar Opciones"}</span>
+          </button>
+
+          {/* Botón Nuevo Evento */}
+          <button
+            type="button"
+            onClick={handleOpenNewEvent}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.4rem",
+              padding: "0.55rem 1rem",
+              borderRadius: "10px",
+              backgroundColor: "var(--primary, #10b981)",
+              border: "none",
+              color: "#fff",
+              fontSize: "0.82rem",
+              fontWeight: 700,
+              cursor: "pointer",
+              boxShadow: "0 2px 6px rgba(16, 185, 129, 0.25)",
+            }}
+          >
+            <Plus size={15} />
+            <span>Nuevo Evento</span>
+          </button>
+
+          {/* Botón Sincronizar Google */}
           <button
             type="button"
             onClick={handleSyncGoogle}
@@ -342,19 +433,19 @@ function SuperadminCalendarContent() {
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: "0.45rem",
-              padding: "0.6rem 1.15rem",
+              gap: "0.4rem",
+              padding: "0.55rem 0.95rem",
               borderRadius: "10px",
               backgroundColor: "var(--surface-color)",
               border: "1px solid var(--border-color)",
               color: "var(--text-color)",
-              fontSize: "0.85rem",
+              fontSize: "0.82rem",
               fontWeight: 700,
               cursor: isSyncing ? "not-allowed" : "pointer",
               boxShadow: "var(--shadow-sm)",
             }}
           >
-            <RefreshCw size={15} style={{ animation: isSyncing ? "spin 1s linear infinite" : "none" }} />
+            <RefreshCw size={14} style={{ animation: isSyncing ? "spin 1s linear infinite" : "none" }} />
             {isSyncing ? "Sincronizando..." : "Sincronizar Google"}
           </button>
         </div>
@@ -364,9 +455,9 @@ function SuperadminCalendarContent() {
       {statusMessage && (
         <div
           style={{
-            padding: "0.9rem 1.25rem",
+            padding: "0.8rem 1.15rem",
             borderRadius: "12px",
-            marginBottom: "1.5rem",
+            marginBottom: "1.25rem",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -378,7 +469,7 @@ function SuperadminCalendarContent() {
         >
           <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
             {statusMessage.type === "success" ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
-            <span style={{ fontWeight: 600, fontSize: "0.9rem" }}>{statusMessage.text}</span>
+            <span style={{ fontWeight: 600, fontSize: "0.88rem" }}>{statusMessage.text}</span>
           </div>
           <button
             onClick={() => setStatusMessage(null)}
@@ -389,49 +480,53 @@ function SuperadminCalendarContent() {
         </div>
       )}
 
-      {/* LAYOUT PRINCIPAL DE 2 COLUMNAS (ESTILO CONFIGURACIONES) */}
+      {/* LAYOUT PRINCIPAL DE 2 COLUMNAS (FLUIDO RESPONSIVO) */}
       <div
         style={{
           display: "flex",
-          gap: "1.75rem",
+          gap: "1.25rem",
           alignItems: "flex-start",
-          flexWrap: "wrap",
+          width: "100%",
         }}
       >
         {/* COLUMNA IZQUIERDA: CONFIGURACIÓN & MINI CALENDARIO */}
-        <div
-          style={{
-            flex: "0 0 350px",
-            maxWidth: "100%",
-            width: "350px",
-          }}
-        >
-          <CalendarConfigSidebar
-            config={config}
-            onConfigChange={setConfig}
-            onSaveConfig={handleSaveConfig}
-            isSaving={isSaving}
-            saveSuccessMsg={saveSuccessMsg}
-            googleAuth={googleAuth}
-            onSyncGoogle={handleSyncGoogle}
-            isSyncing={isSyncing}
-            onDisconnectGoogle={handleDisconnectGoogle}
-            currentCalendarDate={currentCalendarDate}
-            onMonthChange={setCurrentCalendarDate}
-            selectedCalendarDay={selectedCalendarDay}
-            onSelectDay={handleSelectDayFromMini}
-            meetings={meetings}
-          />
-        </div>
+        {isSidebarVisible && (
+          <div
+            style={{
+              flex: "0 0 310px",
+              maxWidth: "310px",
+              width: "310px",
+              minWidth: "270px",
+            }}
+          >
+            <CalendarConfigSidebar
+              config={config}
+              onConfigChange={setConfig}
+              onSaveConfig={handleSaveConfig}
+              isSaving={isSaving}
+              saveSuccessMsg={saveSuccessMsg}
+              googleAuth={googleAuth}
+              onSyncGoogle={handleSyncGoogle}
+              isSyncing={isSyncing}
+              onDisconnectGoogle={handleDisconnectGoogle}
+              currentCalendarDate={currentCalendarDate}
+              onMonthChange={setCurrentCalendarDate}
+              selectedCalendarDay={selectedCalendarDay}
+              onSelectDay={handleSelectDayFromMini}
+              meetings={meetings}
+            />
+          </div>
+        )}
 
         {/* COLUMNA DERECHA / CENTRAL: CALENDARIO SEMANAL EN GRANDE */}
         <div
           style={{
-            flex: "1 1 700px",
-            minWidth: "0",
+            flex: "1 1 0%",
+            minWidth: 0,
             display: "flex",
             flexDirection: "column",
             gap: "1rem",
+            width: "100%",
           }}
         >
           {/* BARRA DE NAVEGACIÓN Y CONTROLES DE LA SEMANA */}
@@ -697,6 +792,7 @@ function SuperadminCalendarContent() {
               onSelectMeeting={(m) => setSelectedMeetingDetail(m)}
               selectedCalendarDay={selectedCalendarDay}
               onSelectDay={(dStr) => setSelectedCalendarDay(selectedCalendarDay === dStr ? null : dStr)}
+              onDragCreate={handleDragCreate}
             />
           ) : (
             /* VISTA DE LISTA */
@@ -810,6 +906,17 @@ function SuperadminCalendarContent() {
         onClose={() => setSelectedMeetingDetail(null)}
         onCancelMeeting={handleCancelMeeting}
         isCancelling={cancellingId === selectedMeetingDetail?.id}
+      />
+
+      {/* MODAL DE CREACIÓN MANUAL DE EVENTOS */}
+      <CreateEventModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        initialDate={createModalData.date}
+        initialStartTime={createModalData.startTime}
+        initialEndTime={createModalData.endTime}
+        isGoogleConnected={googleAuth.connected}
+        onEventCreated={handleEventCreated}
       />
     </div>
   );
