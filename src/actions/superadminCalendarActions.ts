@@ -171,6 +171,36 @@ function getMontevideoNow() {
   }
 }
 
+// Helper para formatear Date a fecha y hora en Montevideo
+function formatInMontevideo(date: Date) {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Montevideo",
+      hour12: false,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).formatToParts(date);
+
+    const map: Record<string, string> = {};
+    for (const p of parts) map[p.type] = p.value;
+    return {
+      date: `${map.year}-${map.month}-${map.day}`,
+      time: `${map.hour}:${map.minute}`,
+    };
+  } catch (e) {
+    const d = new Date(date.getTime() - 3 * 3600 * 1000);
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(d.getUTCDate()).padStart(2, "0");
+    const hh = String(d.getUTCHours()).padStart(2, "0");
+    const mm = String(d.getUTCMinutes()).padStart(2, "0");
+    return { date: `${y}-${m}-${day}`, time: `${hh}:${mm}` };
+  }
+}
+
 // --- GENERACIÓN DE HORARIOS DISPONIBLES (CALENDLY STYLE CON GOOGLE SYNC) ---
 
 export async function getAvailableBookingSlots(dateStr: string) {
@@ -377,11 +407,14 @@ export async function bookMeetingFromLanding(payload: {
   const [year, month, day] = date.split("-").map(Number);
   const [hh, mm] = time.split(":").map(Number);
 
-  const startDate = new Date(year, month - 1, day, hh, mm, 0);
-  const endDate = new Date(startDate.getTime() + duration * 60 * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const startIso = `${year}-${pad(month)}-${pad(day)}T${pad(hh)}:${pad(mm)}:00-03:00`;
 
-  const startIso = startDate.toISOString();
-  const endIso = endDate.toISOString();
+  const startMinutes = hh * 60 + mm;
+  const endMinutes = startMinutes + duration;
+  const endHh = Math.floor(endMinutes / 60);
+  const endMm = endMinutes % 60;
+  const endIso = `${year}-${pad(month)}-${pad(day)}T${pad(endHh)}:${pad(endMm)}:00-03:00`;
 
   let meetUrl: string | undefined = undefined;
   let googleEventId: string | undefined = undefined;
@@ -405,8 +438,8 @@ export async function bookMeetingFromLanding(payload: {
             ``,
             `Generado automáticamente desde la landing page de n-autos.com.`,
           ].join("\n"),
-          start: { dateTime: startIso },
-          end: { dateTime: endIso },
+          start: { dateTime: startIso, timeZone: "America/Montevideo" },
+          end: { dateTime: endIso, timeZone: "America/Montevideo" },
           attendees: [
             { email: clientEmail, displayName: clientName },
             ...(googleAuth.email ? [{ email: googleAuth.email, displayName: "Superadmin N-Autos" }] : []),
@@ -596,10 +629,9 @@ export async function syncGoogleEventsAction() {
         const startDate = new Date(startStr);
         const endDate = endStr ? new Date(endStr) : new Date(startDate.getTime() + 30 * 60 * 1000);
 
-        const date = startDate.toISOString().split("T")[0];
-        const time = `${String(startDate.getHours()).padStart(2, "0")}:${String(
-          startDate.getMinutes()
-        ).padStart(2, "0")}`;
+        const localFormatted = formatInMontevideo(startDate);
+        const date = localFormatted.date;
+        const time = localFormatted.time;
 
         const durationMinutes = Math.max(15, Math.round((endDate.getTime() - startDate.getTime()) / (60 * 1000)));
 

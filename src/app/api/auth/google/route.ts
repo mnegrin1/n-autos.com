@@ -21,8 +21,11 @@ export async function GET(request: NextRequest) {
 
   // Usar el origin actual o fallback a localhost:3000
   const origin = request.nextUrl.origin;
-  const redirectUri = origin.includes("localhost")
+  const isLocal = origin.includes("localhost") || origin.includes("127.0.0.1");
+  const redirectUri = isLocal
     ? "http://localhost:3000/api/auth/google/callback"
+    : target === "superadmin"
+    ? "https://superadmin.n-autos.com/api/auth/google/callback"
     : `${origin}/api/auth/google/callback`;
 
   const authUrl =

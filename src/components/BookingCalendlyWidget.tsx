@@ -233,7 +233,7 @@ export default function BookingCalendlyWidget() {
 
     setIsSubmitting(true);
     try {
-      const res = await bookMeetingFromLanding({
+      const payload = {
         clientName: clientName.trim(),
         clientEmail: clientEmail.trim(),
         clientPhone: clientPhone.trim(),
@@ -241,13 +241,40 @@ export default function BookingCalendlyWidget() {
         notes: notes.trim(),
         date: selectedDate,
         time: selectedSlot,
-      });
+      };
 
-      if (res.success && res.meeting) {
+      let res: any = null;
+      try {
+        const directController = new AbortController();
+        const directTimer = setTimeout(() => directController.abort(), 6000);
+
+        const directRes = await fetch("/api/calendar/book", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: directController.signal,
+        });
+        clearTimeout(directTimer);
+
+        if (directRes.ok) {
+          res = await directRes.json();
+        } else {
+          const errData = await directRes.json().catch(() => ({}));
+          res = { success: false, error: errData.error || "No se pudo agendar la reunión." };
+        }
+      } catch (directErr) {
+        // Fallback a Server Action
+      }
+
+      if (!res) {
+        res = await bookMeetingFromLanding(payload);
+      }
+
+      if (res && res.success && res.meeting) {
         setConfirmedMeeting(res.meeting);
         setCurrentStep("confirmed");
       } else {
-        setFormError(res.error || "No se pudo agendar la reunión. Por favor intenta de nuevo.");
+        setFormError(res?.error || "No se pudo agendar la reunión. Por favor intenta de nuevo.");
       }
     } catch (err) {
       console.error("Error al procesar reserva:", err);
