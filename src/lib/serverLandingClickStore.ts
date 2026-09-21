@@ -1,9 +1,4 @@
-import fs from "fs";
-import path from "path";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-
-const PRIMARY_STORAGE_PATH = path.join(process.cwd(), ".landing_clicks.json");
-const FALLBACK_STORAGE_PATH = path.join("/tmp", ".landing_clicks.json");
 
 export type LandingEventType = "click" | "pageview" | "conversion";
 
@@ -63,42 +58,14 @@ export interface LandingClickMetrics {
 let cachedEvents: LandingTrackingEvent[] | null = null;
 let lastCacheTime = 0;
 const CACHE_TTL_MS = 4000; // 4 segundos de caché en servidor
-
-function getStoragePath(): string {
-  try {
-    const testDir = path.dirname(PRIMARY_STORAGE_PATH);
-    fs.accessSync(testDir, fs.constants.W_OK);
-    return PRIMARY_STORAGE_PATH;
-  } catch (e) {
-    return FALLBACK_STORAGE_PATH;
-  }
-}
+let inMemoryEvents: LandingTrackingEvent[] = [];
 
 function getLocalEvents(): LandingTrackingEvent[] {
-  const filePath = getStoragePath();
-  try {
-    if (fs.existsSync(filePath)) {
-      const fileData = fs.readFileSync(filePath, "utf-8");
-      if (fileData.trim()) {
-        const parsed = JSON.parse(fileData);
-        if (Array.isArray(parsed)) {
-          return parsed;
-        }
-      }
-    }
-  } catch (e) {
-    console.error("Error leyendo serverLandingClickStore desde disco:", e);
-  }
-  return [];
+  return inMemoryEvents;
 }
 
 function saveLocalEvents(events: LandingTrackingEvent[]) {
-  const filePath = getStoragePath();
-  try {
-    fs.writeFileSync(filePath, JSON.stringify(events, null, 2), "utf-8");
-  } catch (e) {
-    console.error("Error al escribir serverLandingClickStore en disco:", e);
-  }
+  inMemoryEvents = events;
 }
 
 export function clearEventsCache() {

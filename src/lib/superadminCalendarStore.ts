@@ -1,5 +1,3 @@
-import fs from "fs";
-import path from "path";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export interface TimeRange {
@@ -77,69 +75,10 @@ const DEFAULT_DATA: SuperadminCalendarData = {
   meetings: [],
 };
 
-const PRIMARY_STORAGE_PATH = path.join(process.cwd(), ".superadmin_calendar_data.json");
-const FALLBACK_STORAGE_PATH = path.join("/tmp", ".superadmin_calendar_data.json");
-
 let memoryCache: SuperadminCalendarData | null = null;
 
-function getStoragePath(): string {
-  try {
-    const testDir = path.dirname(PRIMARY_STORAGE_PATH);
-    fs.accessSync(testDir, fs.constants.W_OK);
-    return PRIMARY_STORAGE_PATH;
-  } catch (e) {
-    return FALLBACK_STORAGE_PATH;
-  }
-}
-
-function loadDataFromDisk(): SuperadminCalendarData {
-  const filePath = getStoragePath();
-  try {
-    if (fs.existsSync(filePath)) {
-      const content = fs.readFileSync(filePath, "utf-8");
-      if (content.trim()) {
-        const parsed = JSON.parse(content);
-        
-        let timeRanges: TimeRange[] = [];
-        if (Array.isArray(parsed.config?.consultationHours?.timeRanges) && parsed.config.consultationHours.timeRanges.length > 0) {
-          timeRanges = parsed.config.consultationHours.timeRanges;
-        } else {
-          const s = parsed.config?.consultationHours?.startTime || "09:00";
-          const e = parsed.config?.consultationHours?.endTime || "18:00";
-          timeRanges = [{ startTime: s, endTime: e }];
-        }
-
-        return {
-          config: {
-            ...DEFAULT_CONFIG,
-            ...(parsed.config || {}),
-            consultationHours: {
-              startTime: timeRanges[0]?.startTime || "09:00",
-              endTime: timeRanges[timeRanges.length - 1]?.endTime || "18:00",
-              timeRanges,
-            },
-          },
-          googleAuth: {
-            ...DEFAULT_DATA.googleAuth,
-            ...(parsed.googleAuth || {}),
-          },
-          meetings: Array.isArray(parsed.meetings) ? parsed.meetings : [],
-        };
-      }
-    }
-  } catch (err) {
-    // Modo silencioso para entornos de solo lectura
-  }
+function getDefaultCalendarData(): SuperadminCalendarData {
   return JSON.parse(JSON.stringify(DEFAULT_DATA));
-}
-
-function saveDataToDisk(data: SuperadminCalendarData): void {
-  const filePath = getStoragePath();
-  try {
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
-  } catch (err) {
-    // Ignorar en entornos de solo lectura (serverless / edge)
-  }
 }
 
 /**
@@ -149,7 +88,13 @@ function saveDataToDisk(data: SuperadminCalendarData): void {
  * 3. Reuniones desde events (event_type = 'reunion' y title != '__superadmin_calendar_config__')
  */
 export async function getSuperadminCalendarDataAsync(): Promise<SuperadminCalendarData> {
-  const base = memoryCache || loadDataFromDisk();
+  const base: SuperadminCalendarData = memoryCache
+    ? {
+        config: { ...memoryCache.config },
+        googleAuth: { ...memoryCache.googleAuth },
+        meetings: [...memoryCache.meetings],
+      }
+    : getDefaultCalendarData();
 
   if (!supabaseAdmin) {
     memoryCache = base;
@@ -203,12 +148,13 @@ export async function getSuperadminCalendarDataAsync(): Promise<SuperadminCalend
       } catch (e) {}
     }
 
-    // 3. Cargar Reuniones desde Supabase events
+    // 3. Cargar Reuniones desde Supabase events (limitado defensivamente a 200)
     const { data: meetingRows } = await (supabaseAdmin.from("events") as any)
       .select("*")
       .eq("event_type", "reunion")
       .neq("title", "__superadmin_calendar_config__")
-      .order("event_date", { ascending: false });
+      .order("event_date", { ascending: false })
+      .limit(200);
 
     if (Array.isArray(meetingRows) && meetingRows.length > 0) {
       const dbMeetings: SuperadminMeeting[] = [];
@@ -248,7 +194,6 @@ export async function getSuperadminCalendarDataAsync(): Promise<SuperadminCalend
     }
 
     memoryCache = base;
-    saveDataToDisk(base);
   } catch (err) {
     console.warn("Aviso al sincronizar superadmin calendar con Supabase:", err);
   }
@@ -258,7 +203,7 @@ export async function getSuperadminCalendarDataAsync(): Promise<SuperadminCalend
 
 export function getSuperadminCalendarData(): SuperadminCalendarData {
   if (!memoryCache) {
-    memoryCache = loadDataFromDisk();
+    memoryCache = getDefaultCalendarData();
   }
   return memoryCache;
 }
@@ -303,7 +248,6 @@ export async function saveSuperadminCalendarConfigAsync(
 
   current.config = newConfig;
   memoryCache = current;
-  saveDataToDisk(current);
 
   // Persistir en Supabase events
   try {
@@ -364,7 +308,6 @@ export async function saveSuperadminGoogleAuthAsync(
     refreshToken: auth.refreshToken !== undefined ? auth.refreshToken : current.googleAuth.refreshToken,
   };
   memoryCache = current;
-  saveDataToDisk(current);
 
   // Persistir inmediatamente en Supabase auto_integrations
   try {
@@ -396,7 +339,6 @@ export function saveSuperadminGoogleAuth(
   const current = getSuperadminCalendarData();
   current.googleAuth = { ...current.googleAuth, ...auth };
   memoryCache = current;
-  saveDataToDisk(current);
   return current.googleAuth;
 }
 
@@ -406,7 +348,6 @@ export async function clearSuperadminGoogleAuthAsync(): Promise<void> {
     connected: false,
   };
   memoryCache = current;
-  saveDataToDisk(current);
 
   try {
     if (supabaseAdmin) {
@@ -432,7 +373,6 @@ export function clearSuperadminGoogleAuth(): void {
   const current = getSuperadminCalendarData();
   current.googleAuth = { connected: false };
   memoryCache = current;
-  saveDataToDisk(current);
 }
 
 export async function getSuperadminMeetingsAsync(): Promise<SuperadminMeeting[]> {
@@ -453,14 +393,15 @@ export async function addSuperadminMeetingAsync(meeting: SuperadminMeeting): Pro
   const current = await getSuperadminCalendarDataAsync();
   current.meetings = [meeting, ...current.meetings.filter((m) => m.id !== meeting.id && m.googleEventId !== meeting.googleEventId)];
   memoryCache = current;
-  saveDataToDisk(current);
 
   try {
     if (supabaseAdmin) {
       const { data: existing } = await (supabaseAdmin.from("events") as any)
         .select("id, description")
         .eq("event_type", "reunion")
-        .neq("title", "__superadmin_calendar_config__");
+        .neq("title", "__superadmin_calendar_config__")
+        .order("event_date", { ascending: false })
+        .limit(100);
 
       let existingId: string | null = null;
       if (Array.isArray(existing)) {
@@ -512,7 +453,6 @@ export function addSuperadminMeeting(meeting: SuperadminMeeting): SuperadminMeet
   const current = getSuperadminCalendarData();
   current.meetings = [meeting, ...current.meetings.filter((m) => m.id !== meeting.id)];
   memoryCache = current;
-  saveDataToDisk(current);
   return meeting;
 }
 
@@ -538,15 +478,16 @@ export async function addSuperadminMeetingsBatchAsync(
   // Actualizar estado local
   current.meetings = [...newMeetingsToKeep, ...current.meetings];
   memoryCache = current;
-  saveDataToDisk(current);
 
-  // Inserción en batch en Supabase events
+  // Inserción en batch en Supabase events (acotado a 200)
   if (supabaseAdmin) {
     try {
       const { data: dbExisting } = await (supabaseAdmin.from("events") as any)
         .select("id, description")
         .eq("event_type", "reunion")
-        .neq("title", "__superadmin_calendar_config__");
+        .neq("title", "__superadmin_calendar_config__")
+        .order("event_date", { ascending: false })
+        .limit(200);
 
       const dbExistingGoogleIds = new Set<string>();
       const dbExistingIds = new Set<string>();
@@ -597,7 +538,6 @@ export async function saveSuperadminMeetingsAsync(meetings: SuperadminMeeting[])
   const current = await getSuperadminCalendarDataAsync();
   current.meetings = meetings;
   memoryCache = current;
-  saveDataToDisk(current);
 }
 
 export function saveSuperadminMeetings(meetings: SuperadminMeeting[]): void {
@@ -605,7 +545,6 @@ export function saveSuperadminMeetings(meetings: SuperadminMeeting[]): void {
   const current = getSuperadminCalendarData();
   current.meetings = meetings;
   memoryCache = current;
-  saveDataToDisk(current);
 }
 
 export async function updateSuperadminMeetingStatusAsync(
@@ -617,14 +556,15 @@ export async function updateSuperadminMeetingStatusAsync(
   if (meeting) {
     meeting.status = status;
     memoryCache = current;
-    saveDataToDisk(current);
 
     try {
       if (supabaseAdmin) {
         const { data: rows } = await (supabaseAdmin.from("events") as any)
           .select("id, description")
           .eq("event_type", "reunion")
-          .neq("title", "__superadmin_calendar_config__");
+          .neq("title", "__superadmin_calendar_config__")
+          .order("event_date", { ascending: false })
+          .limit(100);
 
         if (Array.isArray(rows)) {
           for (const row of rows) {
@@ -658,7 +598,6 @@ export function updateSuperadminMeetingStatus(
   if (meeting) {
     meeting.status = status;
     memoryCache = current;
-    saveDataToDisk(current);
     return true;
   }
   return false;

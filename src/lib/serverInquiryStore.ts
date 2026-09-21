@@ -1,10 +1,5 @@
-import fs from "fs";
-import path from "path";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendLandingInquiryNotificationEmail } from "@/actions/emailActions";
-
-const PRIMARY_STORAGE_PATH = path.join(process.cwd(), ".landing_inquiries.json");
-const FALLBACK_STORAGE_PATH = path.join("/tmp", ".landing_inquiries.json");
 
 export interface ServerLandingInquiry {
   id: string;
@@ -18,52 +13,23 @@ export interface ServerLandingInquiry {
   subdomain?: string;
 }
 
-const DEFAULT_SERVER_INQUIRIES: ServerLandingInquiry[] = [];
-
+// In-memory cache para entorno serverless / Edge
 let cachedInquiries: ServerLandingInquiry[] | null = null;
 let lastCacheTime = 0;
 const CACHE_TTL_MS = 10000; // 10 segundos de caché en memoria del servidor
+let inMemoryInquiries: ServerLandingInquiry[] = [];
 
 export function clearInquiryCache() {
   cachedInquiries = null;
   lastCacheTime = 0;
 }
 
-function getStoragePath(): string {
-  try {
-    const testDir = path.dirname(PRIMARY_STORAGE_PATH);
-    fs.accessSync(testDir, fs.constants.W_OK);
-    return PRIMARY_STORAGE_PATH;
-  } catch (e) {
-    return FALLBACK_STORAGE_PATH;
-  }
-}
-
 function getLocalInquiries(): ServerLandingInquiry[] {
-  const filePath = getStoragePath();
-  try {
-    if (fs.existsSync(filePath)) {
-      const fileData = fs.readFileSync(filePath, "utf-8");
-      if (fileData.trim()) {
-        const parsed = JSON.parse(fileData);
-        if (Array.isArray(parsed)) {
-          return parsed;
-        }
-      }
-    }
-  } catch (e) {
-    console.error("Error leyendo serverInquiryStore desde disco:", e);
-  }
-  return [];
+  return inMemoryInquiries;
 }
 
 function saveLocalInquiries(inquiries: ServerLandingInquiry[]) {
-  const filePath = getStoragePath();
-  try {
-    fs.writeFileSync(filePath, JSON.stringify(inquiries, null, 2), "utf-8");
-  } catch (e) {
-    console.error("Error al escribir serverInquiryStore en disco:", e);
-  }
+  inMemoryInquiries = inquiries;
 }
 
 export async function getAllServerInquiries(forceRefresh: boolean = false): Promise<ServerLandingInquiry[]> {
@@ -76,7 +42,8 @@ export async function getAllServerInquiries(forceRefresh: boolean = false): Prom
     const { data, error } = await (supabaseAdmin.from("inbox_conversations") as any)
       .select("*")
       .eq("channel", "landing_inquiry")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(100);
 
     if (!error && Array.isArray(data)) {
       const supabaseInquiries: ServerLandingInquiry[] = data.map((item: any) => {

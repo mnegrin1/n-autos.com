@@ -13,8 +13,20 @@ export const supabaseAdmin = createClient<Database>(supabaseUrl, supabaseService
     detectSessionInUrl: false
   },
   global: {
+    // Timeout defensivo de 8 segundos para evitar bloqueos en Cloudflare Workers / Server Actions
     fetch: (url, options = {}) => {
-      return fetch(url, { ...options, cache: 'no-store' });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(
+        () => controller.abort(new Error("Supabase Admin request timeout (8000ms)")),
+        8000
+      );
+
+      if (options.signal) {
+        options.signal.addEventListener("abort", () => controller.abort(options.signal?.reason));
+      }
+
+      return fetch(url, { ...options, signal: controller.signal, cache: 'no-store' })
+        .finally(() => clearTimeout(timeoutId));
     }
   }
 });

@@ -22,6 +22,20 @@ function safeRevalidatePath(path: string) {
   } catch (e) {}
 }
 
+// Helper defensivo con timeout estricto para evitar bloqueos en integraciones externas (Release It! Puntos de Integración)
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 6000): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(
+    () => controller.abort(new Error(`Timeout (${timeoutMs}ms) en llamada a ${url}`)),
+    timeoutMs
+  );
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 // --- REFRESH TOKEN HELPER ---
 async function getValidGoogleAccessToken(): Promise<string | null> {
   const auth = await getSuperadminGoogleAuthAsync();
@@ -42,7 +56,7 @@ async function getValidGoogleAccessToken(): Promise<string | null> {
   }
 
   try {
-    const res = await fetch("https://oauth2.googleapis.com/token", {
+    const res = await fetchWithTimeout("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
@@ -51,7 +65,7 @@ async function getValidGoogleAccessToken(): Promise<string | null> {
         refresh_token: auth.refreshToken,
         grant_type: "refresh_token",
       }),
-    });
+    }, 7000);
 
     const data = await res.json();
     if (data.access_token) {
@@ -223,10 +237,10 @@ async function getCachedCalendarIds(token: string): Promise<string[]> {
   }
   const calendarIds: string[] = ["primary"];
   try {
-    const listRes = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList", {
+    const listRes = await fetchWithTimeout("https://www.googleapis.com/calendar/v3/users/me/calendarList", {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
-    });
+    }, 5000);
     if (listRes.ok) {
       const listData = await listRes.json();
       if (Array.isArray(listData.items)) {
@@ -381,7 +395,7 @@ export async function getAvailableBookingSlots(dateStr: string) {
 
       // 2. Consultar Google FreeBusy API y reuniones internas en paralelo
       const [fbResult, internalMeetingsResult] = await Promise.allSettled([
-        fetch("https://www.googleapis.com/calendar/v3/freeBusy", {
+        fetchWithTimeout("https://www.googleapis.com/calendar/v3/freeBusy", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -393,7 +407,7 @@ export async function getAvailableBookingSlots(dateStr: string) {
             timeZone: "America/Montevideo",
             items: calendarIds.map((id) => ({ id })),
           }),
-        }).then(async (r) => (r.ok ? r.json() : null)),
+        }, 5000).then(async (r) => (r.ok ? r.json() : null)),
         getSuperadminMeetingsAsync(),
       ]);
 
@@ -551,7 +565,7 @@ export async function bookMeetingFromLanding(payload: {
           },
         };
 
-        const createRes = await fetch(
+        const createRes = await fetchWithTimeout(
           "https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all",
           {
             method: "POST",
@@ -560,7 +574,8 @@ export async function bookMeetingFromLanding(payload: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify(gcalPayload),
-          }
+          },
+          7000
         );
 
         if (createRes.ok) {
@@ -646,12 +661,13 @@ export async function cancelSuperadminMeeting(meetingId: string) {
     const token = await getValidGoogleAccessToken();
     if (token) {
       try {
-        await fetch(
+        await fetchWithTimeout(
           `https://www.googleapis.com/calendar/v3/calendars/primary/events/${target.googleEventId}`,
           {
             method: "DELETE",
             headers: { Authorization: `Bearer ${token}` },
-          }
+          },
+          5000
         );
       } catch (e) {
         console.warn("No se pudo eliminar evento de Google Calendar:", e);
@@ -691,10 +707,10 @@ export async function syncGoogleEventsAction() {
     // 1. Obtener calendarios disponibles (primary + secundarios)
     const calendarIds: string[] = ["primary"];
     try {
-      const listRes = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList", {
+      const listRes = await fetchWithTimeout("https://www.googleapis.com/calendar/v3/users/me/calendarList", {
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
-      });
+      }, 5000);
       if (listRes.ok) {
         const listData = await listRes.json();
         if (Array.isArray(listData.items)) {
@@ -719,7 +735,7 @@ export async function syncGoogleEventsAction() {
     // 2. Consultar eventos de cada calendario
     for (const calId of calendarIds) {
       try {
-        const gRes = await fetch(
+        const gRes = await fetchWithTimeout(
           `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
             calId
           )}/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(
@@ -728,7 +744,8 @@ export async function syncGoogleEventsAction() {
           {
             headers: { Authorization: `Bearer ${token}` },
             cache: "no-store",
-          }
+          },
+          6000
         );
 
         if (!gRes.ok) continue;
@@ -860,7 +877,7 @@ export async function createSuperadminManualEventAction(payload: {
           ];
         }
 
-        const createRes = await fetch(
+        const createRes = await fetchWithTimeout(
           "https://www.googleapis.com/calendar/v3/calendars/primary/events",
           {
             method: "POST",
@@ -869,7 +886,8 @@ export async function createSuperadminManualEventAction(payload: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify(gcalPayload),
-          }
+          },
+          7000
         );
 
         if (createRes.ok) {

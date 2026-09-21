@@ -1,9 +1,3 @@
-import fs from "fs";
-import path from "path";
-
-const PRIMARY_STORAGE_PATH = path.join(/*turbopackIgnore: true*/ process.cwd(), ".agency_settings.json");
-const FALLBACK_STORAGE_PATH = path.join("/tmp", ".agency_settings.json");
-
 export interface AgencySettingsRecord {
   id: string;
   name: string;
@@ -75,65 +69,37 @@ export const DEFAULT_AGENCY_SETTINGS: AgencySettingsRecord = {
   trust_pillar4_desc: "Atención y respaldo posterior a la entrega."
 };
 
+// In-memory agency store para ejecución serverless / Edge (Cloudflare Workers)
+const memoryAgencyStore = new Map<string, AgencySettingsRecord>();
+
 /**
- * Obtiene la configuración de la agencia persistida en el servidor
+ * Obtiene la configuración de la agencia persistida en memoria del servidor
  */
 export function getPersistentAgencySettings(targetKey?: string): AgencySettingsRecord {
-  const pathsToTry = [PRIMARY_STORAGE_PATH, FALLBACK_STORAGE_PATH];
-  let newestData: Record<string, any> | null = null;
-  let newestMtime = 0;
+  if (!targetKey) return DEFAULT_AGENCY_SETTINGS;
+  const cleanKey = targetKey.trim().toLowerCase();
 
-  for (const filePath of pathsToTry) {
-    try {
-      if (fs.existsSync(filePath)) {
-        const stats = fs.statSync(filePath);
-        if (stats.mtimeMs >= newestMtime) {
-          const content = fs.readFileSync(filePath, "utf8");
-          const parsed = JSON.parse(content);
-          if (parsed && typeof parsed === "object" && Object.keys(parsed).length > 0) {
-            newestMtime = stats.mtimeMs;
-            newestData = parsed;
-          }
-        }
-      }
-    } catch (err) {
-      console.error(`Error leyendo archivo de configuración persistente (${filePath}):`, err);
-    }
+  if (memoryAgencyStore.has(cleanKey)) {
+    return {
+      ...DEFAULT_AGENCY_SETTINGS,
+      ...memoryAgencyStore.get(cleanKey)!,
+    };
   }
 
-  if (newestData) {
-    const cleanKey = targetKey?.trim().toLowerCase();
-
-    // Si existe el diccionario por agencias
-    if (newestData.agencies && typeof newestData.agencies === "object") {
-      if (cleanKey && newestData.agencies[cleanKey]) {
-        return {
-          ...DEFAULT_AGENCY_SETTINGS,
-          ...newestData.agencies[cleanKey],
-        };
-      }
-      if (cleanKey) {
-        for (const [_, agencyRecord] of Object.entries(newestData.agencies)) {
-          const rec = agencyRecord as any;
-          if (rec.subdomain?.toLowerCase() === cleanKey || rec.id === targetKey) {
-            return {
-              ...DEFAULT_AGENCY_SETTINGS,
-              ...rec,
-            };
-          }
-        }
-      }
+  for (const [_, agencyRecord] of memoryAgencyStore.entries()) {
+    if (agencyRecord.subdomain?.toLowerCase() === cleanKey || agencyRecord.id === targetKey) {
+      return {
+        ...DEFAULT_AGENCY_SETTINGS,
+        ...agencyRecord,
+      };
     }
-
-    // Si se busca por clave específica (o sin clave) y no hay match en agencies, retornar defaults limpios
-    return DEFAULT_AGENCY_SETTINGS;
   }
 
   return DEFAULT_AGENCY_SETTINGS;
 }
 
 /**
- * Guarda los cambios de configuración de la agencia de forma permanente en disco
+ * Guarda los cambios de configuración de la agencia en la memoria del runtime
  */
 export function savePersistentAgencySettings(updates: Partial<AgencySettingsRecord>, agencyKey?: string): AgencySettingsRecord {
   const targetKey = agencyKey || updates.id || updates.subdomain;
@@ -145,93 +111,32 @@ export function savePersistentAgencySettings(updates: Partial<AgencySettingsReco
     updated_at: new Date().toISOString(),
   };
 
-  // Cargar estado raw actual en disco para preservar el diccionario multitenant
-  let rawStore: Record<string, any> = {};
-  const pathsToTry = [PRIMARY_STORAGE_PATH, FALLBACK_STORAGE_PATH];
-  for (const filePath of pathsToTry) {
-    try {
-      if (fs.existsSync(filePath)) {
-        const content = fs.readFileSync(filePath, "utf8");
-        const parsed = JSON.parse(content);
-        if (parsed && typeof parsed === "object") {
-          rawStore = parsed;
-          break;
-        }
-      }
-    } catch {}
-  }
-
-  if (!rawStore.agencies || typeof rawStore.agencies !== "object") {
-    rawStore.agencies = {};
-  }
-
   if (updated.id) {
-    rawStore.agencies[updated.id] = updated;
+    memoryAgencyStore.set(updated.id, updated);
   }
   if (updated.subdomain) {
-    rawStore.agencies[updated.subdomain.toLowerCase()] = updated;
-  }
-
-  // Preservar solo la estructura aislada de agencias para evitar fugas globales entre usuarios
-  const cleanedStore = {
-    agencies: rawStore.agencies,
-  };
-
-  const jsonStr = JSON.stringify(cleanedStore, null, 2);
-
-  const pathsToSave = [PRIMARY_STORAGE_PATH, FALLBACK_STORAGE_PATH];
-  for (const filePath of pathsToSave) {
-    try {
-      fs.writeFileSync(filePath, jsonStr, "utf8");
-    } catch (err) {
-      console.error(`Error guardando en archivo de configuración (${filePath}):`, err);
-    }
+    memoryAgencyStore.set(updated.subdomain.toLowerCase(), updated);
   }
 
   return updated;
 }
 
 /**
- * Elimina la configuración de una agencia de forma permanente del almacenamiento en disco
+ * Elimina la configuración de una agencia de la memoria del runtime
  */
 export function deletePersistentAgencySettings(targetKey: string): boolean {
   if (!targetKey) return false;
   const cleanKey = targetKey.trim().toLowerCase();
+  let deleted = false;
 
-  const pathsToSave = [PRIMARY_STORAGE_PATH, FALLBACK_STORAGE_PATH];
-  let deletedCount = 0;
-
-  for (const filePath of pathsToSave) {
-    try {
-      if (fs.existsSync(filePath)) {
-        const content = fs.readFileSync(filePath, "utf8");
-        const parsed = JSON.parse(content);
-        if (parsed && parsed.agencies && typeof parsed.agencies === "object") {
-          let modified = false;
-
-          for (const key of Object.keys(parsed.agencies)) {
-            const rec = parsed.agencies[key];
-            if (
-              key.toLowerCase() === cleanKey ||
-              rec.id === targetKey ||
-              rec.subdomain?.toLowerCase() === cleanKey
-            ) {
-              delete parsed.agencies[key];
-              modified = true;
-              deletedCount++;
-            }
-          }
-
-          if (modified) {
-            fs.writeFileSync(filePath, JSON.stringify(parsed, null, 2), "utf8");
-          }
-        }
-      }
-    } catch (err) {
-      console.error(`Error eliminando agencia de archivo de configuración (${filePath}):`, err);
+  for (const [key, rec] of Array.from(memoryAgencyStore.entries())) {
+    if (key.toLowerCase() === cleanKey || rec.id === targetKey || rec.subdomain?.toLowerCase() === cleanKey) {
+      memoryAgencyStore.delete(key);
+      deleted = true;
     }
   }
 
-  return deletedCount > 0;
+  return deleted;
 }
+
 
