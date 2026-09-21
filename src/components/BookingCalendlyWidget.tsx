@@ -28,7 +28,11 @@ export default function BookingCalendlyWidget() {
     availableDays: [1, 2, 3, 4, 5],
     displayDaysAhead: 14,
     meetingDurationMinutes: 30,
-    consultationHours: { startTime: "09:00", endTime: "18:00" },
+    consultationHours: {
+      startTime: "09:00",
+      endTime: "18:00",
+      timeRanges: [{ startTime: "09:00", endTime: "18:00" }],
+    },
   });
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
 
@@ -59,6 +63,8 @@ export default function BookingCalendlyWidget() {
   // Datos de la reunión confirmada
   const [confirmedMeeting, setConfirmedMeeting] = useState<SuperadminMeeting | null>(null);
 
+  const [googleConnected, setGoogleConnected] = useState<boolean | null>(null);
+
   // 1. Cargar configuración del Superadmin al montar
   useEffect(() => {
     async function loadConfig() {
@@ -66,6 +72,9 @@ export default function BookingCalendlyWidget() {
         const res = await getSuperadminCalendarSettings();
         if (res && res.config) {
           setConfig(res.config);
+        }
+        if (res && res.googleAuth) {
+          setGoogleConnected(!!res.googleAuth.connected);
         }
       } catch (e) {
         console.error("Error cargando configuración de agenda:", e);
@@ -76,56 +85,6 @@ export default function BookingCalendlyWidget() {
     loadConfig();
   }, []);
 
-  // Helper local para generar slots de respaldo inmediatos según la configuración
-  const getFallbackSlotsForDate = (dateStr: string, currentConfig: SuperadminCalendarConfig): string[] => {
-    try {
-      const [y, m, d] = dateStr.split("-").map(Number);
-      const targetDate = new Date(y, m - 1, d);
-      const dayOfWeek = targetDate.getDay();
-      if (!currentConfig.availableDays.includes(dayOfWeek)) return [];
-
-      const duration = currentConfig.meetingDurationMinutes || 30;
-      const ranges = currentConfig.consultationHours.timeRanges?.length
-        ? currentConfig.consultationHours.timeRanges
-        : [{ startTime: currentConfig.consultationHours.startTime || "09:00", endTime: currentConfig.consultationHours.endTime || "18:00" }];
-
-      // Chequear hora actual en Montevideo (GMT-3)
-      const parts = new Intl.DateTimeFormat("en-US", {
-        timeZone: "America/Montevideo",
-        hour12: false,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      }).formatToParts(new Date());
-      const map: Record<string, string> = {};
-      for (const p of parts) map[p.type] = p.value;
-      const todayStr = `${map.year}-${map.month}-${map.day}`;
-      const isToday = dateStr === todayStr;
-      const bufferMinutes = isToday ? Number(map.hour) * 60 + Number(map.minute) + 15 : -1;
-
-      const generated: string[] = [];
-      for (const r of ranges) {
-        if (!r.startTime || !r.endTime) continue;
-        const [sH, sM] = r.startTime.split(":").map(Number);
-        const [eH, eM] = r.endTime.split(":").map(Number);
-        const sTotal = sH * 60 + sM;
-        const eTotal = eH * 60 + eM;
-        for (let min = sTotal; min + duration <= eTotal; min += duration) {
-          if (isToday && min <= bufferMinutes) continue;
-          const hh = String(Math.floor(min / 60)).padStart(2, "0");
-          const mm = String(min % 60).padStart(2, "0");
-          const label = `${hh}:${mm}`;
-          if (!generated.includes(label)) generated.push(label);
-        }
-      }
-      return generated;
-    } catch (e) {
-      return ["09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00"];
-    }
-  };
-
   // 2. Al seleccionar una fecha, consultar horarios disponibles
   const handleSelectDate = async (dateStr: string) => {
     setSelectedDate(dateStr);
@@ -133,26 +92,22 @@ export default function BookingCalendlyWidget() {
     setIsLoadingSlots(true);
     setSlotsError(null);
 
-    // Timeout de seguridad: asegura que tras 3.5 segundos NUNCA quede en loading infinito
+    // Timeout de seguridad: asegura que tras 10 segundos NUNCA quede en loading infinito
     const safetyTimer = setTimeout(() => {
       setIsLoadingSlots((currentLoading) => {
         if (currentLoading) {
-          const fallback = getFallbackSlotsForDate(dateStr, config);
-          if (fallback.length > 0) {
-            setAvailableSlots(fallback);
-          } else {
-            setSlotsError("No quedan más horarios libres para hoy. Te invitamos a seleccionar el día de mañana.");
-          }
+          setAvailableSlots([]);
+          setSlotsError("La consulta de disponibilidad demoró más de lo esperado. Por favor intenta de nuevo.");
           return false;
         }
         return false;
       });
-    }, 3500);
+    }, 10000);
 
     try {
       // 1. Intentar fetch directo local al endpoint /api/calendar/slots (muy rápido)
       const controller = new AbortController();
-      const fetchTimer = setTimeout(() => controller.abort(), 2500);
+      const fetchTimer = setTimeout(() => controller.abort(), 8500);
 
       let fetchedData = null;
       try {
@@ -185,25 +140,14 @@ export default function BookingCalendlyWidget() {
           setSlotsError(fetchedData.reason || "No quedan horarios libres para esta fecha. Te invitamos a seleccionar otro día.");
         }
       } else {
-        const fallback = getFallbackSlotsForDate(dateStr, config);
-        if (fallback.length > 0) {
-          setAvailableSlots(fallback);
-          setSlotsError(null);
-        } else {
-          setAvailableSlots([]);
-          setSlotsError(fetchedData?.reason || "Día no disponible para consultas.");
-        }
+        setAvailableSlots([]);
+        setSlotsError(fetchedData?.reason || "No se pudieron obtener los horarios disponibles para esta fecha.");
       }
     } catch (e) {
       clearTimeout(safetyTimer);
       console.error("Error al consultar horarios disponibles:", e);
-      const fallback = getFallbackSlotsForDate(dateStr, config);
-      if (fallback.length > 0) {
-        setAvailableSlots(fallback);
-        setSlotsError(null);
-      } else {
-        setSlotsError("Error al cargar horarios. Por favor intenta de nuevo.");
-      }
+      setAvailableSlots([]);
+      setSlotsError("No se pudieron cargar los horarios en este momento. Por favor déjanos tus datos en el formulario de contacto.");
     } finally {
       clearTimeout(safetyTimer);
       setIsLoadingSlots(false);
@@ -288,10 +232,11 @@ export default function BookingCalendlyWidget() {
   const getGoogleCalendarAddUrl = () => {
     if (!confirmedMeeting) return "#";
     const title = encodeURIComponent(confirmedMeeting.title);
+    const validMeetUrl = confirmedMeeting.meetUrl && !confirmedMeeting.meetUrl.includes("n-autos-") ? confirmedMeeting.meetUrl : "";
     const details = encodeURIComponent(
-      `Videollamada de asesoría y consulta personalizada con N-Autos.\nEnlace a Google Meet: ${confirmedMeeting.meetUrl || ""}`
+      `Videollamada de asesoría y consulta personalizada con N-Autos.${validMeetUrl ? `\nEnlace a Google Meet: ${validMeetUrl}` : ""}`
     );
-    const location = encodeURIComponent(confirmedMeeting.meetUrl || "Google Meet");
+    const location = encodeURIComponent(validMeetUrl || "Google Meet");
 
     // Formato Google Calendar: YYYYMMDDTHHmmssZ
     const startIso = new Date(confirmedMeeting.start)
@@ -340,6 +285,34 @@ export default function BookingCalendlyWidget() {
       month: "long",
     });
   };
+
+  if (googleConnected === false) {
+    return (
+      <div style={{ textAlign: "center", padding: "3.5rem 1.5rem", maxWidth: "560px", margin: "0 auto", backgroundColor: "rgba(15, 23, 42, 0.7)", borderRadius: "16px", border: "1px solid rgba(255, 255, 255, 0.1)" }}>
+        <h3 style={{ color: "#ffffff", fontSize: "1.25rem", marginBottom: "0.75rem", fontWeight: 700 }}>
+          Agendamiento en Línea en Pausa
+        </h3>
+        <p style={{ color: "#9ca3af", fontSize: "0.95rem", lineHeight: 1.6, marginBottom: "1.5rem" }}>
+          Para coordinar una videollamada o consulta personalizada, déjanos tus datos en nuestro formulario y nuestro equipo se comunicará contigo a la brevedad.
+        </p>
+        <a
+          href="#contacto"
+          style={{
+            display: "inline-block",
+            backgroundColor: "#ffffff",
+            color: "#000000",
+            padding: "0.75rem 1.75rem",
+            borderRadius: "8px",
+            fontWeight: 700,
+            textDecoration: "none",
+            fontSize: "0.95rem",
+          }}
+        >
+          Hablar con el Equipo
+        </a>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.bookingContainer}>
@@ -640,7 +613,7 @@ export default function BookingCalendlyWidget() {
               . Se envió una invitación por correo a <strong>{confirmedMeeting.clientEmail}</strong>.
             </p>
 
-            {confirmedMeeting.meetUrl && (
+            {confirmedMeeting.meetUrl && !confirmedMeeting.meetUrl.includes("n-autos-") && (
               <div style={{ margin: "0.5rem 0 1.5rem 0", width: "100%", maxWidth: "420px", padding: "1.25rem", borderRadius: "14px", backgroundColor: "rgba(26, 115, 232, 0.08)", border: "1px solid rgba(26, 115, 232, 0.2)" }}>
                 <span style={{ display: "block", fontSize: "0.8rem", textTransform: "uppercase", fontWeight: 700, color: "#1a73e8", marginBottom: "0.5rem" }}>
                   Enlace Directo a la Videollamada

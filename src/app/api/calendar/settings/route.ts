@@ -14,7 +14,14 @@ export async function OPTIONS() {
 export async function GET() {
   try {
     const res = await getSuperadminCalendarSettings();
-    return NextResponse.json({ success: true, config: res.config }, { headers: corsHeaders });
+    return NextResponse.json(
+      {
+        success: true,
+        config: res.config,
+        googleConnected: !!res.googleAuth.connected,
+      },
+      { headers: corsHeaders }
+    );
   } catch (err: any) {
     console.error("Error en GET /api/calendar/settings:", err);
     return NextResponse.json(

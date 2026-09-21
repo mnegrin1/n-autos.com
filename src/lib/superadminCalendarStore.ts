@@ -18,6 +18,7 @@ export interface SuperadminCalendarConfig {
   displayDaysAhead: number; // Ventana de días futuros a mostrar a interesados (ej: 14)
   meetingDurationMinutes: number; // Duración de reuniones (ej: 30)
   consultationHours: ConsultationHours; // Horarios de consulta (franjas horarias)
+  fallbackMeetUrl?: string; // Enlace permanente de Google Meet de respaldo (ej: https://meet.google.com/xxx-yyyy-zzz)
 }
 
 export interface SuperadminGoogleAuth {
@@ -65,6 +66,7 @@ export const DEFAULT_CONFIG: SuperadminCalendarConfig = {
       { startTime: "09:00", endTime: "18:00" },
     ],
   },
+  fallbackMeetUrl: "",
 };
 
 const DEFAULT_DATA: SuperadminCalendarData = {
@@ -293,6 +295,10 @@ export async function saveSuperadminCalendarConfigAsync(
       endTime: timeRanges[timeRanges.length - 1]?.endTime || "18:00",
       timeRanges,
     },
+    fallbackMeetUrl:
+      typeof updates.fallbackMeetUrl === "string"
+        ? updates.fallbackMeetUrl.trim()
+        : current.config.fallbackMeetUrl || "",
   };
 
   current.config = newConfig;
@@ -355,6 +361,7 @@ export async function saveSuperadminGoogleAuthAsync(
   current.googleAuth = {
     ...current.googleAuth,
     ...auth,
+    refreshToken: auth.refreshToken !== undefined ? auth.refreshToken : current.googleAuth.refreshToken,
   };
   memoryCache = current;
   saveDataToDisk(current);

@@ -670,6 +670,32 @@ export default function CalendarConfigSidebar({
               </div>
             </div>
 
+            {/* Enlace Permanente de Google Meet (Respaldo) */}
+            <div>
+              <label style={{ display: "block", fontSize: "0.7rem", fontWeight: 700, marginBottom: "0.2rem" }}>
+                Enlace Google Meet de respaldo
+              </label>
+              <input
+                type="url"
+                placeholder="https://meet.google.com/xxx-yyyy-zzz"
+                value={config.fallbackMeetUrl || ""}
+                onChange={(e) => onConfigChange((prev) => ({ ...prev, fallbackMeetUrl: e.target.value }))}
+                style={{
+                  width: "100%",
+                  padding: "0.35rem 0.45rem",
+                  borderRadius: "6px",
+                  border: "1px solid var(--border-color)",
+                  backgroundColor: "var(--bg-color)",
+                  color: "var(--text-color)",
+                  fontSize: "0.72rem",
+                  boxSizing: "border-box",
+                }}
+              />
+              <span style={{ display: "block", fontSize: "0.62rem", color: "var(--text-muted, #9ca3af)", marginTop: "0.2rem" }}>
+                Sala fija alternativa si Google Calendar no está vinculado.
+              </span>
+            </div>
+
             <button
               type="submit"
               disabled={isSaving}
@@ -735,6 +761,11 @@ export default function CalendarConfigSidebar({
 
         {googleAuth.connected ? (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+            {googleAuth.email && (
+              <span style={{ fontSize: "0.68rem", opacity: 0.8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {googleAuth.email}
+              </span>
+            )}
             <button
               type="button"
               onClick={onSyncGoogle}
@@ -776,22 +807,27 @@ export default function CalendarConfigSidebar({
             </button>
           </div>
         ) : (
-          <a
-            href="/api/auth/google?target=superadmin"
-            style={{
-              display: "block",
-              textAlign: "center",
-              padding: "0.45rem 0.6rem",
-              borderRadius: "6px",
-              backgroundColor: "#2563eb",
-              color: "#fff",
-              textDecoration: "none",
-              fontSize: "0.75rem",
-              fontWeight: 700,
-            }}
-          >
-            Conectar con Google
-          </a>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+            <a
+              href="/api/auth/google?target=superadmin"
+              style={{
+                display: "block",
+                textAlign: "center",
+                padding: "0.45rem 0.6rem",
+                borderRadius: "6px",
+                backgroundColor: "#2563eb",
+                color: "#fff",
+                textDecoration: "none",
+                fontSize: "0.75rem",
+                fontWeight: 700,
+              }}
+            >
+              Conectar con Google
+            </a>
+            <span style={{ fontSize: "0.62rem", color: "var(--text-muted, #9ca3af)", lineHeight: 1.3 }}>
+              💡 En Google Cloud Console, publica la app (&quot;En producción&quot;) para que el token no caduque a los 7 días.
+            </span>
+          </div>
         )}
       </div>
     </div>

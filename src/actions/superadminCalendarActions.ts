@@ -63,12 +63,20 @@ async function getValidGoogleAccessToken(): Promise<string | null> {
       return data.access_token;
     } else {
       console.error("Error al refrescar token de Google Calendar:", data);
+      if (data.error === "invalid_grant") {
+        console.warn("Refresh token de Google Calendar revocado o expirado. Marcando cuenta como desconectada.");
+        await saveSuperadminGoogleAuthAsync({
+          connected: false,
+          accessToken: undefined,
+          tokenExpiry: undefined,
+        });
+      }
+      return null;
     }
   } catch (e) {
     console.error("Excepción refrescando token de Google Calendar:", e);
+    return null;
   }
-
-  return auth.accessToken || null;
 }
 
 // --- CONSULTA Y GUARDADO DE CONFIGURACIÓN ---
@@ -100,6 +108,7 @@ export async function saveSuperadminCalendarSettings(updates: {
     endTime?: string;
     timeRanges?: Array<{ startTime: string; endTime: string }>;
   };
+  fallbackMeetUrl?: string;
 }) {
   const filteredUpdates: Partial<SuperadminCalendarConfig> = {};
 
@@ -111,6 +120,9 @@ export async function saveSuperadminCalendarSettings(updates: {
   }
   if (typeof updates.meetingDurationMinutes === "number") {
     filteredUpdates.meetingDurationMinutes = Math.max(10, Math.min(180, updates.meetingDurationMinutes));
+  }
+  if (typeof updates.fallbackMeetUrl === "string") {
+    filteredUpdates.fallbackMeetUrl = updates.fallbackMeetUrl.trim();
   }
   if (updates.consultationHours) {
     let timeRanges = updates.consultationHours.timeRanges || [];
@@ -202,11 +214,52 @@ function formatInMontevideo(date: Date) {
   }
 }
 
+let cachedCalendarIds: { ids: string[]; expiresAt: number } | null = null;
+
+async function getCachedCalendarIds(token: string): Promise<string[]> {
+  const now = Date.now();
+  if (cachedCalendarIds && cachedCalendarIds.expiresAt > now) {
+    return cachedCalendarIds.ids;
+  }
+  const calendarIds: string[] = ["primary"];
+  try {
+    const listRes = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList", {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    if (listRes.ok) {
+      const listData = await listRes.json();
+      if (Array.isArray(listData.items)) {
+        for (const cal of listData.items) {
+          if (cal.id && cal.id !== "primary" && cal.selected !== false) {
+            calendarIds.push(cal.id);
+          }
+        }
+      }
+    }
+    cachedCalendarIds = { ids: calendarIds, expiresAt: now + 10 * 60 * 1000 };
+  } catch (e) {
+    console.warn("Aviso obteniendo calendarList:", e);
+  }
+  return calendarIds;
+}
+
 // --- GENERACIÓN DE HORARIOS DISPONIBLES (CALENDLY STYLE CON GOOGLE SYNC) ---
 
 export async function getAvailableBookingSlots(dateStr: string) {
   // dateStr viene en formato "YYYY-MM-DD"
   const { config, googleAuth } = await getSuperadminCalendarDataAsync();
+
+  // Si Google Calendar no está conectado, el agendamiento no está disponible
+  if (!googleAuth.connected) {
+    return {
+      success: false,
+      reason: "El agendamiento en línea no está disponible en este momento. Por favor déjanos tus datos a través del formulario de contacto.",
+      slots: [],
+      config,
+    };
+  }
+
   const [year, month, day] = dateStr.split("-").map(Number);
   const selectedDate = new Date(year, month - 1, day);
 
@@ -310,67 +363,97 @@ export async function getAvailableBookingSlots(dateStr: string) {
     };
   }
 
-  // Consultar eventos de Google Calendar si está conectado para excluir colisiones
-  const busyRanges: { start: number; end: number }[] = [];
+  // Consultar eventos y ocupación de Google Calendar en tiempo real
+  const busyRanges: { start: number; end: number; source?: string }[] = [];
+
+  const dayStartIso = `${dateStr}T00:00:00-03:00`;
+  const dayEndIso = `${dateStr}T23:59:59-03:00`;
+  const timeMinIso = new Date(dayStartIso).toISOString();
+  const timeMaxIso = new Date(dayEndIso).toISOString();
+  const dayStartEpoch = new Date(dayStartIso).getTime();
+  const dayEndEpoch = new Date(dayEndIso).getTime();
 
   if (googleAuth.connected) {
     const token = await getValidGoogleAccessToken();
     if (token) {
-      try {
-        const dayStart = new Date(year, month - 1, day, 0, 0, 0).toISOString();
-        const dayEnd = new Date(year, month - 1, day, 23, 59, 59).toISOString();
+      // 1. Obtener los calendarios asociados (con caché en memoria para máxima velocidad)
+      const calendarIds = await getCachedCalendarIds(token);
 
-        const gRes = await fetch(
-          `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(
-            dayStart
-          )}&timeMax=${encodeURIComponent(
-            dayEnd
-          )}&singleEvents=true&orderBy=startTime`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-            cache: "no-store",
-          }
-        );
+      // 2. Consultar Google FreeBusy API y reuniones internas en paralelo
+      const [fbResult, internalMeetingsResult] = await Promise.allSettled([
+        fetch("https://www.googleapis.com/calendar/v3/freeBusy", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            timeMin: timeMinIso,
+            timeMax: timeMaxIso,
+            timeZone: "America/Montevideo",
+            items: calendarIds.map((id) => ({ id })),
+          }),
+        }).then(async (r) => (r.ok ? r.json() : null)),
+        getSuperadminMeetingsAsync(),
+      ]);
 
-        if (gRes.ok) {
-          const gData = await gRes.json();
-          if (Array.isArray(gData.items)) {
-            for (const item of gData.items) {
-              if (item.status === "cancelled") continue;
-              const startStr = item.start?.dateTime || item.start?.date;
-              const endStr = item.end?.dateTime || item.end?.date;
-              if (startStr && endStr) {
-                busyRanges.push({
-                  start: new Date(startStr).getTime(),
-                  end: new Date(endStr).getTime(),
-                });
-              }
+      if (fbResult.status === "fulfilled" && fbResult.value?.calendars) {
+        const calendars = fbResult.value.calendars;
+        for (const calKey of Object.keys(calendars)) {
+          const calBusy = calendars[calKey]?.busy;
+          if (Array.isArray(calBusy)) {
+            for (const b of calBusy) {
+              busyRanges.push({
+                start: new Date(b.start).getTime(),
+                end: new Date(b.end).getTime(),
+                source: `google_freebusy_${calKey}`,
+              });
             }
           }
         }
-      } catch (err) {
-        console.warn("No se pudieron consultar eventos de Google Calendar:", err);
+      }
+
+      if (internalMeetingsResult.status === "fulfilled" && Array.isArray(internalMeetingsResult.value)) {
+        const internalMeetings = internalMeetingsResult.value.filter(
+          (m) => m.status === "confirmed" && !m.isGoogleEvent && !m.googleEventId
+        );
+        for (const m of internalMeetings) {
+          const mStart = new Date(m.start).getTime();
+          const mEnd = new Date(m.end).getTime();
+          if (mStart < dayEndEpoch && mEnd > dayStartEpoch) {
+            busyRanges.push({
+              start: mStart,
+              end: mEnd,
+              source: `internal_${m.id}`,
+            });
+          }
+        }
+      }
+    }
+  } else {
+    // Si Google no está conectado pero se evalúan reuniones internas
+    const internalMeetings = (await getSuperadminMeetingsAsync()).filter(
+      (m) => m.status === "confirmed" && !m.isGoogleEvent && !m.googleEventId
+    );
+    for (const m of internalMeetings) {
+      const mStart = new Date(m.start).getTime();
+      const mEnd = new Date(m.end).getTime();
+      if (mStart < dayEndEpoch && mEnd > dayStartEpoch) {
+        busyRanges.push({
+          start: mStart,
+          end: mEnd,
+          source: `internal_${m.id}`,
+        });
       }
     }
   }
 
-  // Incluir también reuniones internas ya confirmadas
-  const internalMeetings = (await getSuperadminMeetingsAsync()).filter(
-    (m) => m.date === dateStr && m.status === "confirmed"
-  );
-  for (const m of internalMeetings) {
-    busyRanges.push({
-      start: new Date(m.start).getTime(),
-      end: new Date(m.end).getTime(),
-    });
-  }
-
-  // Filtrar los slots que colisionen con algún rango ocupado
+  // 5. Filtrar rigurosamente los slots que colisionen con algún rango ocupado (buscar solo huecos libres)
   const availableSlots = generatedSlots.filter((slot) => {
     const slotStart = new Date(slot.startIso).getTime();
     const slotEnd = new Date(slot.endIso).getTime();
 
-    // Comprueba solapamiento: (StartA < EndB) y (EndA > StartB)
+    // Comprueba solapamiento estricto: (slotStart < busy.end && slotEnd > busy.start)
     const hasOverlap = busyRanges.some(
       (busy) => slotStart < busy.end && slotEnd > busy.start
     );
@@ -403,6 +486,14 @@ export async function bookMeetingFromLanding(payload: {
   }
 
   const { config, googleAuth } = await getSuperadminCalendarDataAsync();
+
+  // Si Google Calendar no está conectado, el agendamiento directo está desactivado
+  if (!googleAuth.connected) {
+    return {
+      success: false,
+      error: "El agendamiento en línea no está disponible en este momento. Por favor déjanos tus datos a través del formulario de contacto.",
+    };
+  }
   const duration = config.meetingDurationMinutes || 30;
 
   const [year, month, day] = date.split("-").map(Number);
@@ -461,7 +552,7 @@ export async function bookMeetingFromLanding(payload: {
         };
 
         const createRes = await fetch(
-          "https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1",
+          "https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all",
           {
             method: "POST",
             headers: {
@@ -478,20 +569,22 @@ export async function bookMeetingFromLanding(payload: {
           meetUrl =
             created.hangoutLink ||
             created.conferenceData?.entryPoints?.find((ep: any) => ep.entryPointType === "video")?.uri;
+          console.log("Evento de Google Calendar creado con éxito. Meet URL:", meetUrl, "ID:", googleEventId);
         } else {
-          const errData = await createRes.json();
-          console.error("Fallo al crear evento en Google Calendar:", errData);
+          const errData = await createRes.json().catch(() => ({}));
+          console.error("Fallo al crear evento en Google Calendar:", createRes.status, errData);
         }
       } catch (err) {
         console.error("Excepción creando reunión en Google Calendar:", err);
       }
+    } else {
+      console.warn("Aviso: No se pudo obtener un token de Google Calendar válido al agendar.");
     }
   }
 
-  // Si no se pudo obtener URL de Meet por falta de conexión o error, generar enlace Meet de acceso seguro
-  if (!meetUrl) {
-    const roomCode = `n-autos-${Date.now().toString().slice(-6)}`;
-    meetUrl = `https://meet.google.com/${roomCode}`;
+  // Si no se pudo obtener URL de Meet por Google Calendar, usar enlace permanente de respaldo si fue configurado
+  if (!meetUrl && config.fallbackMeetUrl) {
+    meetUrl = config.fallbackMeetUrl;
   }
 
   const newMeeting: SuperadminMeeting = {
@@ -644,6 +737,7 @@ export async function syncGoogleEventsAction() {
         if (Array.isArray(data.items)) {
           for (const item of data.items) {
             if (item.status === "cancelled") continue;
+            if (item.transparency === "transparent") continue;
             if (existingGoogleIds.has(item.id)) continue;
 
             const startStr = item.start?.dateTime || item.start?.date;
