@@ -19,3 +19,12 @@ export function setUserPasswordHash(email: string, passwordHash: string): void {
   memoryPasswordStore.set(cleanEmail, passwordHash);
 }
 
+/**
+ * Elimina el hash de contraseña almacenado en memoria.
+ */
+export function deleteUserPasswordHash(email: string): void {
+  if (!email || !email.trim()) return;
+  const cleanEmail = email.toLowerCase().trim();
+  memoryPasswordStore.delete(cleanEmail);
+}
+
