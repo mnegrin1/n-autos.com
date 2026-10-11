@@ -41,7 +41,7 @@ import MobileBottomNav from "@/components/PWA/MobileBottomNav";
 import OnboardingTour from "@/components/admin/OnboardingTour";
 import { notifySessionEvent, getCurrentClientSession } from "@/lib/sessionHelper";
 import { isFeatureEnabledForUser, subscribeFeatureFlags } from "@/lib/featureFlagsStore";
-import { getTenantSession, subscribeTenantSession, syncTenantSessionForUser, TenantSession } from "@/lib/tenantStore";
+import { getTenantSession, subscribeTenantSession, syncTenantSessionForUser, TenantSession, DEFAULT_STARTER_TENANT } from "@/lib/tenantStore";
 import { getPrimaryAgency } from "@/actions/agencyActions";
 import { Sparkles, ShieldCheck, Building2, X } from "lucide-react";
 import { isSuperAdmin } from "@/lib/iam/rbac";
@@ -59,10 +59,27 @@ export default function AdminClientLayout({
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Tenant & Active Subscription Plan State
-  const [tenantSession, setTenantSession] = useState<TenantSession>(getTenantSession());
+  // Mounted flag to eliminate SSR vs Client hydration mismatches
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Tenant & Active Subscription Plan State (deterministic on initial render)
+  const [tenantSession, setTenantSession] = useState<TenantSession>(() => {
+    if (initialUser && initialUser.email) {
+      return {
+        ...DEFAULT_STARTER_TENANT,
+        agencyId: initialUser.agency_id || DEFAULT_STARTER_TENANT.agencyId,
+        agencyName: initialUser.agency_name || DEFAULT_STARTER_TENANT.agencyName,
+        subdomain: initialUser.subdomain || DEFAULT_STARTER_TENANT.subdomain,
+        adminName: initialUser.name || DEFAULT_STARTER_TENANT.adminName,
+        adminEmail: initialUser.email || DEFAULT_STARTER_TENANT.adminEmail,
+      };
+    }
+    return DEFAULT_STARTER_TENANT;
+  });
 
   useEffect(() => {
+    setIsMounted(true);
+
     // Si existe un usuario autenticado verificado desde la cookie de servidor,
     // sincronizar inmediatamente el almacenamiento local del cliente (tenant)
     if (initialUser && initialUser.email) {
@@ -179,6 +196,12 @@ export default function AdminClientLayout({
 
   const userEmail = initialUser?.email || clientSession?.email || tenantSession.adminEmail || "mauricio@automotora.com";
   const userId = initialUser?.id || clientSession?.id || tenantSession.agencyId;
+
+  // Safe feature flag check: always matches server HTML during initial render/hydration
+  const isFeatureEnabled = (featureId: string) => {
+    if (!isMounted) return true;
+    return isFeatureEnabledForUser(featureId, userEmail);
+  };
 
   const rawUserName = initialUser?.name || clientSession?.name || tenantSession.adminName || "";
   
@@ -697,19 +720,19 @@ export default function AdminClientLayout({
             <LayoutDashboard size={18} style={{ flexShrink: 0 }} />
             {isExpanded && <span>Dashboard</span>}
           </Link>
-          {isFeatureEnabledForUser("vehicles", userEmail) && (
+          {isFeatureEnabled("vehicles") && (
             <Link href="/admin/vehicles" data-tour="vehicles-nav" title="Inventario Stock" className={`${styles.navLink} ${pathname.startsWith("/admin/vehicles") ? styles.activeNavLink : ""}`}>
               <Car size={18} style={{ flexShrink: 0 }} />
               {isExpanded && <span>Inventario Stock</span>}
             </Link>
           )}
-          {isFeatureEnabledForUser("inbox", userEmail) && (
+          {isFeatureEnabled("inbox") && (
             <Link href="/admin/inbox" title="Bandeja de Entrada" className={`${styles.navLink} ${pathname.startsWith("/admin/inbox") ? styles.activeNavLink : ""}`}>
               <MessageSquare size={18} style={{ flexShrink: 0 }} />
               {isExpanded && <span>Bandeja de Entrada</span>}
             </Link>
           )}
-          {isFeatureEnabledForUser("publications", userEmail) && (
+          {isFeatureEnabled("publications") && (
             <Link href="/admin/publications" title="Publicaciones Activas" className={`${styles.navLink} ${pathname.startsWith("/admin/publications") ? styles.activeNavLink : ""}`}>
               <Share2 size={18} style={{ flexShrink: 0 }} />
               {isExpanded && <span>Publicaciones</span>}
@@ -722,7 +745,7 @@ export default function AdminClientLayout({
             </Link>
             {isExpanded && (
               <a
-                href={typeof window !== "undefined" && window.location.hostname.endsWith(".localhost")
+                href={isMounted && typeof window !== "undefined" && window.location.hostname.endsWith(".localhost")
                   ? `http://${agencyBranding.subdomain || "demo"}.localhost:3000`
                   : `https://${agencyBranding.subdomain || "demo"}.n-autos.com`}
 
@@ -745,13 +768,13 @@ export default function AdminClientLayout({
               </a>
             )}
           </div>
-          {isFeatureEnabledForUser("crm", userEmail) && (
+          {isFeatureEnabled("crm") && (
             <Link href="/admin/crm" data-tour="crm-nav" title="Contactos" className={`${styles.navLink} ${pathname.startsWith("/admin/crm") ? styles.activeNavLink : ""}`}>
               <Users size={18} style={{ flexShrink: 0 }} />
               {isExpanded && <span>Contactos</span>}
             </Link>
           )}
-          {isFeatureEnabledForUser("agenda", userEmail) && (
+          {isFeatureEnabled("agenda") && (
             <Link 
               href="/admin/agenda" 
               data-tour="agenda-nav"
@@ -762,13 +785,13 @@ export default function AdminClientLayout({
               {isExpanded && <span>Agenda / Turnos</span>}
             </Link>
           )}
-          {isFeatureEnabledForUser("email", userEmail) && (
+          {isFeatureEnabled("email") && (
             <Link href="/admin/email/broadcasts" title="Email Broadcasts" className={`${styles.navLink} ${pathname.startsWith("/admin/email") ? styles.activeNavLink : ""}`}>
               <Mail size={18} style={{ flexShrink: 0 }} />
               {isExpanded && <span>Email Broadcasts</span>}
             </Link>
           )}
-          {isFeatureEnabledForUser("automations", userEmail) && (
+          {isFeatureEnabled("automations") && (
             <Link href="/admin/automations" title="Automatizaciones" className={`${styles.navLink} ${pathname.startsWith("/admin/automations") ? styles.activeNavLink : ""}`}>
               <Zap size={18} style={{ flexShrink: 0 }} />
               {isExpanded && <span>Automatizaciones</span>}
