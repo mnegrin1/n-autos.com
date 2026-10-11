@@ -165,7 +165,7 @@ export default function AgendaClient({
         ? true
         : filterType === "google"
         ? !!a.is_google_event
-        : a.event_type === filterType;
+        : !a.is_google_event;
 
     const q = searchTerm.toLowerCase();
     const matchesSearch =
@@ -487,45 +487,35 @@ export default function AgendaClient({
         </div>
       )}
 
-      {/* KPI CARDS */}
+      {/* KPI CARDS (SIMPLIFICADAS Y REALES) */}
       <div className={styles.kpiGrid}>
         <div className={styles.kpiCard}>
           <div className={styles.kpiIconWrapper} style={{ backgroundColor: "rgba(16, 185, 129, 0.14)", color: "var(--primary)" }}>
-            <Clock size={22} />
+            <Clock size={20} />
           </div>
           <div className={styles.kpiContent}>
             <span className={styles.kpiValue}>{todayCount}</span>
-            <span className={styles.kpiLabel}>Citas para Hoy</span>
+            <span className={styles.kpiLabel}>Visitas para Hoy</span>
           </div>
         </div>
 
         <div className={styles.kpiCard}>
           <div className={styles.kpiIconWrapper} style={{ backgroundColor: "rgba(59, 130, 246, 0.14)", color: "#2563eb" }}>
-            <Car size={22} />
+            <Users size={20} />
           </div>
           <div className={styles.kpiContent}>
-            <span className={styles.kpiValue}>{testDriveCount}</span>
-            <span className={styles.kpiLabel}>Test Drives Activos</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiIconWrapper} style={{ backgroundColor: "rgba(245, 158, 11, 0.14)", color: "#d97706" }}>
-            <Key size={22} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiValue}>{deliveryCount}</span>
-            <span className={styles.kpiLabel}>Entregas de Unidades</span>
+            <span className={styles.kpiValue}>{appointments.filter(a => a.status !== "cancelada").length}</span>
+            <span className={styles.kpiLabel}>Visitas Agendadas</span>
           </div>
         </div>
 
         <div className={styles.kpiCard}>
           <div className={styles.kpiIconWrapper} style={{ backgroundColor: "rgba(66, 133, 244, 0.14)", color: "#2563eb" }}>
-            <CalendarIcon size={22} />
+            <CalendarIcon size={20} />
           </div>
           <div className={styles.kpiContent}>
             <span className={styles.kpiValue}>{googleEventsCount}</span>
-            <span className={styles.kpiLabel}>Eventos Google Sincronizados</span>
+            <span className={styles.kpiLabel}>Google Calendar</span>
           </div>
         </div>
       </div>
@@ -537,21 +527,21 @@ export default function AgendaClient({
           onClick={() => setActiveTab("calendar")}
           className={`${styles.tabBtn} ${activeTab === "calendar" ? styles.activeTabBtn : ""}`}
         >
-          <CalendarIcon size={16} /> Calendario Visual Interactivo
+          <CalendarIcon size={15} /> Calendario Mensual
         </button>
         <button
           type="button"
           onClick={() => setActiveTab("list")}
           className={`${styles.tabBtn} ${activeTab === "list" ? styles.activeTabBtn : ""}`}
         >
-          <Clock size={16} /> Citas & Turnos del CRM ({appointments.length})
+          <Clock size={15} /> Lista de Citas ({appointments.length})
         </button>
         <button
           type="button"
           onClick={() => setActiveTab("settings")}
           className={`${styles.tabBtn} ${activeTab === "settings" ? styles.activeTabBtn : ""}`}
         >
-          <Settings size={16} /> Horarios de Atención & Google Calendar
+          <Settings size={15} /> Horarios & Google Calendar
         </button>
       </div>
 
@@ -639,42 +629,23 @@ export default function AgendaClient({
                   >
                     <span className={styles.dayNumber}>{item.day}</span>
 
-                    <div className={styles.dayEventsDots}>
-                      {dayApts.slice(0, 3).map(apt => (
-                        <div
-                          key={apt.id}
-                          className={styles.eventDotBadge}
+                    {dayApts.length > 0 && (
+                      <div className={styles.dayBadgeRow}>
+                        <span
+                          className={styles.eventMiniBadge}
                           style={{
-                            backgroundColor: apt.is_google_event
-                              ? "rgba(66, 133, 244, 0.18)"
-                              : apt.event_type === "test_drive"
-                              ? "rgba(59, 130, 246, 0.18)"
-                              : apt.event_type === "visita"
-                              ? "rgba(16, 185, 129, 0.18)"
-                              : apt.event_type === "entrega"
-                              ? "rgba(245, 158, 11, 0.18)"
-                              : "rgba(168, 85, 247, 0.18)",
-                            color: apt.is_google_event
+                            backgroundColor: dayApts.some(a => a.is_google_event)
+                              ? "rgba(66, 133, 244, 0.16)"
+                              : "rgba(16, 185, 129, 0.16)",
+                            color: dayApts.some(a => a.is_google_event)
                               ? "#1d4ed8"
-                              : apt.event_type === "test_drive"
-                              ? "#1d4ed8"
-                              : apt.event_type === "visita"
-                              ? "#047857"
-                              : apt.event_type === "entrega"
-                              ? "#b45309"
-                              : "#7e22ce",
+                              : "var(--primary)",
                           }}
-                          title={apt.title}
                         >
-                          {apt.is_google_event ? "📅 GCal" : apt.title}
-                        </div>
-                      ))}
-                      {dayApts.length > 3 && (
-                        <span style={{ fontSize: "0.62rem", opacity: 0.7, fontWeight: 700 }}>
-                          +{dayApts.length - 3} más
+                          {dayApts.length} {dayApts.length === 1 ? "cita" : "citas"}
                         </span>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -831,10 +802,7 @@ export default function AgendaClient({
             <div className={styles.filterPills}>
               {[
                 { id: "todos", label: "Todos" },
-                { id: "test_drive", label: "🏎️ Test Drives" },
-                { id: "visita", label: "🏢 Showroom" },
-                { id: "entrega", label: "🔑 Entregas" },
-                { id: "service", label: "🔧 Service" },
+                { id: "visitas", label: "🏢 Visitas al Local" },
                 { id: "google", label: "📅 Google Calendar" },
               ].map(f => (
                 <button
@@ -1220,7 +1188,7 @@ export default function AgendaClient({
                   <input
                     type="text"
                     required
-                    placeholder="Ej. Test Drive - Toyota Hilux"
+                    placeholder="Visita al local"
                     value={formData.title}
                     onChange={e => setFormData({ ...formData, title: e.target.value })}
                   />
@@ -1233,8 +1201,8 @@ export default function AgendaClient({
                       value={formData.event_type}
                       onChange={e => setFormData({ ...formData, event_type: e.target.value as any })}
                     >
-                      <option value="test_drive">🏎️ Test Drive</option>
                       <option value="visita">🏢 Visita a Showroom</option>
+                      <option value="test_drive">🏎️ Test Drive</option>
                       <option value="entrega">🔑 Entrega de Auto</option>
                       <option value="service">🔧 Service / Taller</option>
                       <option value="reunion">📅 Reunión</option>
@@ -1273,7 +1241,7 @@ export default function AgendaClient({
                     <label>Nombre del Cliente</label>
                     <input
                       type="text"
-                      placeholder="Ej. Juan Pérez"
+                      placeholder="Nombre y apellido"
                       value={formData.client_name}
                       onChange={e => setFormData({ ...formData, client_name: e.target.value })}
                     />
@@ -1283,7 +1251,7 @@ export default function AgendaClient({
                     <label>Teléfono / WhatsApp</label>
                     <input
                       type="text"
-                      placeholder="Ej. +598 99 123 456"
+                      placeholder="+598 99 123 456"
                       value={formData.client_phone}
                       onChange={e => setFormData({ ...formData, client_phone: e.target.value })}
                     />
@@ -1294,7 +1262,7 @@ export default function AgendaClient({
                   <label>Email del Cliente</label>
                   <input
                     type="email"
-                    placeholder="cliente@ejemplo.com"
+                    placeholder="contacto@cliente.com"
                     value={formData.client_email}
                     onChange={e => setFormData({ ...formData, client_email: e.target.value })}
                   />

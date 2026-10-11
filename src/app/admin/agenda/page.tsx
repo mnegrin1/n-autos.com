@@ -29,7 +29,7 @@ export default async function AgendaPage() {
   }));
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem", width: "100%", maxWidth: "100%", boxSizing: "border-box", overflowX: "hidden" }}>
       <AgendaClient
         initialAppointments={appointments}
         initialCalendarSettings={calendarSettings}

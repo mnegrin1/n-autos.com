@@ -31,69 +31,8 @@ export interface AgendaAppointment {
   is_google_event?: boolean;
 }
 
-// In-memory persistent demo store for offline/demo reliability
-let inMemoryAppointments: AgendaAppointment[] = [
-  {
-    id: "apt-1",
-    agency_id: "00000000-0000-0000-0000-000000000000",
-    title: "Test Drive - Toyota Hilux SRV 4x4",
-    event_type: "test_drive",
-    event_date: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
-    end_date: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
-    status: "confirmada",
-    client_name: "Gonzalo Rodríguez",
-    client_phone: "+598 99 443 211",
-    client_email: "gonzalo.r@gmail.com",
-    vehicle_title: "Toyota Hilux SRV 4x4 (2022)",
-    notes: "Traer licencia de conducir vigente. Interesado en financiación bancaria 50%.",
-    created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "apt-2",
-    agency_id: "00000000-0000-0000-0000-000000000000",
-    title: "Visita Showroom - Consulta BMW Serie 3",
-    event_type: "visita",
-    event_date: new Date(Date.now() + 26 * 60 * 60 * 1000).toISOString(),
-    end_date: new Date(Date.now() + 27 * 60 * 60 * 1000).toISOString(),
-    status: "pendiente",
-    client_name: "Valeria Méndez",
-    client_phone: "+598 98 120 900",
-    client_email: "valeria.m@outlook.com",
-    vehicle_title: "BMW 320i M-Sport (2021)",
-    notes: "Viene con su pareja a ver el estado general y probar los asientos de cuero.",
-    created_at: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "apt-3",
-    agency_id: "00000000-0000-0000-0000-000000000000",
-    title: "Entrega de Unidad 0km - Volkswagen Nivus",
-    event_type: "entrega",
-    event_date: new Date(Date.now() + 50 * 60 * 60 * 1000).toISOString(),
-    end_date: new Date(Date.now() + 51 * 60 * 60 * 1000).toISOString(),
-    status: "confirmada",
-    client_name: "Matías Silvera",
-    client_phone: "+598 94 888 123",
-    client_email: "matias.silvera@hotmail.com",
-    vehicle_title: "Volkswagen Nivus Highline 200 TSI (2024)",
-    notes: "Lavado completo y laqueado listo. Entregar carpeta con póliza y manuales.",
-    created_at: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "apt-4",
-    agency_id: "00000000-0000-0000-0000-000000000000",
-    title: "Revisión / Taller Primer Service - Chevrolet Onix",
-    event_type: "service",
-    event_date: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
-    end_date: new Date(Date.now() + 73 * 60 * 60 * 1000).toISOString(),
-    status: "pendiente",
-    client_name: "Carolina Ferrando",
-    client_phone: "+598 91 222 344",
-    client_email: "caro.ferrando@gmail.com",
-    vehicle_title: "Chevrolet Onix Premier (2023)",
-    notes: "Service oficial 10.000 km.",
-    created_at: new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString(),
-  }
-];
+// Almacenamiento en memoria para citas de la agencia (sin datos de muestra)
+let inMemoryAppointments: AgendaAppointment[] = [];
 
 function safeRevalidate() {
   try {

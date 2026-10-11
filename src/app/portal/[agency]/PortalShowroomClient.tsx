@@ -504,7 +504,7 @@ export default function PortalShowroomClient({
       </section>
 
       {/* Sección de Agendamiento Online Inteligente (Google Calendar & Horarios) */}
-      <section id="agendar" style={{ padding: "3rem 1.5rem", maxWidth: "1280px", margin: "0 auto", width: "100%" }}>
+      <section id="agendar" style={{ padding: "3rem 1.5rem", maxWidth: "1280px", margin: "0 auto", width: "100%", boxSizing: "border-box", overflowX: "hidden" }}>
         <AgencyBookingWidget
           agencyId={agencyId}
           agencySlug={agencySlug}

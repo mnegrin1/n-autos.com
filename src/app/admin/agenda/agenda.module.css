@@ -1,66 +1,76 @@
 .agendaContainer {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.25rem;
   width: 100%;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding-bottom: 3rem;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 0 2.5rem 0;
+  overflow-x: hidden;
 }
 
 .topBanner {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 1.25rem;
+  gap: 1rem;
   background-color: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: 16px;
-  padding: 1.5rem 1.75rem;
+  padding: 1.25rem 1.5rem;
   box-shadow: var(--shadow-sm);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.headerInfo {
+  min-width: 0;
 }
 
 .headerInfo h1 {
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   font-weight: 800;
   color: var(--text-color);
   letter-spacing: -0.02em;
-  margin: 0 0 0.35rem 0;
+  margin: 0 0 0.25rem 0;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.5rem;
+  line-height: 1.2;
 }
 
 .headerInfo p {
   margin: 0;
   color: var(--text-color);
   opacity: 0.7;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 .headerActions {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.6rem;
   flex-wrap: wrap;
 }
 
 .primaryBtn {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
   background-color: var(--primary);
   color: #ffffff;
   border: none;
   border-radius: 10px;
-  padding: 0.65rem 1.15rem;
-  font-size: 0.875rem;
+  padding: 0.6rem 1.1rem;
+  font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .primaryBtn:hover {
@@ -77,17 +87,18 @@
 .secondaryBtn {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
   background-color: transparent;
   color: var(--text-color);
   border: 1px solid var(--border-color);
   border-radius: 10px;
-  padding: 0.65rem 1.15rem;
-  font-size: 0.875rem;
+  padding: 0.6rem 1rem;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .secondaryBtn:hover {
@@ -98,52 +109,51 @@
 .googleBtn {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
   background-color: #ffffff;
   color: #1f2937;
   border: 1px solid #d1d5db;
   border-radius: 10px;
-  padding: 0.65rem 1.15rem;
-  font-size: 0.875rem;
+  padding: 0.6rem 1rem;
+  font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
   text-decoration: none;
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  white-space: nowrap;
 }
 
 .googleBtn:hover {
   background-color: #f9fafb;
   border-color: #9ca3af;
-  transform: translateY(-1px);
 }
 
 /* KPI CARDS */
 .kpiGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.85rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .kpiCard {
   background-color: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: 14px;
-  padding: 1.25rem;
+  padding: 1rem 1.15rem;
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.85rem;
   box-shadow: var(--shadow-sm);
-  transition: transform 0.2s;
-}
-
-.kpiCard:hover {
-  transform: translateY(-2px);
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .kpiIconWrapper {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 10px;
   display: flex;
   align-items: center;
@@ -154,49 +164,56 @@
 .kpiContent {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .kpiValue {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   font-weight: 800;
   color: var(--text-color);
-  line-height: 1.2;
+  line-height: 1.15;
 }
 
 .kpiLabel {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--text-color);
   opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* TABS */
 .tabBar {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.35rem;
   background-color: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  padding: 0.35rem;
-  width: fit-content;
-  flex-wrap: wrap;
+  padding: 0.3rem;
+  width: 100%;
+  max-width: fit-content;
+  box-sizing: border-box;
+  overflow-x: auto;
 }
 
 .tabBtn {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.45rem;
   background: transparent;
   border: none;
   border-radius: 8px;
-  padding: 0.55rem 1rem;
-  font-size: 0.875rem;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.82rem;
   font-weight: 600;
   color: var(--text-color);
-  opacity: 0.7;
+  opacity: 0.75;
   cursor: pointer;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
 .tabBtn:hover {
@@ -208,21 +225,25 @@
   opacity: 1;
   background-color: var(--bg-color) !important;
   color: var(--primary) !important;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
   font-weight: 700;
 }
 
-/* CALENDARIO VISUAL */
+/* CALENDARIO VIEW CONTAINER */
 .calendarViewContainer {
   display: grid;
-  grid-template-columns: 1fr 360px;
-  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 1.25rem;
   align-items: start;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1180px) {
   .calendarViewContainer {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -230,11 +251,16 @@
   background-color: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: 16px;
-  padding: 1.5rem;
+  padding: 1.25rem;
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .calendarNavHeader {
@@ -242,11 +268,13 @@
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .monthTitle {
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   font-weight: 800;
   color: var(--text-color);
   text-transform: capitalize;
@@ -255,14 +283,14 @@
 .navControls {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .iconBtn {
   background: transparent;
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  padding: 0.45rem;
+  padding: 0.4rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -279,8 +307,8 @@
   background: transparent;
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  padding: 0.45rem 0.85rem;
-  font-size: 0.8rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--text-color);
   cursor: pointer;
@@ -293,41 +321,48 @@
 /* GRID DE DÍAS */
 .weekDaysHeader {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   text-align: center;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
   color: var(--text-color);
   opacity: 0.5;
-  padding-bottom: 0.5rem;
+  padding-bottom: 0.4rem;
   border-bottom: 1px solid var(--border-color);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .calendarDaysGrid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 0.4rem;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.35rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .dayCell {
-  aspect-ratio: 1;
-  min-height: 70px;
+  min-height: 58px;
   border-radius: 10px;
-  border: 1px solid transparent;
+  border: 1px solid var(--border-color);
   background-color: rgba(128, 128, 128, 0.02);
-  padding: 0.4rem;
+  padding: 0.35rem 0.25rem;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  align-items: center;
   cursor: pointer;
   transition: all 0.15s ease;
   position: relative;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .dayCell:hover {
   background-color: rgba(128, 128, 128, 0.06);
-  border-color: var(--border-color);
+  border-color: var(--primary);
 }
 
 .outsideMonthDay {
@@ -336,49 +371,55 @@
 
 .todayCell {
   border-color: var(--primary) !important;
-  background-color: rgba(16, 185, 129, 0.05);
+  background-color: rgba(16, 185, 129, 0.06);
 }
 
 .selectedDayCell {
   border-color: var(--primary) !important;
   box-shadow: 0 0 0 2px var(--primary);
-  background-color: rgba(16, 185, 129, 0.08);
+  background-color: rgba(16, 185, 129, 0.1);
 }
 
 .dayNumber {
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: var(--text-color);
 }
 
-.dayEventsDots {
+.dayBadgeRow {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 0.2rem;
-  overflow: hidden;
+  flex-wrap: wrap;
+  width: 100%;
 }
 
-.eventDotBadge {
-  font-size: 0.65rem;
-  font-weight: 600;
-  padding: 0.15rem 0.35rem;
+.eventMiniBadge {
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 0.1rem 0.3rem;
   border-radius: 4px;
+  line-height: 1.1;
+  text-align: center;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
 }
 
-/* SIDE PANEL: AGENDA DEL DÍA SELECCIONADO */
+/* SIDE PANEL: DETALLE DEL DÍA SELECCIONADO */
 .daySidebarCard {
   background-color: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: 16px;
-  padding: 1.5rem;
+  padding: 1.25rem;
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .daySidebarHeader {
@@ -386,12 +427,13 @@
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid var(--border-color);
-  padding-bottom: 0.75rem;
+  padding-bottom: 0.65rem;
+  gap: 0.5rem;
 }
 
 .daySidebarHeader h3 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 800;
   color: var(--text-color);
   text-transform: capitalize;
@@ -400,20 +442,24 @@
 .dayEventsList {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  max-height: 520px;
+  gap: 0.65rem;
+  max-height: 480px;
   overflow-y: auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .dayEventCard {
   background-color: var(--bg-color);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  padding: 0.85rem 1rem;
+  padding: 0.75rem 0.85rem;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.35rem;
   transition: transform 0.15s;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .dayEventCard:hover {
@@ -425,23 +471,23 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 700;
 }
 
 .googleBadge {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  font-size: 0.7rem;
+  gap: 0.25rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  padding: 0.15rem 0.45rem;
+  padding: 0.12rem 0.4rem;
   border-radius: 4px;
   background-color: rgba(66, 133, 244, 0.12);
   color: #2563eb;
 }
 
-/* APPOINTMENTS LIST / CRM VIEW */
+/* LISTA DE CITAS DEL CRM */
 .listContainer {
   background-color: var(--surface-color);
   border: 1px solid var(--border-color);
@@ -450,6 +496,9 @@
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .filterBar {
@@ -457,9 +506,11 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 1rem;
-  padding: 1.25rem 1.5rem;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--border-color);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .searchBox {
@@ -469,8 +520,9 @@
   background-color: var(--bg-color);
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  padding: 0.45rem 0.85rem;
-  min-width: 260px;
+  padding: 0.45rem 0.8rem;
+  min-width: 220px;
+  box-sizing: border-box;
 }
 
 .searchBox input {
@@ -478,13 +530,13 @@
   border: none;
   outline: none;
   color: var(--text-color);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   width: 100%;
 }
 
 .filterPills {
   display: flex;
-  gap: 0.4rem;
+  gap: 0.35rem;
   flex-wrap: wrap;
 }
 
@@ -492,8 +544,8 @@
   background: transparent;
   border: 1px solid var(--border-color);
   border-radius: 20px;
-  padding: 0.35rem 0.75rem;
-  font-size: 0.78rem;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--text-color);
   cursor: pointer;
@@ -508,18 +560,22 @@
 
 .tableResponsive {
   width: 100%;
+  max-width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
 }
 
 .appointmentTable {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
+  min-width: 620px;
 }
 
 .appointmentTable th {
-  padding: 1rem 1.25rem;
-  font-size: 0.75rem;
+  padding: 0.85rem 1rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -530,9 +586,9 @@
 }
 
 .appointmentTable td {
-  padding: 1.1rem 1.25rem;
+  padding: 0.9rem 1rem;
   border-bottom: 1px solid var(--border-color);
-  font-size: 0.875rem;
+  font-size: 0.82rem;
   color: var(--text-color);
 }
 
@@ -543,18 +599,19 @@
 .typeBadge {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.25rem 0.65rem;
+  gap: 0.3rem;
+  padding: 0.2rem 0.55rem;
   border-radius: 6px;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: capitalize;
+  white-space: nowrap;
 }
 
 .statusSelect {
-  padding: 0.3rem 0.6rem;
+  padding: 0.25rem 0.5rem;
   border-radius: 6px;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
   border: 1px solid var(--border-color);
   background-color: var(--bg-color);
@@ -568,16 +625,18 @@
   background-color: var(--surface-color);
   border: 1px solid var(--border-color);
   border-radius: 16px;
-  padding: 2rem;
+  padding: 1.5rem;
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
-  gap: 1.75rem;
-  max-width: 900px;
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .settingsCard h2 {
-  font-size: 1.35rem;
+  font-size: 1.25rem;
   font-weight: 800;
   margin: 0;
   color: var(--text-color);
@@ -587,17 +646,19 @@
   background-color: var(--bg-color);
   border: 1px solid var(--border-color);
   border-radius: 14px;
-  padding: 1.5rem;
+  padding: 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .settingsSectionTitle {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  font-size: 1.05rem;
+  gap: 0.5rem;
+  font-size: 0.95rem;
   font-weight: 800;
   color: var(--text-color);
   margin: 0;
@@ -605,17 +666,17 @@
 
 .daysToggleGrid {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.45rem;
   flex-wrap: wrap;
 }
 
 .dayToggleBtn {
-  padding: 0.5rem 1rem;
+  padding: 0.45rem 0.85rem;
   border-radius: 8px;
   border: 1px solid var(--border-color);
   background: var(--surface-color);
   color: var(--text-color);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
@@ -630,23 +691,27 @@
 .inputGroup {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.35rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .inputGroup label {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--text-color);
 }
 
 .inputGroup input, .inputGroup select {
-  padding: 0.65rem 0.85rem;
+  padding: 0.6rem 0.8rem;
   border: 1px solid var(--border-color);
   border-radius: 8px;
   background-color: var(--surface-color);
   color: var(--text-color);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   outline: none;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .inputGroup input:focus, .inputGroup select:focus {
@@ -656,7 +721,43 @@
 .formRow {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  gap: 0.85rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.inputWithPrefix {
+  display: flex;
+  align-items: center;
+  background-color: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.prefix {
+  padding: 0.6rem 0.8rem;
+  background-color: rgba(128, 128, 128, 0.08);
+  border-right: 1px solid var(--border-color);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-color);
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
+.inputWithPrefix input {
+  flex: 1;
+  padding: 0.6rem 0.8rem;
+  border: none;
+  background: transparent;
+  outline: none;
+  color: var(--text-color);
+  font-size: 0.85rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* MODAL */
@@ -670,6 +771,7 @@
   justify-content: center;
   z-index: 9999;
   padding: 1rem;
+  box-sizing: border-box;
 }
 
 .modalBox {
@@ -677,24 +779,25 @@
   border: 1px solid var(--border-color);
   border-radius: 16px;
   width: 100%;
-  max-width: 580px;
+  max-width: 520px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .modalHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.25rem 1.5rem;
+  padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--border-color);
 }
 
 .modalHeader h3 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: 800;
   color: var(--text-color);
 }
@@ -705,7 +808,7 @@
   color: var(--text-color);
   opacity: 0.6;
   cursor: pointer;
-  padding: 0.3rem;
+  padding: 0.25rem;
   border-radius: 6px;
   transition: opacity 0.2s;
 }
@@ -715,19 +818,20 @@
 }
 
 .modalBody {
-  padding: 1.5rem;
+  padding: 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.85rem;
   max-height: 75vh;
   overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .modalFooter {
   display: flex;
   justify-content: flex-end;
-  gap: 0.75rem;
-  padding: 1.25rem 1.5rem;
+  gap: 0.6rem;
+  padding: 1rem 1.25rem;
   border-top: 1px solid var(--border-color);
   background-color: rgba(128, 128, 128, 0.02);
 }
@@ -749,3 +853,29 @@
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 640px) {
+  .calendarDaysGrid {
+    gap: 0.2rem;
+  }
+  .dayCell {
+    min-height: 48px;
+    padding: 0.25rem 0.15rem;
+    border-radius: 6px;
+  }
+  .dayNumber {
+    font-size: 0.75rem;
+  }
+  .eventMiniBadge {
+    font-size: 0.58rem;
+    padding: 0.08rem 0.2rem;
+  }
+  .calendarMainCard, .daySidebarCard, .settingsCard {
+    padding: 0.85rem;
+    border-radius: 12px;
+  }
+  .kpiGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
