@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { MapPin, Search, Loader2, Navigation } from "lucide-react";
+import "leaflet/dist/leaflet.css";
 
 interface InteractiveLocationPickerProps {
   lat: number;
@@ -76,44 +77,78 @@ export default function InteractiveLocationPicker({
 
   // Initialize Leaflet Map
   useEffect(() => {
+    let isCancelled = false;
     if (!mapContainerRef.current) return;
-    
-    // Ensure Leaflet JS is available
-    const L = (window as any).L;
-    if (!L) return;
 
-    if (!mapInstanceRef.current) {
-      const initialLat = lat || -34.9011;
-      const initialLng = lng || -56.1645;
+    import("leaflet").then((LModule) => {
+      if (isCancelled || !mapContainerRef.current) return;
+      const L = LModule.default || LModule;
 
-      const map = L.map(mapContainerRef.current).setView([initialLat, initialLng], 15);
-      
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      }).addTo(map);
+      if (!mapInstanceRef.current) {
+        const initialLat = lat || -34.9011;
+        const initialLng = lng || -56.1645;
 
-      // Custom icon or standard marker
-      const marker = L.marker([initialLat, initialLng], { draggable: true }).addTo(map);
+        const map = L.map(mapContainerRef.current).setView([initialLat, initialLng], 15);
 
-      // Click event on map to reposition marker
-      map.on("click", (e: any) => {
-        const clickedLat = e.latlng.lat;
-        const clickedLng = e.latlng.lng;
-        marker.setLatLng([clickedLat, clickedLng]);
-        performReverseGeocode(clickedLat, clickedLng);
-      });
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
 
-      // Drag event on marker
-      marker.on("dragend", () => {
-        const pos = marker.getLatLng();
-        performReverseGeocode(pos.lat, pos.lng);
-      });
+        const pinIcon = L.divIcon({
+          className: "custom-interactive-map-pin",
+          html: `
+            <div style="
+              position: relative;
+              width: 38px;
+              height: 44px;
+              transform: translate(-19px, -44px);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              pointer-events: none;
+            ">
+              <div style="
+                position: absolute;
+                bottom: 0px;
+                width: 14px;
+                height: 14px;
+                background-color: #2563eb;
+                opacity: 0.5;
+                border-radius: 50%;
+                transform: scale(1.6);
+              "></div>
+              <svg width="38" height="44" viewBox="0 0 24 28" fill="#2563eb" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));">
+                <path d="M12 2C7.58 2 4 5.58 4 10c0 5.25 8 13.5 8 13.5s8-8.25 8-13.5c0-4.42-3.58-8-8-8z"></path>
+                <circle cx="12" cy="10" r="3.2" fill="#ffffff"></circle>
+              </svg>
+            </div>
+          `,
+          iconSize: [0, 0],
+        });
 
-      mapInstanceRef.current = map;
-      markerInstanceRef.current = marker;
-    }
+        const marker = L.marker([initialLat, initialLng], { draggable: true, icon: pinIcon }).addTo(map);
+
+        // Click event on map to reposition marker
+        map.on("click", (e: any) => {
+          const clickedLat = e.latlng.lat;
+          const clickedLng = e.latlng.lng;
+          marker.setLatLng([clickedLat, clickedLng]);
+          performReverseGeocode(clickedLat, clickedLng);
+        });
+
+        // Drag event on marker
+        marker.on("dragend", () => {
+          const pos = marker.getLatLng();
+          performReverseGeocode(pos.lat, pos.lng);
+        });
+
+        mapInstanceRef.current = map;
+        markerInstanceRef.current = marker;
+      }
+    });
 
     return () => {
+      isCancelled = true;
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;

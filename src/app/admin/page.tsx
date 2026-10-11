@@ -31,7 +31,7 @@ export default async function AutoAdminDashboard() {
 
   const [vehicles, leads, eventsRes, inbox] = await Promise.all([
     agencyId ? getVehicles(agencyId) : Promise.resolve([]),
-    getAutoLeads(agencyId),
+    agencyId ? getAutoLeads(agencyId) : Promise.resolve([]),
     (supabaseAdmin.from("events") as any).select("*").eq("agency_id", agencyId),
     getInboxConversations(agencyId || undefined),
   ]);
