@@ -139,7 +139,7 @@ export default function OnboardingTour({
         !isSidebarStep &&
         (rect.top < 60 || rect.bottom > window.innerHeight - 60)
       ) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
 
       setTargetRect((prev) => {
@@ -169,7 +169,7 @@ export default function OnboardingTour({
     }
 
     const targetStep = forcedStep ?? stepRef.current;
-    trackingEndTimeRef.current = Date.now() + 1000;
+    trackingEndTimeRef.current = Date.now() + 1500;
 
     // Medición inmediata sin delay: si la página está cargando, limpiar halo viejo
     const foundImmediately = updateTargetPosition(targetStep);
@@ -340,9 +340,20 @@ export default function OnboardingTour({
     return `${outerPath} ${innerPath}`;
   };
 
+  const resetContentScroll = () => {
+    if (typeof document !== "undefined") {
+      const contentEl = document.querySelector('[class*="contentArea"]');
+      if (contentEl) {
+        contentEl.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
   // Manejo de avance de pasos
   const handleNext = () => {
     isBackNavigationRef.current = false;
+    resetContentScroll();
     if (step === 1) {
       // Paso 1 -> Ir al Editor Web (Paso 2)
       router.push(getAdminUrl("website"));
@@ -396,6 +407,7 @@ export default function OnboardingTour({
   // Manejo de retroceso
   const handleBack = () => {
     isBackNavigationRef.current = true;
+    resetContentScroll();
     if (step === 2) {
       // Paso 2 (Editor Web) -> Regresa al Paso 1 (Dashboard señalando Página Web en menú lateral)
       router.push(getAdminUrl(""));
@@ -486,7 +498,7 @@ export default function OnboardingTour({
 
   if (!isOpen) return null;
 
-  // Posicionamiento inteligente del popover: NUNCA se corta en la parte inferior
+  // Posicionamiento inteligente del popover: NUNCA se corta en la parte inferior ni bordes
   const cardWidth = 360;
   const cardEstimatedHeight = 280;
   const margin = 16;
@@ -497,11 +509,13 @@ export default function OnboardingTour({
   let popoverTop = Math.max(margin, (winHeight - cardEstimatedHeight) / 2);
   let arrowDirection: "left" | "top" = "left";
   let arrowOffsetY = 24;
+  let arrowOffsetX = 24;
   const hasTarget = !!targetRect && step !== 9;
 
   if (hasTarget && targetRect && typeof window !== "undefined") {
     const spaceRight = winWidth - targetRect.right;
     const targetCenterY = targetRect.top + targetRect.height / 2;
+    const targetCenterX = targetRect.left + targetRect.width / 2;
 
     // Límite superior seguro para que la tarjeta completa quede SIEMPRE dentro de la pantalla
     const maxSafeTop = Math.max(
@@ -519,11 +533,19 @@ export default function OnboardingTour({
         Math.min(cardEstimatedHeight - 50, targetCenterY - popoverTop - 18),
       );
     } else {
-      // Posición abajo o arriba si el espacio lateral es estrecho
-      popoverLeft = Math.max(
-        margin,
-        Math.min(winWidth - cardWidth - margin, targetRect.left),
-      );
+      // Posición abajo (o arriba si el espacio inferior es insuficiente)
+      if (targetRect.width > cardWidth) {
+        popoverLeft = Math.max(
+          margin,
+          Math.min(winWidth - cardWidth - margin, targetRect.left),
+        );
+      } else {
+        const idealLeft = targetCenterX - cardWidth / 2;
+        popoverLeft = Math.max(
+          margin,
+          Math.min(winWidth - cardWidth - margin, idealLeft),
+        );
+      }
 
       if (targetRect.bottom + 16 + cardEstimatedHeight <= winHeight - margin) {
         // Cabe abajo
@@ -531,11 +553,19 @@ export default function OnboardingTour({
         popoverTop = targetRect.bottom + 16;
       } else {
         // Colocar arriba
-        arrowDirection = "left";
+        arrowDirection = "top";
         popoverTop = Math.max(
           margin,
           targetRect.top - cardEstimatedHeight - 16,
         );
+      }
+
+      // Flecha vertical: centrar exactamente con el objetivo señalado
+      if (targetRect.width > cardWidth) {
+        arrowOffsetX = 32;
+      } else {
+        const idealArrowX = targetCenterX - popoverLeft - 18; // 18 = mitad de la flecha de 36px
+        arrowOffsetX = Math.max(20, Math.min(cardWidth - 56, idealArrowX));
       }
       arrowOffsetY = 0;
     }
@@ -712,7 +742,11 @@ export default function OnboardingTour({
                 <ArrowPointerLeftIcon size={20} strokeWidth={2.8} />
               </div>
             ) : (
-              <div className={styles.pointerArrowTop} title="Sección señalada">
+              <div 
+                className={styles.pointerArrowTop} 
+                style={{ marginLeft: `${arrowOffsetX}px` }}
+                title="Sección señalada"
+              >
                 <ArrowPointerUpIcon size={20} strokeWidth={2.8} />
               </div>
             ))}
