@@ -29,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className={`${inter.variable} ${outfit.variable}`} suppressHydrationWarning>
+    <html lang="es" className={`${inter.variable} ${outfit.variable} theme-dark`} suppressHydrationWarning>
       <head>
         <link rel="icon" type="image/png" href="/icon.png" />
         <link rel="shortcut icon" href="/icon.png" />
@@ -41,19 +41,25 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: `
           (function() {
             try {
-              const theme = localStorage.getItem('crm-theme') || 'light';
-              const pattern = localStorage.getItem('crm-bg-pattern') || 'topography';
-              
+              var path = window.location.pathname;
+              var isAdmin = path.startsWith('/admin') || path.startsWith('/superadmin');
               var classes = ['${inter.variable}', '${outfit.variable}'];
-              if (theme && theme !== 'system') {
-                classes.push('theme-' + theme);
+              if (isAdmin) {
+                var theme = localStorage.getItem('crm-theme') || 'light';
+                if (theme === 'dark') theme = 'dark-dim';
+                var pattern = localStorage.getItem('crm-bg-pattern') || 'topography';
+                if (theme && theme !== 'system') {
+                  classes.push('theme-' + theme);
+                } else {
+                  classes.push('theme-light');
+                }
+                if (path.startsWith('/superadmin') || pattern === 'topography' || !pattern) {
+                  classes.push('bg-pattern-topography');
+                } else if (pattern === 'gradient' || pattern === 'emerald') {
+                  classes.push('bg-pattern-gradient');
+                }
               } else {
-                classes.push('theme-light');
-              }
-              if (pattern === 'topography' || !pattern) {
-                classes.push('bg-pattern-topography');
-              } else if (pattern === 'gradient' || pattern === 'emerald') {
-                classes.push('bg-pattern-gradient');
+                classes.push('theme-dark');
               }
               document.documentElement.className = classes.join(' ');
             } catch (e) {}

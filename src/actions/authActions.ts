@@ -3,9 +3,42 @@
 import { cookies } from "next/headers";
 import { supabase } from "@/lib/supabase";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { createSignedToken, verifySignedToken } from "@/lib/sessionToken";
-import { sendPasswordResetEmail, sendSuperAdminInvitationEmail } from "@/actions/emailActions";
+import {
+  createSignedToken,
+  verifySignedToken,
+  getWorkspaceCode,
+  applySessionCookies,
+  removeSessionCookies,
+} from "@/lib/iam/session";
+import {
+  hashPassword,
+  verifyPassword,
+  generateSecureOtp,
+} from "@/lib/iam/crypto";
+import { isSuperAdmin } from "@/lib/iam/rbac";
+import {
+  checkLoginRateLimit,
+  recordFailedLogin,
+  resetLoginRateLimit,
+  checkOtpRequestRateLimit,
+  recordOtpRequest,
+  checkOtpVerifyRateLimit,
+  recordOtpVerifyFailed,
+  resetOtpVerifyRateLimit,
+} from "@/lib/iam/rateLimiter";
+import { 
+  sendPasswordResetEmail, 
+  sendSuperAdminInvitationEmail,
+  sendRegistrationOtpEmail,
+  sendWelcomeEmail
+} from "@/actions/emailActions";
 import { getUserPasswordHash, setUserPasswordHash } from "@/lib/persistentUserStore";
+import { isSubdomainAvailable } from "@/lib/subdomainHistoryStore";
+import { savePersistentAgencySettings } from "@/lib/persistentAgencyStore";
+import { isAgencyDeleted, unmarkDeletedAgency } from "@/lib/deletedAgenciesStore";
+
+// Re-exportar funciones criptográficas para compatibilidad
+export { hashPassword, verifyPassword, generateSecureOtp };
 
 // In-memory store fallback para códigos OTP de recuperación en entorno demo/desarrollo si la DB no está disponible
 const demoResetStore = new Map<string, { code: string; expiresAt: number }>();
@@ -36,197 +69,286 @@ export async function findAuthUserByEmail(email: string) {
   return null;
 }
 
-/**
- * Función de hashing segura Web Crypto SHA-256 compatible con Cloudflare Workers & Node.js
- */
-export async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password + "_salt_n_autos_2026");
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
 export async function login(email: string, password?: string) {
-  if (!email || !email.trim()) {
-    return { success: false, error: "El correo electrónico es requerido." };
-  }
-
-  if (!password || !password.trim()) {
-    return { success: false, error: "La contraseña es requerida." };
-  }
-
-  const cleanEmail = email.toLowerCase().trim();
-  const rawPassword = password.trim();
-  const client = supabaseAdmin || supabase;
-  const isSuperAdminEmail = cleanEmail === "mauricio.negrin@n-sistemas.com";
-  let user: any = null;
-
-  // 1. Consultar usuario en public.users (sin exigir password_hash)
   try {
-    const res = await (client.from("users") as any)
-      .select("id, agency_id, name, email, role, created_at, reset_code, reset_expires_at")
-      .ilike("email", cleanEmail)
-      .maybeSingle();
-    user = res.data;
-  } catch (err) {
-    console.error("Error al consultar Supabase en login:", err);
-  }
-
-  let authenticated = false;
-  let authUser: any = null;
-  const inputHash = await hashPassword(rawPassword);
-
-  // 2. Intentar autenticar primero con Supabase Auth Cloud (persistencia indestructible en la nube)
-  try {
-    const authRes = await client.auth.signInWithPassword({
-      email: cleanEmail,
-      password: rawPassword,
-    });
-
-    if (authRes.data?.user) {
-      authenticated = true;
-      authUser = authRes.data.user;
+    if (!email || !email.trim()) {
+      return { success: false, error: "El correo electrónico es requerido." };
     }
-  } catch (authErr) {
-    console.warn("Aviso: Error al intentar signInWithPassword en Supabase Auth:", authErr);
-  }
 
-  // 3. Si no autenticó directamente con signInWithPassword, verificar en Auth y aprovisionar/sincronizar
-  if (!authenticated) {
+    if (!password || !password.trim()) {
+      return { success: false, error: "La contraseña es requerida." };
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const rawPassword = password.trim();
+
+    // 0. Rate limiting defensivo contra ataques de fuerza bruta y credential stuffing
+    const rateLimit = checkLoginRateLimit(cleanEmail);
+    if (!rateLimit.allowed) {
+      return {
+        success: false,
+        error: `Demasiados intentos de acceso fallidos. Por seguridad, espera ${rateLimit.retryAfterSeconds} segundos antes de reintentar.`,
+      };
+    }
+
+    const client = supabaseAdmin || supabase;
+    const isSuperAdminEmail = cleanEmail === "mauricio.negrin@n-sistemas.com";
+    let user: any = null;
+
+    // Verificar si la cuenta o su organización fue eliminada por el Superadmin
+    if (!isSuperAdminEmail && isAgencyDeleted(undefined, undefined, cleanEmail)) {
+      return {
+        success: false,
+        error: "Tu organización ha sido eliminada por el administrador. El acceso a esta cuenta no está permitido.",
+      };
+    }
+
+    // 1. Consultar usuario en public.users (sin exigir password_hash)
     try {
-      authUser = await findAuthUserByEmail(cleanEmail);
-    } catch (e) {
-      console.warn("Error buscando authUser:", e);
+      const res = await (client.from("users") as any)
+        .select("id, agency_id, name, email, role, created_at, reset_code, reset_expires_at")
+        .ilike("email", cleanEmail)
+        .maybeSingle();
+      user = res.data;
+    } catch (err) {
+      console.error("Error al consultar Supabase en login:", err);
     }
 
-    if (!authUser) {
-      // El usuario aún no existe en Supabase Auth Cloud.
-      // Si es Superadmin, aprovisionamos la cuenta de forma definitiva con la contraseña ingresada!
-      if (isSuperAdminEmail) {
-        try {
-          const createRes = await client.auth.admin.createUser({
-            email: cleanEmail,
-            password: rawPassword,
-            email_confirm: true,
-            user_metadata: {
-              name: "Mauricio Negrin",
-              role: "superadmin",
-              agency_id: "00000000-0000-0000-0000-000000000000",
-              password_hash: inputHash,
-            },
-          });
+    if (!isSuperAdminEmail && user?.agency_id && isAgencyDeleted(user.agency_id, undefined, cleanEmail)) {
+      return {
+        success: false,
+        error: "Tu organización ha sido eliminada por el administrador. El acceso a esta cuenta no está permitido.",
+      };
+    }
 
-          if (createRes.data?.user) {
-            authenticated = true;
-            authUser = createRes.data.user;
-          }
-        } catch (createErr) {
-          console.error("Error aprovisionando superadmin en Supabase Auth:", createErr);
-        }
-      } else if (user) {
-        // Es un usuario que ya existe en public.users (ej. creado por admin/organización), pero aún sin auth.users
-        try {
-          const createRes = await client.auth.admin.createUser({
-            email: cleanEmail,
-            password: rawPassword,
-            email_confirm: true,
-            user_metadata: {
-              name: user.name || "Usuario",
-              role: user.role || "admin",
-              agency_id: user.agency_id || "agency-starter",
-              password_hash: inputHash,
-            },
-          });
+    let authenticated = false;
+    let authUser: any = null;
+    let activeHash: string | null = null;
 
-          if (createRes.data?.user) {
-            authenticated = true;
-            authUser = createRes.data.user;
-          }
-        } catch (createErr) {
-          console.error("Error aprovisionando usuario existente en Supabase Auth:", createErr);
-        }
+    // 2. Intentar autenticar primero con Supabase Auth Cloud
+    try {
+      const authRes = await client.auth.signInWithPassword({
+        email: cleanEmail,
+        password: rawPassword,
+      });
+
+      if (authRes.data?.user) {
+        authenticated = true;
+        authUser = authRes.data.user;
       }
-    } else {
-      // El usuario SÍ existe en Supabase Auth Cloud, pero signInWithPassword falló.
-      // Comprobar si tiene un hash registrado en user_metadata o en el store local para actualizar su contraseña
-      const metaHash = authUser.user_metadata?.password_hash;
-      const storedHash = getUserPasswordHash(cleanEmail) || demoPasswordStore.get(cleanEmail);
+    } catch (authErr) {
+      console.warn("Aviso: Error al intentar signInWithPassword en Supabase Auth:", authErr);
+    }
 
-      if ((metaHash && metaHash === inputHash) || (storedHash && storedHash === inputHash)) {
-        try {
-          await client.auth.admin.updateUserById(authUser.id, {
-            password: rawPassword,
-            email_confirm: true,
-            user_metadata: {
-              ...authUser.user_metadata,
-              password_hash: inputHash,
-            },
-          });
-          authenticated = true;
-        } catch (updateErr) {
-          console.error("Error sincronizando contraseña en Supabase Auth:", updateErr);
+    // 3. Si no autenticó directamente con signInWithPassword, verificar mediante motor IAM
+    if (!authenticated) {
+      try {
+        authUser = await findAuthUserByEmail(cleanEmail);
+      } catch (e) {
+        console.warn("Error buscando authUser:", e);
+      }
+
+      if (!authUser) {
+        // El usuario aún no existe en Supabase Auth Cloud
+        if (isSuperAdminEmail) {
+          const newPbkdf2 = await hashPassword(rawPassword);
+          try {
+            const createRes = await client.auth.admin.createUser({
+              email: cleanEmail,
+              password: rawPassword,
+              email_confirm: true,
+              user_metadata: {
+                name: "Mauricio Negrin",
+                role: "superadmin",
+                agency_id: "00000000-0000-0000-0000-000000000000",
+                password_hash: newPbkdf2,
+              },
+            });
+
+            if (createRes.data?.user) {
+              authenticated = true;
+              authUser = createRes.data.user;
+              activeHash = newPbkdf2;
+            }
+          } catch (createErr) {
+            console.error("Error aprovisionando superadmin en Supabase Auth:", createErr);
+          }
+        } else if (user) {
+          const newPbkdf2 = await hashPassword(rawPassword);
+          try {
+            const createRes = await client.auth.admin.createUser({
+              email: cleanEmail,
+              password: rawPassword,
+              email_confirm: true,
+              user_metadata: {
+                name: user.name || "Usuario",
+                role: user.role || "admin",
+                agency_id: user.agency_id || "agency-starter",
+                password_hash: newPbkdf2,
+              },
+            });
+
+            if (createRes.data?.user) {
+              authenticated = true;
+              authUser = createRes.data.user;
+              activeHash = newPbkdf2;
+            }
+          } catch (createErr) {
+            console.error("Error aprovisionando usuario existente en Supabase Auth:", createErr);
+          }
         }
       } else {
-        return { success: false, error: "Contraseña incorrecta." };
+        // El usuario existe en Supabase Auth. Verificar hash con verifyPassword (soporta PBKDF2 y upgrade transparente)
+        const storedHash =
+          authUser.user_metadata?.password_hash ||
+          getUserPasswordHash(cleanEmail) ||
+          demoPasswordStore.get(cleanEmail);
+
+        if (storedHash) {
+          const verification = await verifyPassword(rawPassword, storedHash);
+          if (verification.valid) {
+            authenticated = true;
+
+            // Si requiere re-hash (era SHA-256 legacy), actualizarlo inmediatamente a PBKDF2
+            if (verification.needsRehash) {
+              const upgradedHash = await hashPassword(rawPassword);
+              activeHash = upgradedHash;
+              try {
+                await client.auth.admin.updateUserById(authUser.id, {
+                  password: rawPassword,
+                  email_confirm: true,
+                  user_metadata: {
+                    ...authUser.user_metadata,
+                    password_hash: upgradedHash,
+                  },
+                });
+              } catch (upgErr) {
+                console.warn("Aviso actualizando hash a PBKDF2:", upgErr);
+              }
+            } else {
+              activeHash = storedHash;
+            }
+          } else {
+            recordFailedLogin(cleanEmail);
+            return { success: false, error: "Contraseña incorrecta." };
+          }
+        }
       }
     }
-  }
 
-  if (!authenticated) {
+    if (!authenticated) {
+      recordFailedLogin(cleanEmail);
+      return {
+        success: false,
+        error: "Contraseña incorrecta o la cuenta no tiene contraseña configurada. Si no recuerdas tu contraseña, haz clic en '¿Olvidaste tu contraseña?' para restablecerla.",
+      };
+    }
+
+    // Éxito: restablecer intentos de fuerza bruta
+    resetLoginRateLimit(cleanEmail);
+
+    // 4. Sincronizar usuario en public.users
+    const effectiveUserId =
+      authUser?.id ||
+      user?.id ||
+      (isSuperAdminEmail
+        ? "00000000-0000-0000-0000-000000000000"
+        : `user-${cleanEmail.replace(/[^a-z0-9]/g, "-")}`);
+    const effectiveAgencyId = isSuperAdminEmail
+      ? "00000000-0000-0000-0000-000000000000"
+      : (user?.agency_id || authUser?.user_metadata?.agency_id || (cleanEmail === "mauricionegrinmogni1@gmail.com" ? "7bdc2014-f7e0-44c3-a8b4-33152937bfa6" : `agency-${effectiveUserId}`));
+    const effectiveName = isSuperAdminEmail
+      ? "Mauricio Negrin"
+      : (user?.name || authUser?.user_metadata?.name || "Usuario");
+
+    // Verificar si la organización asignada está dada de baja o eliminada
+    if (!isSuperAdminEmail) {
+      if (isAgencyDeleted(effectiveAgencyId, undefined, cleanEmail)) {
+        return {
+          success: false,
+          error: "Tu organización ha sido eliminada por el administrador. El acceso a esta cuenta no está permitido.",
+        };
+      }
+
+      if (client && effectiveAgencyId && effectiveAgencyId !== "00000000-0000-0000-0000-000000000000") {
+        try {
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(effectiveAgencyId);
+          let checkRes: any;
+          if (isUuid) {
+            checkRes = await (client.from("agencies") as any).select("id").eq("id", effectiveAgencyId).maybeSingle();
+          } else {
+            checkRes = await (client.from("agencies") as any).select("id").ilike("subdomain", effectiveAgencyId.toLowerCase()).maybeSingle();
+          }
+          if (checkRes && !checkRes.error && !checkRes.data && !effectiveAgencyId.startsWith("agency-user-")) {
+            return {
+              success: false,
+              error: "Tu organización ha sido eliminada por el administrador. El acceso a esta cuenta no está permitido.",
+            };
+          }
+        } catch (_) {}
+      }
+    }
+
+    try {
+      if (!user) {
+        await (client.from("users") as any).insert({
+          id: effectiveUserId,
+          agency_id: effectiveAgencyId,
+          name: effectiveName,
+          email: cleanEmail,
+          role: "admin",
+        });
+      }
+    } catch (syncErr) {
+      console.warn("Aviso: No se pudo sincronizar usuario en public.users:", syncErr);
+    }
+
+    if (activeHash) {
+      setUserPasswordHash(cleanEmail, activeHash);
+      demoPasswordStore.set(cleanEmail, activeHash);
+    }
+
+    // Obtener nombre y subdominio de la automotora para la sesión
+    let sessionAgencyName: string | undefined = undefined;
+    let sessionSubdomain: string | undefined = undefined;
+    if (effectiveAgencyId && effectiveAgencyId !== "00000000-0000-0000-0000-000000000000") {
+      try {
+        const { data: dbAg } = await (client.from("agencies") as any)
+          .select("name, subdomain")
+          .eq("id", effectiveAgencyId)
+          .maybeSingle();
+        if (dbAg) {
+          sessionAgencyName = dbAg.name;
+          sessionSubdomain = dbAg.subdomain;
+        }
+      } catch (_) {}
+    }
+
+    const workspaceCode = await getWorkspaceCode(effectiveAgencyId, effectiveUserId, cleanEmail);
+
+    // Generar sesión con token firmado criptográficamente
+    const sessionData = {
+      id: effectiveUserId,
+      email: cleanEmail,
+      name: effectiveName,
+      role: isSuperAdminEmail ? "superadmin" : (user?.role || authUser?.user_metadata?.role || "admin"),
+      agency_id: effectiveAgencyId,
+      workspace_code: workspaceCode,
+      ...(sessionAgencyName ? { agency_name: sessionAgencyName } : {}),
+      ...(sessionSubdomain ? { subdomain: sessionSubdomain } : {}),
+    };
+
+    const cookieStore = await cookies();
+    await applySessionCookies(cookieStore, sessionData, 60 * 60 * 24 * 7);
+
+    return { success: true, user: sessionData };
+  } catch (globalErr: any) {
+    console.error("Error inesperado en server action login:", globalErr);
     return {
       success: false,
-      error: "La cuenta no posee una contraseña configurada o las credenciales son incorrectas. Por favor, utiliza la opción '¿Olvidaste tu contraseña?' para establecer tu contraseña.",
+      error: globalErr?.message || "Ocurrió un error inesperado al procesar el inicio de sesión. Por favor intenta de nuevo.",
     };
   }
-
-  // 4. Sincronizar usuario en public.users (con role 'admin' para cumplir restricción users_role_check)
-  const effectiveUserId = authUser?.id || user?.id || (isSuperAdminEmail ? "00000000-0000-0000-0000-000000000000" : `user-${cleanEmail.replace(/[^a-z0-9]/g, "-")}`);
-  const effectiveAgencyId = isSuperAdminEmail
-    ? "00000000-0000-0000-0000-000000000000"
-    : (user?.agency_id || authUser?.user_metadata?.agency_id || (cleanEmail === "mauricionegrinmogni1@gmail.com" ? "7bdc2014-f7e0-44c3-a8b4-33152937bfa6" : `agency-${effectiveUserId}`));
-  const effectiveName = isSuperAdminEmail
-    ? "Mauricio Negrin"
-    : (user?.name || authUser?.user_metadata?.name || "Usuario");
-
-  try {
-    if (!user) {
-      await (client.from("users") as any).insert({
-        id: effectiveUserId,
-        agency_id: effectiveAgencyId,
-        name: effectiveName,
-        email: cleanEmail,
-        role: "admin", // PostgreSQL users_role_check solo acepta 'admin', 'manager', 'agent'
-      });
-    }
-  } catch (syncErr) {
-    console.warn("Aviso: No se pudo sincronizar usuario en public.users:", syncErr);
-  }
-
-  // Guardar en caches locales
-  setUserPasswordHash(cleanEmail, inputHash);
-  demoPasswordStore.set(cleanEmail, inputHash);
-
-  // Generar sesión con token firmado criptográficamente
-  const sessionData = {
-    id: effectiveUserId,
-    email: cleanEmail,
-    name: effectiveName,
-    role: isSuperAdminEmail ? "superadmin" : (user?.role || authUser?.user_metadata?.role || "admin"),
-    agency_id: effectiveAgencyId,
-  };
-
-  const token = await createSignedToken(sessionData);
-
-  const cookieStore = await cookies();
-  cookieStore.set("admin-session", token, {
-    path: "/",
-    httpOnly: false,
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 60 * 24 * 7, // 1 semana
-  });
-
-  return { success: true, user: sessionData };
 }
 
 /**
@@ -244,11 +366,7 @@ export async function loginSuperAdmin(email: string, password?: string): Promise
     return { success: false, error: res.error || "Error al iniciar sesión." };
   }
 
-  const cleanEmail = (res.user.email || "").toLowerCase().trim();
-  const isSuperAdminRole = res.user.role === "superadmin" || res.user.role === "Superadmin";
-  const isSuperAdminEmail = cleanEmail === "mauricio.negrin@n-sistemas.com";
-
-  if (!isSuperAdminRole && !isSuperAdminEmail) {
+  if (!isSuperAdmin(res.user)) {
     // Limpiar sesión creada por login() ya que este usuario no tiene permisos de Superadmin
     await logout();
     return {
@@ -263,13 +381,7 @@ export async function loginSuperAdmin(email: string, password?: string): Promise
 
 export async function logout() {
   const cookieStore = await cookies();
-  cookieStore.set("admin-session", "", {
-    path: "/",
-    httpOnly: false,
-    maxAge: 0,
-    expires: new Date(0),
-  });
-  cookieStore.delete({ name: "admin-session", path: "/" });
+  await removeSessionCookies(cookieStore);
   return { success: true };
 }
 
@@ -280,6 +392,19 @@ export async function getCurrentUser() {
     if (!token) return null;
 
     const decoded = await verifySignedToken(token);
+    if (!decoded) return null;
+
+    // Si la organización fue eliminada y no es Superadmin, invalidar y revocar sesión
+    if (!isSuperAdmin(decoded)) {
+      if (isAgencyDeleted(decoded.agency_id, decoded.subdomain, decoded.email)) {
+        await removeSessionCookies(cookieStore);
+        return null;
+      }
+    }
+
+    if (decoded && !decoded.workspace_code) {
+      decoded.workspace_code = await getWorkspaceCode(decoded.agency_id, decoded.id, decoded.email);
+    }
     return decoded;
   } catch (e) {
     return null;
@@ -292,6 +417,8 @@ export async function registerUserSession(sessionData: {
   name: string;
   role?: string;
   agency_id?: string;
+  agency_name?: string;
+  subdomain?: string;
 }) {
   try {
     const data = {
@@ -300,17 +427,12 @@ export async function registerUserSession(sessionData: {
       name: sessionData.name,
       role: sessionData.role || "admin",
       agency_id: sessionData.agency_id || "agency-starter",
+      ...(sessionData.agency_name ? { agency_name: sessionData.agency_name } : {}),
+      ...(sessionData.subdomain ? { subdomain: sessionData.subdomain } : {}),
     };
 
-    const token = await createSignedToken(data);
-
     const cookieStore = await cookies();
-    cookieStore.set("admin-session", token, {
-      path: "/",
-      httpOnly: false,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24 * 7, // 1 semana
-    });
+    await applySessionCookies(cookieStore, data, 60 * 60 * 24 * 7);
 
     return { success: true, user: data };
   } catch (e: any) {
@@ -320,9 +442,9 @@ export async function registerUserSession(sessionData: {
 }
 
 /**
- * Solicita la recuperación de contraseña generando un código OTP aleatorio de 6 dígitos
+ * Solicita la recuperación de contraseña generando un código OTP aleatorio criptográfico de 6 dígitos
  * y enviándolo por correo mediante Resend.
- * Persiste el código tanto en public.users como en Supabase Auth user_metadata para máxima confiabilidad.
+ * Protegido contra ataques de denegación de servicio y saturación de correo mediante rate limiting.
  */
 export async function requestPasswordReset(email: string) {
   if (!email || !email.trim() || !email.includes("@")) {
@@ -330,10 +452,21 @@ export async function requestPasswordReset(email: string) {
   }
 
   const cleanEmail = email.toLowerCase().trim();
+
+  // Rate limiting para solicitudes de OTP
+  const rateLimit = checkOtpRequestRateLimit(cleanEmail);
+  if (!rateLimit.allowed) {
+    return {
+      success: false,
+      error: `Has alcanzado el límite de solicitudes de recuperación. Por favor espera ${rateLimit.retryAfterSeconds} segundos antes de solicitar otro código.`,
+    };
+  }
+  recordOtpRequest(cleanEmail);
+
   const isSuperAdminEmail = cleanEmail === "mauricio.negrin@n-sistemas.com";
 
-  // Generar código OTP aleatorio de 6 dígitos (ej: 849204)
-  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+  // Generar código OTP criptográfico seguro de 6 dígitos
+  const otpCode = generateSecureOtp(6);
   const expiresAtMs = Date.now() + 15 * 60 * 1000; // Expira en 15 minutos
   const expiresAtIso = new Date(expiresAtMs).toISOString();
 
@@ -370,7 +503,7 @@ export async function requestPasswordReset(email: string) {
     console.warn("Aviso: No se pudo guardar reset_code en public.users:", err);
   }
 
-  // 2. Guardar también en Supabase Auth user_metadata (persistente en la nube entre workers)
+  // 2. Guardar también en Supabase Auth user_metadata
   try {
     const authUser = await findAuthUserByEmail(cleanEmail);
     if (authUser) {
@@ -409,8 +542,9 @@ export async function requestPasswordReset(email: string) {
 }
 
 /**
- * Verifica el código OTP de 6 dígitos y establece una nueva contraseña directamente
- * en Supabase Auth Cloud de forma permanente e indestructible.
+ * Verifica el código OTP de 6 dígitos y establece una nueva contraseña con hashing PBKDF2
+ * directamente en Supabase Auth Cloud de forma permanente e indestructible.
+ * Protegido contra ataques de fuerza bruta en los códigos OTP de 6 dígitos.
  */
 export async function verifyOTPAndResetPassword(
   email: string,
@@ -432,6 +566,16 @@ export async function verifyOTPAndResetPassword(
   const cleanEmail = email.toLowerCase().trim();
   const cleanCode = code.trim();
   const rawPassword = newPassword.trim();
+
+  // Rate limiting de intentos de verificación OTP
+  const rateLimit = checkOtpVerifyRateLimit(cleanEmail);
+  if (!rateLimit.allowed) {
+    return {
+      success: false,
+      error: `Demasiados intentos fallidos con el código de verificación. Por seguridad, espera ${rateLimit.retryAfterSeconds} segundos antes de reintentar.`,
+    };
+  }
+
   const isSuperAdminEmail = cleanEmail === "mauricio.negrin@n-sistemas.com";
   const client = supabaseAdmin || supabase;
   const newHash = await hashPassword(rawPassword);
@@ -488,13 +632,17 @@ export async function verifyOTPAndResetPassword(
   }
 
   if (!verified) {
+    recordOtpVerifyFailed(cleanEmail);
     return {
       success: false,
       error: "El código de verificación es incorrecto o ha expirado. Por favor solicita uno nuevo.",
     };
   }
 
-  // 4. ACTUALIZAR O CREAR CONTRASEÑA EN SUPABASE AUTH CLOUD
+  // Éxito: restablecer intentos de verificación
+  resetOtpVerifyRateLimit(cleanEmail);
+
+  // 4. ACTUALIZAR O CREAR CONTRASEÑA CON HASH PBKDF2
   try {
     if (authUser?.id) {
       await client.auth.admin.updateUserById(authUser.id, {
@@ -526,7 +674,7 @@ export async function verifyOTPAndResetPassword(
     console.error("Error al actualizar contraseña en Supabase Auth Cloud:", authErr);
   }
 
-  // 5. Limpiar reset_code en public.users (sin tocar password_hash)
+  // 5. Limpiar reset_code en public.users
   try {
     await (client.from("users") as any)
       .update({
@@ -582,10 +730,12 @@ export async function changePassword(currentPassword: string, newPassword: strin
   } catch (e) {}
 
   if (!isValid) {
-    const currentInputHash = await hashPassword(rawCurrentPassword);
     const storedHash = getUserPasswordHash(cleanEmail) || demoPasswordStore.get(cleanEmail);
-    if (storedHash && storedHash === currentInputHash) {
-      isValid = true;
+    if (storedHash) {
+      const check = await verifyPassword(rawCurrentPassword, storedHash);
+      if (check.valid) {
+        isValid = true;
+      }
     }
   }
 
@@ -593,7 +743,7 @@ export async function changePassword(currentPassword: string, newPassword: strin
     return { success: false, error: "La contraseña actual es incorrecta." };
   }
 
-  // 2. Actualizar contraseña en Supabase Auth Cloud
+  // 2. Actualizar contraseña con hash PBKDF2
   const newHash = await hashPassword(rawNewPassword);
   try {
     const authUser = await findAuthUserByEmail(cleanEmail);
@@ -632,7 +782,7 @@ export async function changePassword(currentPassword: string, newPassword: strin
 }
 
 /**
- * Activa la cuenta de un usuario invitado y establece su nueva contraseña.
+ * Activa la cuenta de un usuario invitado y establece su nueva contraseña con hash PBKDF2.
  */
 export async function activateUserAccount({
   email,
@@ -736,14 +886,8 @@ export async function activateUserAccount({
     agency_id: effectiveAgencyId,
   };
 
-  const token = await createSignedToken(sessionData);
   const cookieStore = await cookies();
-  cookieStore.set("admin-session", token, {
-    path: "/",
-    httpOnly: false,
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 60 * 24 * 7,
-  });
+  await applySessionCookies(cookieStore, sessionData, 60 * 60 * 24 * 7);
 
   return { success: true, user: sessionData };
 }
@@ -754,7 +898,7 @@ export async function activateUserAccount({
  */
 export async function sendSuperAdminPasswordInviteEmailAction(targetEmail: string = "mauricio.negrin@n-sistemas.com") {
   const cleanEmail = targetEmail.toLowerCase().trim();
-  const activationCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const activationCode = generateSecureOtp(6);
   const expiresAtMs = Date.now() + 24 * 60 * 60 * 1000;
   const expiresAtIso = new Date(expiresAtMs).toISOString();
   const client = supabaseAdmin || supabase;
@@ -842,5 +986,378 @@ export async function sendSuperAdminPasswordInviteEmailAction(targetEmail: strin
     };
   }
 }
+
+/**
+ * Valida la disponibilidad de un subdominio web para el formulario de registro en vivo.
+ */
+export async function checkSubdomainAvailableAction(
+  subdomain: string
+): Promise<{ available: boolean; reason?: string }> {
+  return await isSubdomainAvailable(subdomain);
+}
+
+export interface RegisterTrialParams {
+  name: string;
+  email: string;
+  password: string;
+  agencyName: string;
+  subdomain: string;
+  whatsapp?: string;
+  acceptedTerms?: boolean;
+}
+
+/**
+ * Registra una nueva automotora y su usuario administrador para la prueba gratis de 14 días.
+ * Crea la organización en agencies, el usuario en Supabase Auth & public.users,
+ * e inicia la sesión automáticamente con la cookie admin-session.
+ */
+export async function registerTrialAgency(params: RegisterTrialParams): Promise<{
+  success: boolean;
+  error?: string;
+  user?: any;
+  agencyId?: string;
+  agencyName?: string;
+  subdomain?: string;
+}> {
+  try {
+    const cleanName = (params.name || "").trim();
+    const cleanEmail = (params.email || "").toLowerCase().trim();
+    const rawPassword = (params.password || "").trim();
+    const cleanAgencyName = (params.agencyName || "").trim();
+    const cleanSubdomain = (params.subdomain || "").toLowerCase().trim().replace(/[^a-z0-9-]/g, "");
+    const cleanWhatsapp = (params.whatsapp || "").trim();
+
+    // 1. Validaciones iniciales
+    if (params.acceptedTerms === false) {
+      return {
+        success: false,
+        error: "Debes aceptar los Términos y Condiciones para registrar tu automotora.",
+      };
+    }
+    if (!cleanName || cleanName.length < 2) {
+      return { success: false, error: "Por favor ingresa tu nombre completo." };
+    }
+    if (!cleanEmail || !cleanEmail.includes("@") || !cleanEmail.includes(".")) {
+      return { success: false, error: "Por favor ingresa un correo electrónico válido." };
+    }
+    if (!rawPassword || rawPassword.length < 6) {
+      return { success: false, error: "La contraseña debe tener al menos 6 caracteres." };
+    }
+    if (!cleanAgencyName || cleanAgencyName.length < 2) {
+      return { success: false, error: "Por favor ingresa el nombre de tu automotora." };
+    }
+    if (!cleanSubdomain || cleanSubdomain.length < 3) {
+      return { success: false, error: "El subdominio web debe tener al menos 3 caracteres alfanuméricos." };
+    }
+
+    // 2. Verificar disponibilidad del subdominio
+    const subCheck = await isSubdomainAvailable(cleanSubdomain);
+    if (!subCheck.available) {
+      return {
+        success: false,
+        error: subCheck.reason || "El subdominio seleccionado ya está en uso o no se encuentra disponible.",
+      };
+    }
+
+    const client = supabaseAdmin || supabase;
+    const inputHash = await hashPassword(rawPassword);
+
+    // 3. Comprobar si ya existe una cuenta con este correo
+    if (client) {
+      try {
+        const { data: existingUser } = await (client.from("users") as any)
+          .select("id")
+          .ilike("email", cleanEmail)
+          .maybeSingle();
+
+        if (existingUser) {
+          return {
+            success: false,
+            error: "Ya existe una cuenta registrada con este correo electrónico. Por favor inicia sesión.",
+          };
+        }
+      } catch (e) {
+        console.warn("Aviso al comprobar usuario previo:", e);
+      }
+    }
+
+    // 4. Crear la organización / automotora en agencies
+    let agencyId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : "agency-" + Date.now();
+
+    if (client) {
+      try {
+        const { data: newAgency, error: agencyErr } = await (client.from("agencies") as any)
+          .insert({
+            name: cleanAgencyName,
+            subdomain: cleanSubdomain,
+            whatsapp: cleanWhatsapp || null,
+            primary_color: "#10b981",
+            secondary_color: "#059669",
+          })
+          .select("id")
+          .single();
+
+        if (!agencyErr && newAgency?.id) {
+          agencyId = newAgency.id;
+        } else if (agencyErr) {
+          console.warn("Aviso al registrar en tabla agencies:", agencyErr.message);
+        }
+      } catch (err) {
+        console.warn("Excepción al registrar agencia en Supabase:", err);
+      }
+    }
+
+    unmarkDeletedAgency(agencyId, cleanSubdomain);
+
+    // Persistir en memoria y almacenamiento de fallback
+    const initialAgencyRecord = {
+      id: agencyId,
+      name: cleanAgencyName,
+      subdomain: cleanSubdomain,
+      whatsapp: cleanWhatsapp || "+598 99 000 000",
+      contact_email: cleanEmail,
+      primary_color: "#10b981",
+      secondary_color: "#059669",
+    };
+    savePersistentAgencySettings(initialAgencyRecord, agencyId);
+    savePersistentAgencySettings(initialAgencyRecord, cleanSubdomain);
+
+    // 5. Crear usuario en Supabase Auth
+    let userId = "user-" + Date.now();
+    if (client && client.auth && client.auth.admin) {
+      try {
+        const authRes = await client.auth.admin.createUser({
+          email: cleanEmail,
+          password: rawPassword,
+          email_confirm: true,
+          user_metadata: {
+            name: cleanName,
+            role: "admin",
+            agency_id: agencyId,
+            password_hash: inputHash,
+          },
+        });
+
+        if (authRes.data?.user?.id) {
+          userId = authRes.data.user.id;
+        } else if (authRes.error) {
+          if (
+            authRes.error.message?.toLowerCase().includes("already") ||
+            authRes.error.message?.toLowerCase().includes("exists") ||
+            authRes.error.message?.toLowerCase().includes("registrado")
+          ) {
+            const existingAuth = await findAuthUserByEmail(cleanEmail);
+            if (existingAuth) {
+              userId = existingAuth.id;
+              await client.auth.admin.updateUserById(userId, {
+                password: rawPassword,
+                user_metadata: { name: cleanName, role: "admin", agency_id: agencyId },
+              });
+            }
+          }
+        }
+      } catch (authErr) {
+        console.warn("Aviso al crear auth user en Supabase:", authErr);
+      }
+    }
+
+    // 6. Vincular o insertar en public.users
+    if (client) {
+      try {
+        await (client.from("users") as any).upsert({
+          id: userId,
+          agency_id: agencyId,
+          name: cleanName,
+          email: cleanEmail,
+          role: "admin",
+          password_hash: inputHash,
+        });
+      } catch (publicErr) {
+        console.warn("Aviso al vincular public.users:", publicErr);
+      }
+    }
+
+    // Almacenar hashes para sesión en memoria
+    setUserPasswordHash(cleanEmail, inputHash);
+    demoPasswordStore.set(cleanEmail, inputHash);
+
+    // 7. Establecer sesión autenticada con token firmado
+    const workspaceCode = await getWorkspaceCode(agencyId, userId, cleanEmail);
+    const sessionData = {
+      id: userId,
+      email: cleanEmail,
+      name: cleanName,
+      role: "admin",
+      agency_id: agencyId,
+      workspace_code: workspaceCode,
+      agency_name: cleanAgencyName,
+      subdomain: cleanSubdomain,
+    };
+
+    const cookieStore = await cookies();
+    await applySessionCookies(cookieStore, sessionData, 60 * 60 * 24 * 14); // 14 días de prueba gratis
+
+    // 8. Enviar correo de bienvenida tras registro exitoso
+    try {
+      await sendWelcomeEmail(cleanEmail, cleanName, cleanAgencyName, cleanSubdomain);
+    } catch (welcomeErr) {
+      console.warn("Aviso al enviar correo de bienvenida tras registro:", welcomeErr);
+    }
+
+    return {
+      success: true,
+      user: sessionData,
+      agencyId,
+      agencyName: cleanAgencyName,
+      subdomain: cleanSubdomain,
+    };
+  } catch (error: any) {
+    console.error("Error en registerTrialAgency:", error);
+    return {
+      success: false,
+      error: error?.message || "Ocurrió un error inesperado al crear tu cuenta. Por favor intenta nuevamente.",
+    };
+  }
+}
+
+// In-memory store para códigos OTP de verificación de registro
+const registrationOtpStore = new Map<string, { code: string; expiresAt: number; name?: string }>();
+const verifiedRegistrationEmails = new Map<string, number>();
+
+/**
+ * Genera y envía un código OTP de 6 dígitos al correo del usuario antes del registro definitivo.
+ */
+export async function sendRegistrationVerificationAction(email: string, name?: string) {
+  try {
+    if (!email || !email.trim() || !email.includes("@")) {
+      return { success: false, error: "Por favor ingresa un correo electrónico válido." };
+    }
+    const cleanEmail = email.toLowerCase().trim();
+    const cleanName = (name || "").trim() || "Usuario";
+
+    // 1. Rate limiting defensivo
+    const rateLimit = checkOtpRequestRateLimit(cleanEmail);
+    if (!rateLimit.allowed) {
+      return {
+        success: false,
+        error: `Demasiadas solicitudes. Por favor espera ${rateLimit.retryAfterSeconds} segundos antes de solicitar otro código.`,
+      };
+    }
+
+    // 2. Comprobar si ya existe una cuenta con este correo
+    const client = supabaseAdmin || supabase;
+    if (client) {
+      try {
+        const { data: existingUser } = await (client.from("users") as any)
+          .select("id")
+          .ilike("email", cleanEmail)
+          .maybeSingle();
+
+        if (existingUser) {
+          return {
+            success: false,
+            error: "Ya existe una cuenta registrada con este correo electrónico. Por favor inicia sesión.",
+          };
+        }
+      } catch (e) {
+        console.warn("Aviso al comprobar usuario previo en verificación:", e);
+      }
+    }
+
+    // 3. Generar código OTP seguro de 6 dígitos
+    const code = generateSecureOtp(6);
+    const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutos
+
+    registrationOtpStore.set(cleanEmail, { code, expiresAt, name: cleanName });
+    recordOtpRequest(cleanEmail);
+
+    // 4. Enviar correo vía Resend
+    const mailRes = await sendRegistrationOtpEmail(cleanEmail, code, cleanName);
+    if (!mailRes.success) {
+      console.warn("Aviso: Falló el envío del correo de verificación vía Resend:", mailRes.error);
+      // Fallback seguro en entorno de desarrollo / demo si aún no se cargó API key
+      if (process.env.NODE_ENV !== "production" || !process.env.RESEND_API_KEY || process.env.RESEND_API_KEY.startsWith("re_123456789")) {
+        return { 
+          success: true, 
+          message: `Código enviado. En entorno local o sin API key configurada, tu código es: ${code}`,
+          devCode: code
+        };
+      }
+      return {
+        success: false,
+        error: mailRes.error || "No se pudo enviar el correo de verificación. Por favor revisa la dirección e intenta nuevamente.",
+      };
+    }
+
+    return { success: true, message: "Código de verificación enviado exitosamente a tu correo." };
+  } catch (err: any) {
+    console.error("Error en sendRegistrationVerificationAction:", err);
+    return { success: false, error: "Error al enviar código de verificación." };
+  }
+}
+
+/**
+ * Valida el código OTP de 6 dígitos ingresado por el usuario.
+ */
+export async function verifyRegistrationCodeAction(email: string, code: string) {
+  try {
+    if (!email || !email.trim()) {
+      return { success: false, error: "El correo es requerido." };
+    }
+    if (!code || !code.trim()) {
+      return { success: false, error: "Por favor ingresa el código de 6 dígitos." };
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const cleanCode = code.trim();
+
+    // 1. Rate limiting de verificación
+    const rateLimit = checkOtpVerifyRateLimit(cleanEmail);
+    if (!rateLimit.allowed) {
+      return {
+        success: false,
+        error: `Demasiados intentos fallidos. Por seguridad, espera ${rateLimit.retryAfterSeconds} segundos.`,
+      };
+    }
+
+    const entry = registrationOtpStore.get(cleanEmail);
+    if (!entry) {
+      recordOtpVerifyFailed(cleanEmail);
+      return {
+        success: false,
+        error: "No encontramos un código activo para este correo. Por favor solicita uno nuevo.",
+      };
+    }
+
+    if (Date.now() > entry.expiresAt) {
+      registrationOtpStore.delete(cleanEmail);
+      recordOtpVerifyFailed(cleanEmail);
+      return {
+        success: false,
+        error: "El código ha expirado. Por favor solicita un nuevo código.",
+      };
+    }
+
+    if (entry.code !== cleanCode) {
+      recordOtpVerifyFailed(cleanEmail);
+      return {
+        success: false,
+        error: "El código ingresado es incorrecto. Verifica los 6 dígitos.",
+      };
+    }
+
+    // Código validado exitosamente
+    resetOtpVerifyRateLimit(cleanEmail);
+    registrationOtpStore.delete(cleanEmail);
+    verifiedRegistrationEmails.set(cleanEmail, Date.now() + 60 * 60 * 1000); // Válido por 1 hora
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("Error en verifyRegistrationCodeAction:", err);
+    return { success: false, error: "Error al verificar el código." };
+  }
+}
+
+
 
 

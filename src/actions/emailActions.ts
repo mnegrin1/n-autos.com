@@ -242,6 +242,161 @@ export async function sendLandingInquiryNotificationEmail(toSuperadmin: string, 
   return await sendEmailAction(toSuperadmin, subject, html);
 }
 
+/**
+ * Envía un código OTP de 6 dígitos para verificar el correo electrónico durante el registro inicial.
+ */
+export async function sendRegistrationOtpEmail(to: string, code: string, userName?: string) {
+  const subject = `${code} es tu código de confirmación de registro - N-Autos`;
+  const nameDisplay = userName ? userName : "Futuro Administrador";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://admin.n-autos.com";
+  const logoUrl = `${appUrl}/logo-n-sistemas-square.png`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Confirmación de Correo</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0d0f14; margin: 0; padding: 24px; color: #f1f5f9; }
+        .container { max-width: 520px; margin: 0 auto; background: #131722; border-radius: 16px; padding: 36px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #1e293b; }
+        .brand { text-align: center; margin-bottom: 24px; }
+        .badge { display: inline-block; background-color: rgba(16, 185, 129, 0.12); color: #10b981; font-size: 11px; font-weight: 800; letter-spacing: 1px; padding: 6px 14px; border-radius: 20px; text-transform: uppercase; margin-bottom: 12px; border: 1px solid rgba(16, 185, 129, 0.25); }
+        .title { font-size: 22px; font-weight: 800; color: #ffffff; margin-bottom: 12px; text-align: center; }
+        .text { font-size: 14px; color: #94a3b8; line-height: 1.6; margin-bottom: 24px; text-align: center; }
+        .otp-box { background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(6, 78, 59, 0.15)); border: 2px dashed #10b981; border-radius: 14px; padding: 22px; text-align: center; margin: 24px 0; }
+        .otp-code { font-size: 36px; font-weight: 900; letter-spacing: 10px; color: #34d399; font-family: 'Courier New', Courier, monospace; }
+        .warning { font-size: 12px; color: #64748b; text-align: center; margin-top: 18px; }
+        .footer { border-top: 1px solid #1e293b; margin-top: 32px; padding-top: 18px; font-size: 11px; color: #64748b; text-align: center; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="brand">
+          <img src="${logoUrl}" alt="N-Autos" style="max-width: 95px; height: auto; display: inline-block; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);" />
+        </div>
+        <div style="text-align: center;">
+          <span class="badge">Registro Inicial</span>
+        </div>
+        <div class="title">Verifica tu correo electrónico</div>
+        <div class="text">Hola <strong>${nameDisplay}</strong>,<br>Para continuar con la creación de tu automotora y asegurar que tu correo es válido, ingresa el siguiente código de confirmación:</div>
+        <div class="otp-box">
+          <div class="otp-code">${code}</div>
+        </div>
+        <div class="text" style="font-size: 13px;">Escribe este código en la pantalla de registro para validar tu cuenta.</div>
+        <div class="warning">🔒 Este código de un solo uso expira en <strong>15 minutos</strong>. Si tú no realizaste este registro, puedes ignorar este correo sin problemas.</div>
+        <div class="footer">&copy; ${new Date().getFullYear()} N-Autos / Plataforma Integral para Automotoras. Todos los derechos reservados.</div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return await sendEmailAction(to, subject, html);
+}
+
+/**
+ * Envía el correo oficial de bienvenida tras el registro exitoso de la automotora.
+ */
+export async function sendWelcomeEmail(to: string, userName: string, agencyName: string, subdomain: string) {
+  const subject = `¡Bienvenido a N-Autos! Tu automotora ${agencyName} ya está en marcha`;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://admin.n-autos.com";
+  const webUrl = subdomain ? `https://${subdomain}.n-autos.com` : appUrl;
+  const logoUrl = `${appUrl}/logo-n-sistemas-square.png`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Bienvenido a N-Autos</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0b0f17; margin: 0; padding: 24px; color: #f1f5f9; }
+        .container { max-width: 560px; margin: 0 auto; background: #131826; border-radius: 18px; padding: 36px; box-shadow: 0 12px 36px rgba(0,0,0,0.5); border: 1px solid #1e293b; }
+        .brand { text-align: center; margin-bottom: 20px; }
+        .badge { display: inline-block; background-color: rgba(16, 185, 129, 0.15); color: #34d399; font-size: 11px; font-weight: 800; letter-spacing: 1px; padding: 6px 14px; border-radius: 20px; text-transform: uppercase; margin-bottom: 12px; border: 1px solid rgba(16, 185, 129, 0.3); }
+        .title { font-size: 24px; font-weight: 800; color: #ffffff; margin-bottom: 12px; text-align: center; line-height: 1.3; }
+        .subtitle { font-size: 15px; color: #94a3b8; text-align: center; margin-bottom: 28px; line-height: 1.6; }
+        .info-card { background-color: #1a2234; border: 1px solid #2d3748; border-radius: 14px; padding: 20px; margin-bottom: 24px; }
+        .info-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 13.5px; }
+        .info-row:last-child { border-bottom: none; }
+        .info-label { color: #94a3b8; font-weight: 500; }
+        .info-val { color: #ffffff; font-weight: 700; }
+        .steps-card { background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 14px; padding: 20px; margin-bottom: 28px; }
+        .steps-title { font-size: 14px; font-weight: 800; color: #34d399; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 14px; }
+        .step-item { display: flex; gap: 12px; margin-bottom: 12px; font-size: 13.5px; color: #cbd5e1; line-height: 1.5; }
+        .step-num { width: 22px; height: 22px; border-radius: 50%; background: #10b981; color: #000; font-weight: 800; font-size: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+        .btn-container { text-align: center; margin: 32px 0 16px 0; }
+        .btn { display: inline-block; background-color: #10b981; color: #ffffff !important; font-size: 15px; font-weight: 800; text-decoration: none; padding: 14px 32px; border-radius: 12px; box-shadow: 0 4px 18px rgba(16, 185, 129, 0.35); }
+        .footer { border-top: 1px solid #1e293b; margin-top: 32px; padding-top: 18px; font-size: 11px; color: #64748b; text-align: center; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="brand">
+          <img src="${logoUrl}" alt="N-Autos" style="max-width: 95px; height: auto; display: inline-block; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);" />
+        </div>
+        <div style="text-align: center;">
+          <span class="badge">Prueba de 14 Días Activa</span>
+        </div>
+        <div class="title">¡Bienvenido a bordo, ${userName}!</div>
+        <div class="subtitle">
+          Tu automotora <strong>${agencyName}</strong> ha sido creada exitosamente. Tu plataforma de gestión y sitio web oficial ya se encuentran listos para operar.
+        </div>
+
+        <div class="info-card">
+          <div class="info-row">
+            <span class="info-label">Automotora:</span>
+            <span class="info-val">${agencyName}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Sitio Web Oficial:</span>
+            <span class="info-val"><a href="${webUrl}" target="_blank" style="color: #38bdf8; text-decoration: none;">${webUrl}</a></span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Panel Administrativo:</span>
+            <span class="info-val"><a href="${appUrl}" target="_blank" style="color: #34d399; text-decoration: none;">${appUrl}</a></span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">Usuario / Acceso:</span>
+            <span class="info-val">${to}</span>
+          </div>
+        </div>
+
+        <div class="steps-card">
+          <div class="steps-title">🚀 Primeros 3 pasos recomendados:</div>
+          <div class="step-item">
+            <div class="step-num">1</div>
+            <div><strong>Personaliza tu Página Web y Ubicación:</strong> Define la dirección del showroom y el pin exacto en el mapa interactivo para tus clientes.</div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">2</div>
+            <div><strong>Carga tus primeros Vehículos:</strong> Añade fotos, precios y detalles de tus autos en la sección de Inventario Stock.</div>
+          </div>
+          <div class="step-item">
+            <div class="step-num">3</div>
+            <div><strong>Suma a tu Equipo:</strong> Invita a tus agentes de venta en Configuración > Organización para asignar contactos y turnos.</div>
+          </div>
+        </div>
+
+        <div class="btn-container">
+          <a href="${appUrl}" target="_blank" class="btn">Ingresar a mi Panel de Control</a>
+        </div>
+
+        <div class="footer">
+          &copy; ${new Date().getFullYear()} N-Autos / Plataforma Integral para Automotoras.<br>
+          ¿Tienes consultas? Responde directamente a este correo o contacta a soporte.
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return await sendEmailAction(to, subject, html);
+}
+
+
 
 /**
  * Se encarga de procesar el webhook entrante de Resend

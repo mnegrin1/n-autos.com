@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { verifySignedToken } from "@/lib/sessionToken";
+import { verifySignedToken, getWorkspaceCode } from "@/lib/sessionToken";
+import { isSuperAdmin } from "@/lib/iam/rbac";
+import { isAgencyDeleted } from "@/lib/deletedAgenciesStore";
 
 // Subdominios reservados que no se consideran clientes / automotoras
 const RESERVED_SUBDOMAINS = new Set([
@@ -15,6 +17,37 @@ const RESERVED_SUBDOMAINS = new Set([
   "n-sistemas",
   "n-autos",
   "localhost",
+]);
+
+// Rutas reservadas dentro de admin para no confundir con workspace codes
+const ADMIN_RESERVED_ROUTES = new Set([
+  "login",
+  "accept-invite",
+  "api",
+  "_next",
+  "admin",
+  "superadmin",
+  "portal",
+  "doc",
+  "favicon.ico",
+  "icon.png",
+  "manifest.webmanifest",
+  "sw.js",
+]);
+
+// Rutas / páginas conocidas del panel de administración
+const ADMIN_KNOWN_ROUTES = new Set([
+  "vehicles",
+  "crm",
+  "inbox",
+  "agenda",
+  "website",
+  "settings",
+  "automations",
+  "publications",
+  "integrations",
+  "email",
+  "calendar",
 ]);
 
 export default async function middleware(request: NextRequest) {
@@ -52,61 +85,135 @@ export default async function middleware(request: NextRequest) {
 
     // 0. Manejo de subdominio admin (admin.n-autos.com o admin.localhost)
     if (subdomain === "admin") {
-      let targetPath = path;
-      if (path === "/") {
-        targetPath = "/admin";
-      } else if (!path.startsWith("/admin") && !path.startsWith("/api") && !path.startsWith("/_next") && !path.includes(".")) {
-        targetPath = `/admin${path}`;
+      const sessionToken = request.cookies.get("admin-session")?.value;
+      let decoded: any = null;
+      let isValid = false;
+
+      if (sessionToken) {
+        try {
+          decoded = await verifySignedToken(sessionToken);
+          if (decoded && typeof decoded === "object" && decoded.id && decoded.role) {
+            const rolesValidos = ["admin", "manager", "agent", "superadmin", "Superadmin"];
+            if (rolesValidos.includes(decoded.role) || isSuperAdmin(decoded)) {
+              isValid = true;
+            }
+          }
+        } catch {
+          isValid = false;
+        }
       }
 
-      // Verificación de autenticación para admin
-      if (targetPath.startsWith("/admin") && targetPath !== "/admin/login" && targetPath !== "/admin/accept-invite") {
-        const sessionToken = request.cookies.get("admin-session")?.value;
-        let isValid = false;
-        if (sessionToken) {
-          try {
-            const decoded = await verifySignedToken(sessionToken);
-            if (decoded && typeof decoded === "object" && decoded.id && decoded.email && decoded.role) {
-              const rolesValidos = ["admin", "manager", "agent"];
-              if (rolesValidos.includes(decoded.role)) {
-                isValid = true;
-              }
-            }
-          } catch {
-            isValid = false;
-          }
-        }
+      if (isValid && decoded && !isSuperAdmin(decoded) && isAgencyDeleted(decoded.agency_id, decoded.subdomain, decoded.email)) {
+        const loginUrl = new URL("/login?error=org_deleted", request.url);
+        const response = NextResponse.redirect(loginUrl);
+        response.cookies.delete("admin-session");
+        return response;
+      }
 
+      const workspaceCode = isValid && decoded
+        ? (decoded.workspace_code || await getWorkspaceCode(decoded.agency_id, decoded.id, decoded.email))
+        : null;
+
+      const cleanPath = path.replace(/^\/+|\/+$/g, "");
+      const segments = cleanPath ? cleanPath.split("/") : [];
+      const firstSegment = segments[0] || "";
+
+      // Caso 1: El usuario entra a la raíz de admin.n-autos.com
+      if (!cleanPath || cleanPath === "") {
+        if (!isValid || !workspaceCode) {
+          const loginUrl = new URL("/login", request.url);
+          return NextResponse.redirect(loginUrl);
+        } else {
+          const wsUrl = new URL(`/${workspaceCode}`, request.url);
+          wsUrl.search = request.nextUrl.search;
+          return NextResponse.redirect(wsUrl);
+        }
+      }
+
+      // Caso 2: El usuario visita /login o /admin/login
+      if (cleanPath === "login" || cleanPath === "admin/login") {
+        if (isValid && workspaceCode) {
+          const wsUrl = new URL(`/${workspaceCode}`, request.url);
+          wsUrl.search = request.nextUrl.search;
+          return NextResponse.redirect(wsUrl);
+        }
+        const url = request.nextUrl.clone();
+        url.pathname = "/admin/login";
+        return NextResponse.rewrite(url);
+      }
+
+      // Caso 3: El usuario visita /accept-invite
+      if (cleanPath === "accept-invite" || cleanPath.startsWith("accept-invite/")) {
+        const url = request.nextUrl.clone();
+        url.pathname = `/admin/${cleanPath}`;
+        return NextResponse.rewrite(url);
+      }
+
+      // Caso 4: Rutas que entran con /admin/... explícito (redirigir al espacio único)
+      if (firstSegment === "admin") {
+        if (!isValid || !workspaceCode) {
+          const loginUrl = new URL("/login", request.url);
+          return NextResponse.redirect(loginUrl);
+        }
+        const restPath = segments.slice(1).join("/");
+        const target = restPath ? `/${workspaceCode}/${restPath}` : `/${workspaceCode}`;
+        const wsUrl = new URL(target, request.url);
+        wsUrl.search = request.nextUrl.search;
+        return NextResponse.redirect(wsUrl);
+      }
+
+      // Caso 5: Subruta administrativa conocida accedida sin workspace code (ej: /vehicles o /crm)
+      if (ADMIN_KNOWN_ROUTES.has(firstSegment)) {
+        if (!isValid || !workspaceCode) {
+          const loginUrl = new URL("/login", request.url);
+          return NextResponse.redirect(loginUrl);
+        }
+        const wsUrl = new URL(`/${workspaceCode}/${cleanPath}`, request.url);
+        wsUrl.search = request.nextUrl.search;
+        return NextResponse.redirect(wsUrl);
+      }
+
+      // Caso 6: Subruta con Workspace Code (ej: /<workspaceCode> o /<workspaceCode>/vehicles)
+      if (!ADMIN_RESERVED_ROUTES.has(firstSegment) && !firstSegment.includes(".")) {
         if (!isValid) {
-          const loginUrl = new URL("/admin/login", request.url);
+          const loginUrl = new URL("/login", request.url);
           const response = NextResponse.redirect(loginUrl);
           response.cookies.delete("admin-session");
           return response;
         }
-      }
 
-      // Redirigir si ya tiene sesión e intenta ir a login
-      if (targetPath === "/admin/login") {
-        const sessionToken = request.cookies.get("admin-session")?.value;
-        let hasSession = false;
-        if (sessionToken) {
-          try {
-            const decoded = await verifySignedToken(sessionToken);
-            if (decoded && decoded.id && decoded.role) {
-              hasSession = true;
-            }
-          } catch {}
+        // Si el usuario no es superadmin y el código de la URL no coincide con su workspace activo,
+        // redirigir automáticamente a su código real asegurando la sesión (evita 404 o desincronización)
+        if (!isSuperAdmin(decoded) && workspaceCode && firstSegment !== workspaceCode) {
+          const subRoute = segments.slice(1).join("/");
+          const target = subRoute ? `/${workspaceCode}/${subRoute}` : `/${workspaceCode}`;
+          const wsUrl = new URL(target, request.url);
+          wsUrl.search = request.nextUrl.search;
+          return NextResponse.redirect(wsUrl);
         }
-        if (hasSession) {
-          const adminUrl = new URL("/admin", request.url);
-          return NextResponse.redirect(adminUrl);
-        }
-      }
 
-      if (targetPath !== path) {
+        const subRoute = segments.slice(1).join("/");
+        const internalPath = subRoute ? `/admin/${subRoute}` : `/admin`;
+
         const url = request.nextUrl.clone();
-        url.pathname = targetPath;
-        return NextResponse.rewrite(url);
+        url.pathname = internalPath;
+        const requestHeaders = new Headers(request.headers);
+        requestHeaders.set("x-workspace-code", firstSegment);
+        return NextResponse.rewrite(url, {
+          request: {
+            headers: requestHeaders,
+          },
+        });
+      }
+
+      // Fallback para cualquier otra ruta no reconocida dentro de admin.n-autos.com (previene 404)
+      if (isValid && workspaceCode) {
+        const wsUrl = new URL(`/${workspaceCode}`, request.url);
+        wsUrl.search = request.nextUrl.search;
+        return NextResponse.redirect(wsUrl);
+      } else {
+        const loginUrl = new URL("/login", request.url);
+        return NextResponse.redirect(loginUrl);
       }
     }
 
@@ -135,10 +242,8 @@ export default async function middleware(request: NextRequest) {
       if (sessionToken) {
         try {
           const decoded = await verifySignedToken(sessionToken);
-          if (decoded && typeof decoded === "object" && decoded.id && decoded.email && decoded.role) {
-            const isSuperAdminRole = decoded.role === "superadmin" || decoded.role === "Superadmin";
-            const isSuperAdminEmail = decoded.email.toLowerCase() === "mauricio.negrin@n-sistemas.com";
-            if (isSuperAdminRole || isSuperAdminEmail) {
+          if (decoded && typeof decoded === "object" && decoded.id) {
+            if (isSuperAdmin(decoded)) {
               isSuperAdminValid = true;
             }
           }
@@ -160,7 +265,7 @@ export default async function middleware(request: NextRequest) {
       if (sessionToken) {
         try {
           const decoded = await verifySignedToken(sessionToken);
-          if (decoded && (decoded.role === "superadmin" || decoded.role === "Superadmin" || decoded.email?.toLowerCase() === "mauricio.negrin@n-sistemas.com")) {
+          if (decoded && isSuperAdmin(decoded)) {
             isAlreadySuperAdmin = true;
           }
         } catch {}
@@ -172,18 +277,18 @@ export default async function middleware(request: NextRequest) {
       }
     }
 
-    // 2. Proteger rutas administrativas (/admin) excepto login y accept-invite
-    if (path.startsWith("/admin") && path !== "/admin/login" && path !== "/admin/accept-invite") {
-
+    // 2. Proteger rutas administrativas (/admin) y soportar URLs únicas con Workspace Code
+    if (path.startsWith("/admin")) {
       const sessionToken = request.cookies.get("admin-session")?.value;
+      let decoded: any = null;
       let isValid = false;
 
       if (sessionToken) {
         try {
-          const decoded = await verifySignedToken(sessionToken);
-          if (decoded && typeof decoded === "object" && decoded.id && decoded.email && decoded.role) {
+          decoded = await verifySignedToken(sessionToken);
+          if (decoded && typeof decoded === "object" && decoded.id && decoded.role) {
             const rolesValidos = ["admin", "manager", "agent", "superadmin", "Superadmin"];
-            if (rolesValidos.includes(decoded.role) || decoded.email.toLowerCase() === "mauricio.negrin@n-sistemas.com") {
+            if (rolesValidos.includes(decoded.role) || isSuperAdmin(decoded)) {
               isValid = true;
             }
           }
@@ -192,35 +297,186 @@ export default async function middleware(request: NextRequest) {
         }
       }
 
-      if (!isValid) {
-        const loginUrl = new URL("/admin/login", request.url);
+      if (isValid && decoded && !isSuperAdmin(decoded) && isAgencyDeleted(decoded.agency_id, decoded.subdomain, decoded.email)) {
+        const loginUrl = new URL("/admin/login?error=org_deleted", request.url);
         const response = NextResponse.redirect(loginUrl);
         response.cookies.delete("admin-session");
         return response;
       }
+
+      const workspaceCode = isValid && decoded
+        ? (decoded.workspace_code || await getWorkspaceCode(decoded.agency_id, decoded.id, decoded.email))
+        : null;
+
+      const subAdmin = path.replace(/^\/admin\/?/, "");
+      const segments = subAdmin ? subAdmin.split("/") : [];
+      const firstSegment = segments[0] || "";
+
+      // Caso A: /admin raíz
+      if (!subAdmin || subAdmin === "") {
+        if (!isValid || !workspaceCode) {
+          const loginUrl = new URL("/admin/login", request.url);
+          return NextResponse.redirect(loginUrl);
+        } else {
+          const wsUrl = new URL(`/admin/${workspaceCode}`, request.url);
+          wsUrl.search = request.nextUrl.search;
+          return NextResponse.redirect(wsUrl);
+        }
+      }
+
+      // Caso B: /admin/login
+      if (subAdmin === "login") {
+        if (isValid && workspaceCode) {
+          const wsUrl = new URL(`/admin/${workspaceCode}`, request.url);
+          wsUrl.search = request.nextUrl.search;
+          return NextResponse.redirect(wsUrl);
+        }
+        return NextResponse.next();
+      }
+
+      // Caso C: /admin/accept-invite
+      if (subAdmin === "accept-invite" || subAdmin.startsWith("accept-invite/")) {
+        return NextResponse.next();
+      }
+
+      // Caso D: subruta conocida accedida directamente sin workspaceCode (ej: /admin/vehicles o /admin/crm)
+      if (ADMIN_KNOWN_ROUTES.has(firstSegment)) {
+        if (!isValid || !workspaceCode) {
+          const loginUrl = new URL("/admin/login", request.url);
+          const response = NextResponse.redirect(loginUrl);
+          response.cookies.delete("admin-session");
+          return response;
+        }
+        const wsUrl = new URL(`/admin/${workspaceCode}/${subAdmin}`, request.url);
+        wsUrl.search = request.nextUrl.search;
+        return NextResponse.redirect(wsUrl);
+      }
+
+      // Caso E: subruta con Workspace Code (ej: /admin/<workspaceCode> o /admin/<workspaceCode>/vehicles)
+      if (!ADMIN_RESERVED_ROUTES.has(firstSegment) && !firstSegment.includes(".")) {
+        if (!isValid) {
+          const loginUrl = new URL("/admin/login", request.url);
+          const response = NextResponse.redirect(loginUrl);
+          response.cookies.delete("admin-session");
+          return response;
+        }
+
+        // Si el usuario no es superadmin y el código de la URL no coincide con su workspace activo,
+        // redirigir automáticamente a su código real asegurando la sesión (evita 404 o desincronización)
+        if (!isSuperAdmin(decoded) && workspaceCode && firstSegment !== workspaceCode) {
+          const subRoute = segments.slice(1).join("/");
+          const target = subRoute ? `/admin/${workspaceCode}/${subRoute}` : `/admin/${workspaceCode}`;
+          const wsUrl = new URL(target, request.url);
+          wsUrl.search = request.nextUrl.search;
+          return NextResponse.redirect(wsUrl);
+        }
+
+        const subRoute = segments.slice(1).join("/");
+        const internalPath = subRoute ? `/admin/${subRoute}` : `/admin`;
+
+        const url = request.nextUrl.clone();
+        url.pathname = internalPath;
+        const requestHeaders = new Headers(request.headers);
+        requestHeaders.set("x-workspace-code", firstSegment);
+        return NextResponse.rewrite(url, {
+          request: {
+            headers: requestHeaders,
+          },
+        });
+      }
+
+      // Fallback para cualquier otra ruta no reconocida dentro de /admin (previene 404)
+      if (isValid && workspaceCode) {
+        const wsUrl = new URL(`/admin/${workspaceCode}`, request.url);
+        wsUrl.search = request.nextUrl.search;
+        return NextResponse.redirect(wsUrl);
+      } else {
+        const loginUrl = new URL("/admin/login", request.url);
+        return NextResponse.redirect(loginUrl);
+      }
     }
 
-    // 3. Redirigir si ya está autenticado e intenta ir a login
-    if (path === "/admin/login") {
+    // 2b. Manejo de /login global cuando no se está en el subdominio admin (ej: localhost:3000/login o n-autos.com/login)
+    if (path === "/login" || path === "/login/") {
       const sessionToken = request.cookies.get("admin-session")?.value;
-      let hasSession = false;
-      let isSuperAdmin = false;
-
+      let decoded: any = null;
+      let isValid = false;
       if (sessionToken) {
         try {
-          const decoded = await verifySignedToken(sessionToken);
-          if (decoded && decoded.id && decoded.role) {
-            hasSession = true;
-            if (decoded.role === "superadmin" || decoded.role === "Superadmin" || decoded.email?.toLowerCase() === "mauricio.negrin@n-sistemas.com") {
-              isSuperAdmin = true;
-            }
+          decoded = await verifySignedToken(sessionToken);
+          if (decoded && typeof decoded === "object" && decoded.id && decoded.role) {
+            isValid = true;
           }
         } catch {}
       }
+      const workspaceCode = isValid && decoded
+        ? (decoded.workspace_code || await getWorkspaceCode(decoded.agency_id, decoded.id, decoded.email))
+        : null;
 
-      if (hasSession) {
-        const targetUrl = new URL(isSuperAdmin ? "/superadmin" : "/admin", request.url);
-        return NextResponse.redirect(targetUrl);
+      if (isValid && workspaceCode) {
+        const wsUrl = new URL(`/admin/${workspaceCode}`, request.url);
+        wsUrl.search = request.nextUrl.search;
+        return NextResponse.redirect(wsUrl);
+      }
+      const loginUrl = new URL("/admin/login", request.url);
+      loginUrl.search = request.nextUrl.search;
+      return NextResponse.redirect(loginUrl);
+    }
+
+    // 2c. En entorno de desarrollo (localhost o 127.0.0.1): si se accede a un workspace code en la raíz
+    // (ej: http://localhost:3000/<workspaceCode> o http://localhost:3000/<workspaceCode>/vehicles)
+    const isLocalhostHost = hostname === "localhost" || hostname === "127.0.0.1" || hostname.endsWith(".localhost");
+    if (isLocalhostHost && !subdomain) {
+      const cleanRoot = path.replace(/^\/+|\/+$/g, "");
+      const rootSegments = cleanRoot ? cleanRoot.split("/") : [];
+      const rootFirst = rootSegments[0] || "";
+
+      const ROOT_RESERVED_ROUTES = new Set([
+        "",
+        "admin",
+        "superadmin",
+        "registro",
+        "portal",
+        "doc",
+        "privacidad",
+        "terminos",
+        "test",
+        "api",
+        "_next",
+        "favicon.ico",
+        "icon.png",
+        "manifest.webmanifest",
+        "sw.js",
+      ]);
+
+      if (rootFirst && !ROOT_RESERVED_ROUTES.has(rootFirst) && !rootFirst.includes(".")) {
+        const sessionToken = request.cookies.get("admin-session")?.value;
+        let decoded: any = null;
+        let isValid = false;
+        if (sessionToken) {
+          try {
+            decoded = await verifySignedToken(sessionToken);
+            if (decoded && typeof decoded === "object" && decoded.id && decoded.role) {
+              isValid = true;
+            }
+          } catch {}
+        }
+        const workspaceCode = isValid && decoded
+          ? (decoded.workspace_code || await getWorkspaceCode(decoded.agency_id, decoded.id, decoded.email))
+          : null;
+
+        if (isValid && workspaceCode) {
+          const subRoute = rootSegments.slice(1).join("/");
+          const target = subRoute ? `/admin/${workspaceCode}/${subRoute}` : `/admin/${workspaceCode}`;
+          const wsUrl = new URL(target, request.url);
+          wsUrl.search = request.nextUrl.search;
+          return NextResponse.redirect(wsUrl);
+        } else {
+          const loginUrl = new URL("/admin/login", request.url);
+          const response = NextResponse.redirect(loginUrl);
+          response.cookies.delete("admin-session");
+          return response;
+        }
       }
     }
 

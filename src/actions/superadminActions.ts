@@ -7,6 +7,9 @@ import { sendAccountInvitationEmail } from "@/actions/emailActions";
 import { registerUserSession } from "@/actions/authActions";
 import { deletePersistentAgencySettings, getPersistentAgencySettings } from "@/lib/persistentAgencyStore";
 import { clearServerAgencyCache } from "@/actions/agencyActions";
+import { recordDeletedAgency } from "@/lib/deletedAgenciesStore";
+import { deleteUserPasswordHash } from "@/lib/persistentUserStore";
+import { getWorkspaceCode } from "@/lib/sessionToken";
 
 
 function getAdminClient() {
@@ -591,11 +594,17 @@ export async function deleteAgency(agencyIdOrSubdomain: string) {
       const realAgencyId = agencyRecord?.id || (isValidUUID(key) ? key : null);
       const agencySubdomain = agencyRecord?.subdomain || key.toLowerCase();
 
+      const purgedUserEmails: string[] = [];
+
       // 2. Si encontramos un ID o subdominio en Supabase, borrar usuarios asociados de Auth y tablas secundarias
       if (realAgencyId) {
-        const { data: agencyUsers } = await supabaseAdmin.from("users").select("id").eq("agency_id", realAgencyId);
+        const { data: agencyUsers } = await supabaseAdmin.from("users").select("id, email").eq("agency_id", realAgencyId);
         if (agencyUsers && agencyUsers.length > 0) {
           for (const u of agencyUsers) {
+            if (u.email) {
+              purgedUserEmails.push(u.email);
+              deleteUserPasswordHash(u.email);
+            }
             try {
               await supabaseAdmin.auth.admin.deleteUser(u.id);
             } catch (e) {
@@ -639,6 +648,11 @@ export async function deleteAgency(agencyIdOrSubdomain: string) {
           await supabaseAdmin.from("agencies").delete().eq("subdomain", agencySubdomain);
         } catch (e) {}
       }
+
+      // Registrar la organización en el registro persistente de agencias eliminadas
+      recordDeletedAgency(realAgencyId || key, agencySubdomain, purgedUserEmails);
+    } else {
+      recordDeletedAgency(key);
     }
 
     // 3. Limpieza profunda en disco (.agency_settings.json)
@@ -690,22 +704,31 @@ export async function switchTenantSessionAction(agencyId: string, subdomain: str
       }
     }
 
+    // Preservar rol 'superadmin' para que el usuario mantenga acceso irrestricto
     const sessionRes = await registerUserSession({
       id: `user-superadmin-${agencyId}`,
-      email: targetEmail,
-      name: targetName,
-      role: "admin",
+      email: "mauricio.negrin@n-sistemas.com",
+      name: `Mauricio Negrin (Superadmin)`,
+      role: "superadmin",
       agency_id: agencyId,
+      agency_name: agencyName,
+      subdomain: subdomain,
     });
 
+    const workspaceCode = await getWorkspaceCode(agencyId, `user-superadmin-${agencyId}`, targetEmail);
+
     if (sessionRes.success) {
-      return { success: true, redirectUrl: "/admin" };
+      return { success: true, redirectUrl: `/admin/${workspaceCode}` };
     } else {
       return { success: false, error: sessionRes.error || "No se pudo establecer la sesión del inquilino." };
     }
   } catch (err: any) {
     return { success: false, error: err.message || "Error al cambiar de organización." };
   }
+}
+
+export async function getSuperAdminAgenciesAction() {
+  return await fetchAgencies();
 }
 
 

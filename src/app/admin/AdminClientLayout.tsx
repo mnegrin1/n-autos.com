@@ -43,7 +43,9 @@ import { notifySessionEvent, getCurrentClientSession } from "@/lib/sessionHelper
 import { isFeatureEnabledForUser, subscribeFeatureFlags } from "@/lib/featureFlagsStore";
 import { getTenantSession, subscribeTenantSession, syncTenantSessionForUser, TenantSession } from "@/lib/tenantStore";
 import { getPrimaryAgency } from "@/actions/agencyActions";
-import { Sparkles, ShieldCheck } from "lucide-react";
+import { Sparkles, ShieldCheck, Building2, X } from "lucide-react";
+import { isSuperAdmin } from "@/lib/iam/rbac";
+import { getSuperAdminAgenciesAction, switchTenantSessionAction } from "@/actions/superadminActions";
 
 export default function AdminClientLayout({
   children,
@@ -197,6 +199,53 @@ export default function AdminClientLayout({
     }
     return "Mauricio Negrin";
   })();
+
+  const isSuperAdminUser =
+    isSuperAdmin(initialUser) ||
+    initialUser?.role === "superadmin" ||
+    initialUser?.role === "Superadmin" ||
+    initialUser?.email?.toLowerCase() === "mauricio.negrin@n-sistemas.com" ||
+    userEmail.toLowerCase() === "mauricio.negrin@n-sistemas.com";
+
+  // Organization switcher modal state
+  const [isOrgSwitcherOpen, setIsOrgSwitcherOpen] = useState(false);
+  const [availableAgencies, setAvailableAgencies] = useState<any[]>([]);
+  const [isLoadingAgencies, setIsLoadingAgencies] = useState(false);
+  const [switchingToId, setSwitchingToId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isSuperAdminUser && isOrgSwitcherOpen) {
+      setIsLoadingAgencies(true);
+      getSuperAdminAgenciesAction()
+        .then((res) => {
+          if (res.success && res.data) {
+            setAvailableAgencies(res.data);
+          }
+        })
+        .catch((err) => console.error("Error cargando organizaciones para switcher de superadmin:", err))
+        .finally(() => setIsLoadingAgencies(false));
+    }
+  }, [isSuperAdminUser, isOrgSwitcherOpen]);
+
+  const handleSwitchToAgency = async (targetAgency: any) => {
+    setSwitchingToId(targetAgency.id);
+    try {
+      const res = await switchTenantSessionAction(
+        targetAgency.id,
+        targetAgency.subdomain,
+        targetAgency.name
+      );
+      if (res.success && res.redirectUrl) {
+        window.location.href = res.redirectUrl;
+      } else {
+        alert(res.error || "No se pudo cambiar de organización.");
+        setSwitchingToId(null);
+      }
+    } catch (err: any) {
+      alert("Error al cambiar de organización: " + (err.message || "Error desconocido"));
+      setSwitchingToId(null);
+    }
+  };
 
   const getInitials = (name: string): string => {
     if (!name || name.trim() === "") return "U";
@@ -726,6 +775,23 @@ export default function AdminClientLayout({
             </Link>
           )}
 
+          {isSuperAdminUser && (
+            <Link 
+              href="/superadmin" 
+              title="Panel Superadmin" 
+              className={styles.navLink} 
+              style={{ 
+                color: "#ef4444", 
+                backgroundColor: "rgba(239, 68, 68, 0.08)",
+                border: "1px dashed rgba(239, 68, 68, 0.3)",
+                marginTop: "0.5rem"
+              }}
+            >
+              <ShieldCheck size={18} style={{ flexShrink: 0 }} />
+              {isExpanded && <span style={{ fontWeight: 700 }}>Panel Superadmin</span>}
+            </Link>
+          )}
+
           {/* Botón mínimo para accionar la guía rápida inicial */}
           <button
             type="button"
@@ -809,11 +875,13 @@ export default function AdminClientLayout({
                     const nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length;
                     const nextTheme = themes[nextIndex];
                     localStorage.setItem('crm-theme', nextTheme);
-                    const pattern = localStorage.getItem("crm-bg-pattern") || "solid";
+                    const pattern = localStorage.getItem("crm-bg-pattern") || "topography";
                     document.documentElement.className = "";
                     document.documentElement.classList.add('theme-' + nextTheme);
-                    if (pattern === "topography") {
+                    if (pattern === "topography" || !pattern) {
                       document.documentElement.classList.add("bg-pattern-topography");
+                    } else if (pattern === "gradient" || pattern === "emerald") {
+                      document.documentElement.classList.add("bg-pattern-gradient");
                     }
                     setCurrentTheme(nextTheme);
                   }}
@@ -861,6 +929,17 @@ export default function AdminClientLayout({
                 </div>
                 
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                  {isSuperAdminUser && (
+                    <Link 
+                      href="/superadmin" 
+                      onClick={() => setShowDropdown(false)}
+                      style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", fontWeight: 700, color: "#ef4444", textDecoration: "none", padding: "0.5rem", borderRadius: "6px", backgroundColor: "rgba(239, 68, 68, 0.08)", transition: "background-color 0.2s" }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(239, 68, 68, 0.16)"}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "rgba(239, 68, 68, 0.08)"}
+                    >
+                      <ShieldCheck size={14} /> Panel Superadmin
+                    </Link>
+                  )}
                   <Link 
                     href="/admin/settings" 
                     onClick={() => setShowDropdown(false)}
@@ -1010,6 +1089,108 @@ export default function AdminClientLayout({
           </div>
         </header>
 
+        {/* Banner de Superadmin: Modo Control Global & Switcher */}
+        {isSuperAdminUser && (
+          <div style={{
+            margin: "0.5rem 1.5rem 0.5rem 1.5rem",
+            padding: "0.6rem 1.15rem",
+            backgroundColor: "rgba(239, 68, 68, 0.08)",
+            border: "1px solid rgba(239, 68, 68, 0.25)",
+            borderRadius: "12px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "0.75rem",
+            boxShadow: "0 2px 8px rgba(239, 68, 68, 0.05)"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <div style={{
+                width: "28px",
+                height: "28px",
+                borderRadius: "8px",
+                backgroundColor: "var(--danger, #ef4444)",
+                color: "#ffffff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 800,
+                fontSize: "0.85rem",
+                boxShadow: "0 2px 6px rgba(239, 68, 68, 0.3)"
+              }}>
+                SA
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--text-color)" }}>
+                    Modo Soporte / Control Superadmin
+                  </span>
+                  <span style={{
+                    fontSize: "0.7rem",
+                    fontWeight: 700,
+                    padding: "0.15rem 0.45rem",
+                    borderRadius: "20px",
+                    backgroundColor: "rgba(239, 68, 68, 0.15)",
+                    color: "#ef4444",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em"
+                  }}>
+                    Global
+                  </span>
+                </div>
+                <span style={{ fontSize: "0.75rem", color: "var(--text-color)", opacity: 0.75 }}>
+                  Gestionando: <strong style={{ color: "var(--primary)" }}>{agencyBranding.name || tenantSession.agencyName || "Esta Organización"}</strong> ({tenantSession.subdomain || agencyBranding.subdomain}.n-autos.com)
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <button
+                type="button"
+                onClick={() => setIsOrgSwitcherOpen(true)}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.4rem",
+                  padding: "0.4rem 0.8rem",
+                  borderRadius: "8px",
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                  backgroundColor: "var(--surface-color)",
+                  border: "1px solid var(--border-color)",
+                  color: "var(--text-color)",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease"
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.borderColor = "var(--primary)"}
+                onMouseLeave={(e) => e.currentTarget.style.borderColor = "var(--border-color)"}
+              >
+                <Building2 size={14} /> Cambiar Organización
+              </button>
+              <Link
+                href="/superadmin"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.4rem",
+                  padding: "0.4rem 0.8rem",
+                  borderRadius: "8px",
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                  backgroundColor: "var(--danger, #ef4444)",
+                  color: "#ffffff",
+                  textDecoration: "none",
+                  transition: "opacity 0.2s ease"
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = "0.9"}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = "1"}
+              >
+                <ShieldCheck size={14} /> Volver a Superadmin
+              </Link>
+            </div>
+          </div>
+        )}
+
         <div className={styles.contentArea}>
           {children}
         </div>
@@ -1046,6 +1227,119 @@ export default function AdminClientLayout({
         userRole={initialUser?.role || "admin"}
         adminPrefix="/admin"
       />
+
+      {/* Modal de Selector de Organización para Superadmin */}
+      {isOrgSwitcherOpen && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          backgroundColor: "rgba(0, 0, 0, 0.75)",
+          backdropFilter: "blur(6px)",
+          zIndex: 10000,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "1rem"
+        }}>
+          <div style={{
+            backgroundColor: "var(--surface-color, #18181b)",
+            borderRadius: "16px",
+            border: "1px solid var(--border-color, #27272a)",
+            width: "100%",
+            maxWidth: "520px",
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+            overflow: "hidden"
+          }}>
+            <div style={{
+              padding: "1.25rem 1.5rem",
+              borderBottom: "1px solid var(--border-color, #27272a)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <Building2 size={18} style={{ color: "var(--primary, #3b82f6)" }} />
+                <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: "var(--text-color, #fff)" }}>
+                  Acceder a otra Organización
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsOrgSwitcherOpen(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--text-color)",
+                  opacity: 0.7,
+                  cursor: "pointer",
+                  padding: "0.25rem"
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: "1.25rem 1.5rem", maxHeight: "380px", overflowY: "auto" }}>
+              {isLoadingAgencies ? (
+                <div style={{ textAlign: "center", padding: "2rem 0", color: "var(--text-color)", opacity: 0.7 }}>
+                  Cargando organizaciones...
+                </div>
+              ) : availableAgencies.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "2rem 0", color: "var(--text-color)", opacity: 0.7 }}>
+                  No se encontraron organizaciones disponibles.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                  {availableAgencies.map((agency: any) => {
+                    const isCurrent = agency.id === tenantSession.agencyId || agency.subdomain === agencyBranding.subdomain || agency.subdomain === tenantSession.subdomain;
+                    return (
+                      <div
+                        key={agency.id || agency.subdomain}
+                        style={{
+                          padding: "0.85rem 1rem",
+                          borderRadius: "10px",
+                          border: `1px solid ${isCurrent ? "var(--primary, #3b82f6)" : "var(--border-color, #27272a)"}`,
+                          backgroundColor: isCurrent ? "rgba(59, 130, 246, 0.08)" : "rgba(255, 255, 255, 0.02)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between"
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: 700, color: "var(--text-color, #fff)", fontSize: "0.95rem" }}>
+                            {agency.name || "Automotora"}
+                          </div>
+                          <div style={{ fontSize: "0.78rem", color: "var(--text-color)", opacity: 0.65 }}>
+                            {agency.subdomain}.n-autos.com
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={isCurrent || switchingToId === agency.id}
+                          onClick={() => handleSwitchToAgency(agency)}
+                          style={{
+                            padding: "0.4rem 0.85rem",
+                            borderRadius: "8px",
+                            backgroundColor: isCurrent ? "rgba(255, 255, 255, 0.08)" : "#10b981",
+                            color: isCurrent ? "var(--text-color)" : "#ffffff",
+                            border: "none",
+                            fontSize: "0.8rem",
+                            fontWeight: 700,
+                            cursor: isCurrent ? "default" : "pointer",
+                            opacity: isCurrent ? 0.6 : 1
+                          }}
+                        >
+                          {switchingToId === agency.id ? "Ingresando..." : isCurrent ? "Actual" : "Ingresar"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <ServiceWorkerRegister />
       <MobileBottomNav />

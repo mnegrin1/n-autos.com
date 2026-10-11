@@ -22,7 +22,8 @@ import {
   BookOpen,
   ShieldAlert,
   MousePointerClick,
-  CalendarClock
+  CalendarClock,
+  Globe
 } from "lucide-react";
 import { getBrandingRequests, subscribeBrandingRequestStore } from "@/lib/brandingRequestStore";
 import { getLandingInquiries, subscribeInquiries } from "@/lib/inquiryStore";
@@ -122,17 +123,23 @@ export default function SuperAdminLayout({
       if (pinnedValue !== null) {
         setIsPinned(pinnedValue === "true");
       }
-      setCurrentTheme(localStorage.getItem("crm-theme") || "light");
+      let savedTheme = localStorage.getItem("crm-theme") || "light";
+      if (savedTheme === "dark") {
+        savedTheme = "dark-dim";
+        localStorage.setItem("crm-theme", "dark-dim");
+      }
+      setCurrentTheme(savedTheme);
     }
 
-    const theme = localStorage.getItem("crm-theme") || "light";
+    let theme = localStorage.getItem("crm-theme") || "light";
+    if (theme === "dark") {
+      theme = "dark-dim";
+      localStorage.setItem("crm-theme", "dark-dim");
+    }
     setCurrentTheme(theme);
-    const pattern = localStorage.getItem("crm-bg-pattern") || "solid";
     document.documentElement.className = "";
     document.documentElement.classList.add("theme-" + theme);
-    if (pattern === "topography") {
-      document.documentElement.classList.add("bg-pattern-topography");
-    }
+    document.documentElement.classList.add("bg-pattern-topography");
 
     const zoom = localStorage.getItem("crm-zoom") || "100%";
     const mapping: Record<string, string> = {
@@ -219,6 +226,9 @@ export default function SuperAdminLayout({
           padding: 0;
           min-height: 100vh;
         }
+        html.bg-pattern-topography body {
+          background-color: transparent !important;
+        }
         body, html, button, input, select, textarea, span, div, h1, h2, h3, h4, h5, h6, aside, main, label, table, td, tr, th {
           font-family: 'Inter', sans-serif !important;
         }
@@ -268,6 +278,10 @@ export default function SuperAdminLayout({
             <Building2 size={18} style={{ flexShrink: 0 }} />
             {isExpanded && <span>Organizaciones</span>}
           </Link>
+          <Link href="/superadmin/billing" title="Facturación & Pagos" className={`${styles.navLink} ${pathname.startsWith("/superadmin/billing") ? styles.activeNavLink : ""}`}>
+            <CreditCard size={18} style={{ flexShrink: 0, color: "#10b981" }} />
+            {isExpanded && <span>Facturación & Pagos</span>}
+          </Link>
           <Link href="/superadmin/clicks" title="Estadísticas Landing" className={`${styles.navLink} ${pathname.startsWith("/superadmin/clicks") ? styles.activeNavLink : ""}`}>
             <MousePointerClick size={18} style={{ flexShrink: 0, color: "#3b82f6" }} />
             {isExpanded && <span>Estadísticas Landing</span>}
@@ -312,6 +326,10 @@ export default function SuperAdminLayout({
             <BookOpen size={18} style={{ flexShrink: 0 }} />
             {isExpanded && <span>Documentación (/doc)</span>}
           </Link>
+          <Link href="/admin" title="Panel de Automotora (Admin)" className={`${styles.navLink} ${pathname.startsWith("/admin") ? styles.activeNavLink : ""}`} style={{ color: "#38bdf8", borderTop: "1px solid rgba(255,255,255,0.08)", marginTop: "0.4rem", paddingTop: "0.6rem" }}>
+            <Globe size={18} style={{ flexShrink: 0, color: "#38bdf8" }} />
+            {isExpanded && <span style={{ fontWeight: 600 }}>Panel Admin</span>}
+          </Link>
         </nav>
 
         {/* Footer del Sidebar: Tema y Usuario */}
@@ -345,12 +363,9 @@ export default function SuperAdminLayout({
                     const nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length;
                     const nextTheme = themes[nextIndex];
                     localStorage.setItem('crm-theme', nextTheme);
-                    const pattern = localStorage.getItem("crm-bg-pattern") || "solid";
                     document.documentElement.className = "";
                     document.documentElement.classList.add('theme-' + nextTheme);
-                    if (pattern === "topography") {
-                      document.documentElement.classList.add("bg-pattern-topography");
-                    }
+                    document.documentElement.classList.add("bg-pattern-topography");
                     setCurrentTheme(nextTheme);
                   }}
                   title="Cambiar Tema"
@@ -391,6 +406,15 @@ export default function SuperAdminLayout({
                 </div>
                 
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                  <Link 
+                    href="/admin" 
+                    onClick={() => setShowDropdown(false)}
+                    style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-color)", textDecoration: "none", padding: "0.5rem", borderRadius: "6px", transition: "background-color 0.2s" }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(128, 128, 128, 0.1)"}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                  >
+                    <Building2 size={14} /> Ir al Panel Admin
+                  </Link>
                   <button 
                     onClick={(e) => handleLogout(e)}
                     onMouseDown={(e) => e.stopPropagation()}
