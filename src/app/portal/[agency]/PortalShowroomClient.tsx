@@ -3,6 +3,7 @@
 import { useState } from "react";
 import styles from "./home.module.css";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Search, Fuel, Shield, Zap, Award, ArrowRight, Phone, MessageSquare, Clock, MapPin, CheckCircle2, Car, Mail, Sparkles, SlidersHorizontal } from "lucide-react";
 
 interface Vehicle {
@@ -54,7 +55,7 @@ interface PortalShowroomClientProps {
 
 export default function PortalShowroomClient({ 
   initialVehicles, 
-  agencySlug: _agencySlug, 
+  agencySlug, 
   agencyName, 
   whatsappPhone = "+598 99 123 456",
   logoUrl: _logoUrl,
@@ -95,6 +96,11 @@ export default function PortalShowroomClient({
   const [contactPhone, setContactPhone] = useState("");
   const [contactVehicle, setContactVehicle] = useState("");
   const [contactSent, setContactSent] = useState(false);
+
+  const pathname = usePathname();
+  const isDirectPortal = pathname.startsWith("/portal/");
+  const basePath = isDirectPortal ? `/portal/${agencySlug}` : "";
+  const catalogHref = `${basePath}/catalogo`;
 
   const cleanPhone = whatsappPhone.replace(/\D/g, "");
 
@@ -199,73 +205,14 @@ export default function PortalShowroomClient({
           <h1 className={styles.heroTitle}>{heroTitle}</h1>
           <p className={styles.heroSubtitle}>{heroSubtitle}</p>
           
-          {/* Search box with tab controls */}
-          <div className={styles.searchContainer}>
-            <div className={styles.searchTabs}>
-              <button 
-                type="button"
-                className={`${styles.tabButton} ${transmissionTab === "all" ? styles.activeTab : ""}`}
-                onClick={() => setTransmissionTab("all")}
-              >
-                Todos
-              </button>
-              <button 
-                type="button"
-                className={`${styles.tabButton} ${transmissionTab === "automatica" ? styles.activeTab : ""}`}
-                onClick={() => setTransmissionTab("automatica")}
-              >
-                Automáticos
-              </button>
-              <button 
-                type="button"
-                className={`${styles.tabButton} ${transmissionTab === "manual" ? styles.activeTab : ""}`}
-                onClick={() => setTransmissionTab("manual")}
-              >
-                Manuales
-              </button>
-            </div>
-
-            <div className={styles.searchBox}>
-              <div className={styles.inputGroup}>
-                <Search className={styles.inputIcon} size={18} />
-                <input
-                  type="text"
-                  className={styles.searchInput}
-                  placeholder="Buscar marca o modelo (Ej: Audi, BMW...)"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-
-              <div className={styles.inputGroup}>
-                <Fuel className={styles.inputIcon} size={18} />
-                <select
-                  className={styles.searchSelect}
-                  value={fuelFilter}
-                  onChange={(e) => setFuelFilter(e.target.value)}
-                >
-                  <option value="all">Combustible (Todos)</option>
-                  <option value="nafta">Nafta</option>
-                  <option value="diesel">Diesel</option>
-                  <option value="hibrido">Híbrido</option>
-                  <option value="electrico">Eléctrico</option>
-                </select>
-              </div>
-
-              <div className={styles.inputGroup}>
-                <select
-                  className={styles.searchSelect}
-                  value={priceRange}
-                  onChange={(e) => setPriceRange(e.target.value)}
-                  style={{ paddingLeft: "1.25rem" }}
-                >
-                  <option value="all">Rango de Precio (Todos)</option>
-                  <option value="low">Menos de USD 25,000</option>
-                  <option value="mid">USD 25,000 - USD 50,000</option>
-                  <option value="high">Más de USD 50,000</option>
-                </select>
-              </div>
-            </div>
+          {/* Hero Action Buttons */}
+          <div className={styles.heroActions}>
+            <Link href={catalogHref} className={styles.heroBtnPrimary}>
+              <Car size={18} /> Ver Catálogo
+            </Link>
+            <a href="#contacto" className={styles.heroBtnSecondary}>
+              <Phone size={16} /> Contacto
+            </a>
           </div>
         </div>
       </section>
@@ -277,9 +224,9 @@ export default function PortalShowroomClient({
             <span className={styles.sectionCategoryTag}>CATÁLOGO DE UNIDADES</span>
             <h2>Vehículos Destacados</h2>
           </div>
-          <span className={styles.viewAll} style={{ fontSize: "0.95rem" }}>
-            {filteredActive.length} unidades disponibles
-          </span>
+          <Link href={catalogHref} className={styles.viewAllCatalogLink}>
+            Ver catálogo completo ({activeVehicles.length}) →
+          </Link>
         </div>
 
         <div className={styles.vehicleGrid}>
@@ -292,26 +239,15 @@ export default function PortalShowroomClient({
                 No encontramos vehículos con esa búsqueda
               </h3>
               <p style={{ margin: "0 0 1.25rem 0", fontSize: "0.92rem", opacity: 0.8 }}>
-                Prueba ajustando los filtros de transmisión, combustible o rango de precio.
+                Prueba visitando el catálogo completo para explorar todas las opciones disponibles.
               </p>
-              {(search || transmissionTab !== "all" || fuelFilter !== "all" || priceRange !== "all") && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearch("");
-                    setTransmissionTab("all");
-                    setFuelFilter("all");
-                    setPriceRange("all");
-                  }}
-                  className={styles.resetFiltersBtn}
-                >
-                  <SlidersHorizontal size={14} /> Restablecer Filtros
-                </button>
-              )}
+              <Link href={catalogHref} className={styles.resetFiltersBtn}>
+                <Car size={14} /> Explorar Catálogo Completo
+              </Link>
             </div>
           ) : (
             filteredActive.map((v) => {
-              const vehicleDetailHref = `/${v.id}`;
+              const vehicleDetailHref = `${basePath}/${v.id}`;
               return (
                 <Link 
                   href={vehicleDetailHref} 
@@ -381,7 +317,7 @@ export default function PortalShowroomClient({
               </div>
             ) : (
               filteredSold.map((v) => {
-              const vehicleDetailHref = `/${v.id}`;
+              const vehicleDetailHref = `${basePath}/${v.id}`;
                 return (
                   <Link 
                     href={vehicleDetailHref} 
@@ -477,77 +413,64 @@ export default function PortalShowroomClient({
         </div>
       </section>
 
-      {/* Contact Section */}
+      {/* Contact & Location Section */}
       <section id="contacto" className={styles.contactSection}>
-        <div className={styles.contactContainer}>
-          <div className={styles.contactInfoCol}>
-            <span className={styles.contactEyebrow}>ATENCIÓN PERSONALIZADA</span>
-            <h2>Contacto & Ubicación</h2>
-            <p className={styles.contactDesc}>
-              {contactDescription}
-            </p>
+        <div className={styles.contactHeaderCenter}>
+          <span className={styles.contactEyebrow}>ATENCIÓN PERSONALIZADA</span>
+          <h2>Contacto & Ubicación</h2>
+          <p className={styles.contactDesc}>
+            {contactDescription}
+          </p>
+        </div>
 
-            <div className={styles.contactDetailsList}>
-              <a 
-                href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hola ${agencyName}, me gustaría consultar sobre su catálogo de vehículos.`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={styles.contactDetailItem}
-              >
-                <div className={styles.contactDetailIconBadge}>
-                  <Phone className={styles.contactDetailIcon} size={20} />
-                </div>
-                <div>
-                  <strong>WhatsApp Oficial ↗</strong>
-                  <p className={styles.contactDetailHighlight}>{whatsappPhone}</p>
-                </div>
-              </a>
-
-              <a 
-                href={`mailto:${contactEmail}`}
-                className={styles.contactDetailItem}
-              >
-                <div className={styles.contactDetailIconBadge}>
-                  <Mail className={styles.contactDetailIcon} size={20} />
-                </div>
-                <div>
-                  <strong>Correo de Contacto Preferido</strong>
-                  <p className={styles.contactDetailHighlight}>{contactEmail}</p>
-                </div>
-              </a>
-
-              <div className={styles.contactDetailItem}>
-                <div className={styles.contactDetailIconBadge}>
-                  <Clock className={styles.contactDetailIcon} size={20} />
-                </div>
-                <div>
-                  <strong>Horarios de Atención</strong>
-                  <p>{businessHours}</p>
-                </div>
+        <div className={styles.contactGridWide}>
+          <div className={styles.contactDetailsList}>
+            <a 
+              href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hola ${agencyName}, me gustaría consultar sobre su catálogo de vehículos.`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.contactDetailItem}
+            >
+              <div className={styles.contactDetailIconBadge}>
+                <Phone className={styles.contactDetailIcon} size={20} />
               </div>
+              <div>
+                <strong>WhatsApp Oficial ↗</strong>
+                <p className={styles.contactDetailHighlight}>{whatsappPhone}</p>
+              </div>
+            </a>
 
-              <div className={styles.contactDetailItem}>
-                <div className={styles.contactDetailIconBadge}>
-                  <MapPin className={styles.contactDetailIcon} size={20} />
-                </div>
-                <div>
-                  <strong>Ubicación de {agencyName || "la Automotora"}</strong>
-                  <p>{locationAddress}</p>
-                </div>
+            <a 
+              href={`mailto:${contactEmail}`}
+              className={styles.contactDetailItem}
+            >
+              <div className={styles.contactDetailIconBadge}>
+                <Mail className={styles.contactDetailIcon} size={20} />
+              </div>
+              <div>
+                <strong>Correo de Contacto Preferido</strong>
+                <p className={styles.contactDetailHighlight}>{contactEmail}</p>
+              </div>
+            </a>
+
+            <div className={styles.contactDetailItem}>
+              <div className={styles.contactDetailIconBadge}>
+                <Clock className={styles.contactDetailIcon} size={20} />
+              </div>
+              <div>
+                <strong>Horarios de Atención</strong>
+                <p>{businessHours}</p>
               </div>
             </div>
 
-            {/* Map Preview Canvas */}
-            <div className={styles.mapCanvasWrapper}>
-              <iframe
-                width="100%"
-                height="100%"
-                frameBorder="0"
-                scrolling="no"
-                src={`https://maps.google.com/maps?q=${latitude},${longitude}&z=15&output=embed`}
-                style={{ border: "none", width: "100%", height: "100%" }}
-                title={`Ubicación de ${agencyName}`}
-              />
+            <div className={styles.contactDetailItem}>
+              <div className={styles.contactDetailIconBadge}>
+                <MapPin className={styles.contactDetailIcon} size={20} />
+              </div>
+              <div>
+                <strong>Ubicación de {agencyName || "la Automotora"}</strong>
+                <p>{locationAddress}</p>
+              </div>
             </div>
 
             <a 
@@ -560,10 +483,33 @@ export default function PortalShowroomClient({
             </a>
           </div>
 
-          <div className={styles.contactFormCol}>
+          <div className={styles.mapCanvasWrapperWide}>
+            <iframe
+              width="100%"
+              height="100%"
+              frameBorder="0"
+              scrolling="no"
+              src={`https://maps.google.com/maps?q=${latitude},${longitude}&z=15&output=embed`}
+              style={{ border: "none", width: "100%", height: "100%", minHeight: "380px" }}
+              title={`Ubicación de ${agencyName}`}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Dedicated Inquiry Form Section (A continuación de Contacto & Ubicación) */}
+      <section id="consultas" className={styles.inquirySection}>
+        <div className={styles.inquiryContainer}>
+          <div className={styles.inquiryHeader}>
+            <span className={styles.contactEyebrow}>FORMULARIO DIRECTO</span>
+            <h2>Solicitar Información / Test Drive</h2>
+            <p className={styles.inquirySubtitle}>
+              Déjanos tus datos o el vehículo de tu interés y un asesor de {agencyName} se pondrá en contacto contigo a la brevedad.
+            </p>
+          </div>
+
+          <div className={styles.inquiryCardWrapper}>
             <form onSubmit={handleContactSubmit} className={styles.contactForm}>
-              <h3>Solicitar Información / Test Drive</h3>
-              
               <div className={styles.formGroup}>
                 <label>Tu Nombre Completo *</label>
                 <input 

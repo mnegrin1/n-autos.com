@@ -1,12 +1,14 @@
 import { Metadata } from "next";
-import Link from "next/link";
 import styles from "./portal.module.css";
 import { getAgencyBySlug } from "@/actions/agencyActions";
 import WhatsAppFloatingButton from "./WhatsAppFloatingButton";
 import ZoomScript from "./ZoomScript";
 import PortalFaviconScript from "./PortalFaviconScript";
 import SubdomainUnavailableView from "./SubdomainUnavailableView";
-import PortalThemeToggle from "./PortalThemeToggle";
+import PortalLogoLink from "./PortalLogoLink";
+import PortalNavbarLinks from "./PortalNavbarLinks";
+import PortalFooter from "./PortalFooter";
+import { generateAccessibleThemeTokens } from "@/lib/portalThemeHelper";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -21,7 +23,9 @@ export async function generateMetadata({
 
   if (agency?.isUnavailable || agency?.isNotFound) {
     return {
-      title: agency?.isNotFound ? "Sitio No Encontrado | CRM Automotora" : "Subdominio Actualizado | CRM Automotora",
+      title: agency?.isNotFound
+        ? "Sitio No Encontrado | CRM Automotora"
+        : "Subdominio Actualizado | CRM Automotora",
     };
   }
 
@@ -30,11 +34,13 @@ export async function generateMetadata({
 
   return {
     title: agencyName,
-    icons: logoUrl ? {
-      icon: logoUrl,
-      shortcut: logoUrl,
-      apple: logoUrl,
-    } : undefined,
+    icons: logoUrl
+      ? {
+          icon: logoUrl,
+          shortcut: logoUrl,
+          apple: logoUrl,
+        }
+      : undefined,
   };
 }
 
@@ -61,123 +67,162 @@ export default async function PortalLayout({
 
   if (agency?.isNotFound) {
     return (
-      <SubdomainUnavailableView
-        oldSubdomain={agencySlug}
-        isNotFound={true}
-      />
+      <SubdomainUnavailableView oldSubdomain={agencySlug} isNotFound={true} />
     );
   }
 
   const agencyName = agency?.name || agencySlug.replace(/-/g, " ").toUpperCase();
   const whatsappPhone = agency?.whatsapp || "+598 99 123 456";
-  const cleanWhatsappPhone = whatsappPhone.replace(/\D/g, "");
 
   const activePrimary = agency?.primary_color || "#10b981";
   const fontFamilyName = agency?.font_family || "Inter";
 
   const fontCssMap: Record<string, string> = {
-    "Inter": "'Inter', sans-serif",
+    Inter: "'Inter', sans-serif",
     "Plus Jakarta Sans": "'Plus Jakarta Sans', sans-serif",
-    "Manrope": "'Manrope', sans-serif",
-    "Outfit": "'Outfit', sans-serif",
+    Manrope: "'Manrope', sans-serif",
+    Outfit: "'Outfit', sans-serif",
     "Playfair Display": "'Playfair Display', serif",
-    "Roboto": "'Roboto', sans-serif",
+    Roboto: "'Roboto', sans-serif",
   };
   const fontCss = fontCssMap[fontFamilyName] || "'Inter', sans-serif";
+
+  // Calcular tokens de color con contraste accesible garantizado
+  const tokens = generateAccessibleThemeTokens(activePrimary);
 
   return (
     <div className={styles.portalWrapper} style={{ fontFamily: fontCss }}>
       {/* Dynamic Favicon & Title Script */}
-      <PortalFaviconScript logoUrl={agency?.logo_url || ""} agencyName={agencyName} />
+      <PortalFaviconScript
+        logoUrl={agency?.logo_url || ""}
+        agencyName={agencyName}
+      />
 
       {/* Google Fonts para la selección del cliente */}
       <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Plus+Jakarta+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+      <link
+        rel="preconnect"
+        href="https://fonts.gstatic.com"
+        crossOrigin="anonymous"
+      />
+      <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Plus+Jakarta+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Roboto:wght@400;500;700&display=swap"
+        rel="stylesheet"
+      />
 
       {/* Client component to apply zoom */}
       <ZoomScript />
 
-      {/* Dynamic Styling para Branding, Colores y Fuentes */}
-      <style dangerouslySetInnerHTML={{ __html: `
+      {/* Dynamic Styling para Branding, Colores Accesibles y Fuentes */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
         :root {
-          --portal-primary: ${activePrimary};
-          --portal-primary-hover: ${activePrimary}dd;
-          --portal-primary-light: ${activePrimary}1a;
+          --portal-primary: ${tokens.primary};
+          --portal-primary-contrast: ${tokens.primaryContrast};
+          --portal-primary-hover: ${tokens.primaryHover};
+          --portal-primary-light: ${tokens.primaryLight};
+          --portal-primary-border: ${tokens.primaryBorder};
+          --portal-accent: ${tokens.accentDark};
+          --portal-accent-dark: ${tokens.accentDark};
+          --portal-accent-light: ${tokens.accentLight};
           --portal-font-family: ${fontCss};
-          --primary: ${activePrimary};
-          --primary-hover: ${activePrimary}dd;
+
+          --primary: ${tokens.primary};
+          --primary-hover: ${tokens.primaryHover};
+          --primary-contrast: ${tokens.primaryContrast};
+          --primary-light: ${tokens.primaryLight};
+
+          --portal-bg: #0b0f17;
+          --portal-surface: #111726;
+          --portal-surface-card: #151d2a;
+          --portal-surface-hover: #1c2637;
+          --portal-border: rgba(255, 255, 255, 0.09);
+          --portal-border-subtle: rgba(255, 255, 255, 0.05);
+          --portal-text: #f8fafc;
+          --portal-text-muted: #94a3b8;
+          --portal-text-faint: #64748b;
+
+          --portal-navbar-bg: rgba(11, 15, 23, 0.88);
+          --portal-navbar-border: rgba(255, 255, 255, 0.08);
+          --portal-navbar-text: #ffffff;
+          --portal-navbar-link: rgba(255, 255, 255, 0.82);
+          --portal-navbar-link-hover: #ffffff;
+
+          --portal-input-bg: #0f1523;
+          --portal-input-border: rgba(255, 255, 255, 0.14);
+          --portal-input-text: #ffffff;
+          --portal-input-placeholder: #64748b;
+
+          --portal-footer-bg: #070a10;
+          --portal-footer-text: #94a3b8;
         }
+
+        .visitorLightMode,
+        :global(.visitorLightMode) {
+          --portal-bg: #f8fafc;
+          --portal-surface: #ffffff;
+          --portal-surface-card: #ffffff;
+          --portal-surface-hover: #f1f5f9;
+          --portal-border: #e2e8f0;
+          --portal-border-subtle: #f1f5f9;
+          --portal-text: #0f172a;
+          --portal-text-muted: #475569;
+          --portal-text-faint: #94a3b8;
+
+          --portal-navbar-bg: rgba(255, 255, 255, 0.95);
+          --portal-navbar-border: #e2e8f0;
+          --portal-navbar-text: #0f172a;
+          --portal-navbar-link: #334155;
+          --portal-navbar-link-hover: ${tokens.accentLight};
+
+          --portal-input-bg: #ffffff;
+          --portal-input-border: #cbd5e1;
+          --portal-input-text: #0f172a;
+          --portal-input-placeholder: #94a3b8;
+
+          --portal-footer-bg: #f1f5f9;
+          --portal-footer-text: #475569;
+
+          --portal-accent: ${tokens.accentLight};
+        }
+
         body {
           font-family: ${fontCss};
         }
-      `}} />
+      `,
+        }}
+      />
 
       {/* Header Banner de la Automotora */}
       <header className={styles.navbar}>
         <div className={styles.navContainer}>
-          <Link href="/" className={styles.logo} style={{ display: "flex", alignItems: "center", gap: "0.75rem", textDecoration: "none" }}>
-            {agency?.logo_url ? (
-              <img src={agency.logo_url} alt={agencyName || "Logo"} style={{ height: "42px", maxWidth: "160px", objectFit: "contain", borderRadius: "6px" }} />
-            ) : null}
-            {agencyName ? (
-              <span style={{ fontWeight: 800, fontSize: "1.25rem", letterSpacing: "-0.02em", color: "#ffffff" }}>{agencyName}</span>
-            ) : !agency?.logo_url ? (
-              <span style={{ fontWeight: 800, fontSize: "1.25rem", letterSpacing: "-0.02em", color: "#ffffff" }}>Automotora VIP</span>
-            ) : null}
-          </Link>
+          <PortalLogoLink
+            agencySlug={agencySlug}
+            agencyName={agencyName}
+            logoUrl={agency?.logo_url}
+          />
 
-          <nav className={styles.navLinks}>
-            <Link href="#inicio">Inicio</Link>
-            <Link href="#vehiculos">Catálogo</Link>
-            <Link href="#nosotros">Sobre Nosotros</Link>
-            <Link href="#contacto">Contacto</Link>
-            <PortalThemeToggle />
-            
-            <a 
-              href={`https://wa.me/${cleanWhatsappPhone}?text=${encodeURIComponent(`Hola ${agencyName}, me gustaría consultar sobre su catálogo de vehículos.`)}`} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className={styles.whatsappLink}
-            >
-              <svg className={styles.whatsappIcon} viewBox="0 0 448 512" fill="currentColor" style={{ width: "16px", height: "16px" }}>
-                <path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7 .9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z" />
-              </svg>
-              <span className={styles.whatsappNumber}>
-                {whatsappPhone}
-              </span>
-            </a>
-          </nav>
+          <PortalNavbarLinks
+            agencySlug={agencySlug}
+            agencyName={agencyName}
+            whatsappPhone={whatsappPhone}
+          />
         </div>
       </header>
-      
-      <main className={styles.mainContent}>
-        {children}
-      </main>
 
-      <footer className={styles.footer}>
-        <div className={styles.footerContent}>
-          <div className={styles.footerBrand}>
-            <h3>{agencyName}</h3>
-            <p>{agency?.footer_text || "Tu concesionario de confianza. Vehículos seleccionados con certificación de origen, garantía y la mejor atención personalizada."}</p>
-          </div>
-          <div className={styles.footerLinks}>
-            <Link href="#inicio">Inicio</Link>
-            <Link href="#vehiculos">Catálogo</Link>
-            <Link href="#nosotros">Nosotros</Link>
-            <Link href="#contacto">Contacto</Link>
-          </div>
-        </div>
-        <div className={styles.footerBottom}>
-          <p>&copy; {new Date().getFullYear()} {agencyName}. Todos los derechos reservados.</p>
-        </div>
-      </footer>
-      
-      <WhatsAppFloatingButton 
-        phone={whatsappPhone} 
-        agencyName={agencyName} 
+      <main className={styles.mainContent}>{children}</main>
+
+      <PortalFooter
+        agencySlug={agencySlug}
+        agencyName={agencyName}
+        footerText={agency?.footer_text}
+      />
+
+      <WhatsAppFloatingButton
+        phone={whatsappPhone}
+        agencyName={agencyName}
       />
     </div>
   );
 }
-

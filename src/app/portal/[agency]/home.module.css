@@ -50,8 +50,8 @@
   border-color: #cbd5e1 !important;
 }
 :global(.visitorLightMode) .activeTab {
-  background-color: var(--primary, #10b981) !important;
-  color: #ffffff !important;
+  background-color: var(--portal-primary, #10b981) !important;
+  color: var(--portal-primary-contrast, #ffffff) !important;
 }
 :global(.visitorLightMode) .vehicleCard {
   background-color: #ffffff !important;
@@ -67,7 +67,7 @@
   color: #0f172a !important;
 }
 :global(.visitorLightMode) .vehiclePrice {
-  color: #059669 !important;
+  color: var(--portal-accent, #059669) !important;
 }
 :global(.visitorLightMode) .specLabel {
   color: #64748b !important;
@@ -410,6 +410,62 @@
   line-height: 1.6;
 }
 
+/* Hero Action Buttons */
+.heroActions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  flex-wrap: wrap;
+  z-index: 5;
+  position: relative;
+}
+
+.heroBtnPrimary {
+  background-color: var(--portal-primary, #10b981);
+  color: var(--portal-primary-contrast, #ffffff) !important;
+  padding: 0.9rem 2rem;
+  border-radius: 12px;
+  font-size: 1.02rem;
+  font-weight: 700;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.28);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.heroBtnPrimary:hover {
+  background-color: var(--portal-primary-hover, #059669);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.38);
+}
+
+.heroBtnSecondary {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  padding: 0.9rem 1.85rem;
+  border-radius: 12px;
+  font-size: 1.02rem;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  backdrop-filter: blur(10px);
+  transition: all 0.2s ease;
+}
+
+.heroBtnSecondary:hover {
+  background-color: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-2px);
+}
+
 .searchContainer {
   max-width: 850px;
   margin: 0 auto;
@@ -550,6 +606,22 @@
 .viewAll {
   color: var(--secondary);
   font-weight: 600;
+}
+
+.viewAllCatalogLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--portal-accent, #10b981);
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.viewAllCatalogLink:hover {
+  transform: translateX(3px);
+  opacity: 0.9;
 }
 
 .vehicleGrid {
@@ -1058,8 +1130,8 @@
 }
 
 .submitFormBtn {
-  background-color: var(--primary, #10b981);
-  color: white;
+  background-color: var(--portal-primary, #10b981);
+  color: var(--portal-primary-contrast, #ffffff) !important;
   border: none;
   padding: 0.95rem 1.5rem;
   border-radius: 12px;
@@ -1071,27 +1143,107 @@
   justify-content: center;
   gap: 0.6rem;
   transition: all 0.25s ease;
-  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
   margin-top: 0.5rem;
 }
 
 .submitFormBtn:hover {
   opacity: 0.95;
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
 
 .formSuccessMsg {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #10b981;
+  color: var(--portal-accent, #10b981);
   font-size: 0.85rem;
   font-weight: 600;
-  background: rgba(16, 185, 129, 0.12);
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: var(--portal-primary-light, rgba(16, 185, 129, 0.12));
+  border: 1px solid var(--portal-primary-border, rgba(16, 185, 129, 0.25));
   padding: 0.6rem 1rem;
   border-radius: 8px;
+}
+
+/* Contact & Location Wide Layout */
+.contactHeaderCenter {
+  text-align: center;
+  max-width: 800px;
+  margin: 0 auto 3rem;
+}
+
+.contactHeaderCenter h2 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  margin: 0.5rem 0 1rem;
+  color: var(--portal-text, #ffffff);
+  letter-spacing: -0.03em;
+}
+
+.contactGridWide {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2.5rem;
+  align-items: stretch;
+}
+
+.mapCanvasWrapperWide {
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--portal-border, rgba(255, 255, 255, 0.12));
+  min-height: 420px;
+  height: 100%;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  position: relative;
+  background-color: var(--portal-surface-card, #151d2a);
+}
+
+/* Dedicated Inquiry Section (A continuación de Contacto y Ubicación) */
+.inquirySection {
+  padding: 5rem 2rem 6rem;
+  background-color: var(--portal-surface, rgba(17, 23, 38, 0.6));
+  border-top: 1px solid var(--portal-border, rgba(255, 255, 255, 0.08));
+  border-bottom: 1px solid var(--portal-border, rgba(255, 255, 255, 0.08));
+  width: 100%;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.inquiryContainer {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.inquiryHeader {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.inquiryHeader h2 {
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: var(--portal-text, #ffffff);
+  margin: 0.5rem 0 0.85rem;
+  letter-spacing: -0.02em;
+}
+
+.inquirySubtitle {
+  font-size: 1rem;
+  color: var(--portal-text-muted, #94a3b8);
+  margin: 0;
+  line-height: 1.6;
+}
+
+.inquiryCardWrapper {
+  background: var(--portal-surface-card, #151d2a);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--portal-border, rgba(255, 255, 255, 0.12));
+  border-radius: 20px;
+  padding: 2.5rem;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+  color: var(--portal-text, #ffffff);
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 /* ==========================================================================
@@ -2007,8 +2159,8 @@
 
 :global(.visitorLightMode) .activeTab,
 :global(.visitorLightMode) .tabButton.activeTab {
-  background-color: var(--primary, #10b981) !important;
-  color: #ffffff !important;
+  background-color: var(--portal-primary, #10b981) !important;
+  color: var(--portal-primary-contrast, #ffffff) !important;
 }
 
 :global(.visitorLightMode) .vehicleCard {
@@ -2031,7 +2183,7 @@
 }
 
 :global(.visitorLightMode) .vehiclePrice {
-  color: #059669 !important;
+  color: var(--portal-accent, #059669) !important;
   text-shadow: none !important;
 }
 
@@ -2067,11 +2219,25 @@
   color: #0f172a !important;
 }
 
-:global(.visitorLightMode) .contactFormCol {
+:global(.visitorLightMode) .contactFormCol,
+:global(.visitorLightMode) .inquiryCardWrapper {
   background-color: #ffffff !important;
   border-color: #e2e8f0 !important;
   color: #0f172a !important;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
+}
+
+:global(.visitorLightMode) .inquirySection {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+
+:global(.visitorLightMode) .inquiryHeader h2 {
+  color: #0f172a !important;
+}
+
+:global(.visitorLightMode) .inquirySubtitle {
+  color: #475569 !important;
 }
 
 :global(.visitorLightMode) .formGroup label {
@@ -2086,6 +2252,11 @@
 
 :global(.visitorLightMode) .formGroup input::placeholder {
   color: #94a3b8 !important;
+}
+
+:global(.visitorLightMode) .submitFormBtn {
+  background-color: var(--portal-primary, #10b981) !important;
+  color: var(--portal-primary-contrast, #ffffff) !important;
 }
 
 

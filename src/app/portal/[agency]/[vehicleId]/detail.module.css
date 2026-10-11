@@ -199,8 +199,8 @@
   font-weight: 700;
   font-size: 0.95rem;
   cursor: pointer;
-  color: white;
-  background-color: var(--primary);
+  color: var(--portal-primary-contrast, #ffffff) !important;
+  background-color: var(--portal-primary, var(--primary));
   transition: background-color 0.2s;
 }
 

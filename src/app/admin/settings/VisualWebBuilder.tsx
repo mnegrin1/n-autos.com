@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Monitor, Smartphone, Check, Upload, Image as ImageIcon, Sparkles, CheckCircle2, Search, Fuel, Shield, Zap, Award, Car, Phone, Clock, MapPin, Palette, Type } from "lucide-react";
+import { generateAccessibleThemeTokens } from "@/lib/portalThemeHelper";
 
 interface AgencyData {
   id: string;
@@ -286,7 +287,10 @@ export default function VisualWebBuilder({
   };
 
   const currentCover = coverUrl || "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80";
-  const activeAccent = primaryColor;
+  const themeTokens = generateAccessibleThemeTokens(primaryColor);
+  const activeAccent = themeTokens.primary;
+  const activeContrast = themeTokens.primaryContrast;
+  const activeAccentDark = themeTokens.accentDark;
   const activeFontObj = FONT_OPTIONS.find(f => f.id === fontFamily) || FONT_OPTIONS[0];
 
   return (
@@ -823,31 +827,37 @@ export default function VisualWebBuilder({
               />
             </div>
 
-            {/* Simulated Search Box */}
-            <div style={{
-              backgroundColor: "rgba(15, 23, 42, 0.85)",
-              border: `1px solid rgba(255, 255, 255, 0.12)`,
-              borderRadius: "12px",
-              padding: "0.85rem",
-              marginTop: "0.5rem",
-              width: "100%",
-              maxWidth: "680px",
-              display: "flex",
-              flexDirection: deviceMode === "mobile" ? "column" : "row",
-              gap: "0.5rem"
-            }}>
-              <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.5rem", backgroundColor: "rgba(255, 255, 255, 0.05)", borderRadius: "8px", padding: "0.5rem 0.75rem", fontSize: "0.8rem" }}>
-                <Search size={14} style={{ opacity: 0.6 }} />
-                <span>Buscar marca o modelo...</span>
-              </div>
-              <div style={{ display: "flex", gap: "0.5rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", backgroundColor: "rgba(255, 255, 255, 0.05)", borderRadius: "8px", padding: "0.5rem 0.75rem", fontSize: "0.8rem" }}>
-                  <Fuel size={14} style={{ opacity: 0.6 }} /> Combustible
-                </div>
-                <button type="button" style={{ backgroundColor: activeAccent, color: "white", border: "none", borderRadius: "8px", padding: "0.5rem 1rem", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer" }}>
-                  Buscar
-                </button>
-              </div>
+            {/* Hero Action Buttons (1:1 con la web pública) */}
+            <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem", flexWrap: "wrap", justifyContent: "center" }}>
+              <span style={{
+                backgroundColor: activeAccent,
+                color: activeContrast,
+                padding: "0.7rem 1.6rem",
+                borderRadius: "10px",
+                fontSize: "0.88rem",
+                fontWeight: 700,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.45rem",
+                boxShadow: "0 4px 14px rgba(0,0,0,0.3)"
+              }}>
+                <Car size={15} /> Ver Catálogo
+              </span>
+              <span style={{
+                backgroundColor: "rgba(255, 255, 255, 0.1)",
+                color: "#ffffff",
+                padding: "0.7rem 1.6rem",
+                borderRadius: "10px",
+                fontSize: "0.88rem",
+                fontWeight: 600,
+                border: "1px solid rgba(255, 255, 255, 0.22)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.45rem",
+                backdropFilter: "blur(8px)"
+              }}>
+                <Phone size={15} /> Contacto
+              </span>
             </div>
           </section>
 
@@ -855,7 +865,7 @@ export default function VisualWebBuilder({
           <section style={{ backgroundColor: "#0b0f17", padding: "2.5rem 1.5rem", borderBottom: `1px solid rgba(255,255,255,0.08)` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "1.5rem" }}>
               <div>
-                <span style={{ fontSize: "0.7rem", fontWeight: 800, color: activeAccent, letterSpacing: "0.1em" }}>
+                <span style={{ fontSize: "0.7rem", fontWeight: 800, color: activeAccentDark, letterSpacing: "0.1em" }}>
                   CATÁLOGO EN VIVO
                 </span>
                 <h2 style={{ fontSize: "1.5rem", fontWeight: 700, margin: 0, color: "#ffffff" }}>Vehículos Destacados</h2>
@@ -899,7 +909,7 @@ export default function VisualWebBuilder({
                   <div style={{ padding: "0.85rem", display: "flex", flexDirection: "column", gap: "0.35rem" }}>
                     <div style={{ fontSize: "0.95rem", fontWeight: 700, color: "#ffffff" }}>{v.brand} {v.model}</div>
                     <div style={{ fontSize: "0.75rem", color: "#94a3b8" }}>Año: {v.year} | {v.kms.toLocaleString()} km</div>
-                    <div style={{ fontSize: "1.05rem", fontWeight: 800, color: activeAccent, marginTop: "0.3rem" }}>{v.price}</div>
+                    <div style={{ fontSize: "1.05rem", fontWeight: 800, color: activeAccentDark, marginTop: "0.3rem" }}>{v.price}</div>
                   </div>
                 </div>
               ))}
@@ -909,7 +919,7 @@ export default function VisualWebBuilder({
           {/* SECTION 4: SOBRE NOSOTROS */}
           <section style={{ backgroundColor: "#0f172a", padding: "2.5rem 1.5rem", borderBottom: `1px solid rgba(255,255,255,0.08)` }}>
             <div style={{ maxWidth: "800px", margin: "0 auto", textAlign: "center", display: "flex", flexDirection: "column", gap: "1rem" }}>
-              <span style={{ fontSize: "0.7rem", fontWeight: 800, color: activeAccent, letterSpacing: "0.1em" }}>
+              <span style={{ fontSize: "0.7rem", fontWeight: 800, color: activeAccentDark, letterSpacing: "0.1em" }}>
                 TRANSPARENCIA & RESPALDO
               </span>
               <h2 style={{ fontSize: "1.6rem", fontWeight: 700, margin: 0, color: "#ffffff" }}>Sobre {name || "la Automotora"}</h2>
@@ -952,7 +962,7 @@ export default function VisualWebBuilder({
                   textAlign: "left"
                 }}>
                   <div style={{ backgroundColor: "#151d2a", border: `1px solid rgba(255,255,255,0.08)`, borderRadius: "10px", padding: "0.85rem" }}>
-                    <Shield size={22} style={{ color: activeAccent, marginBottom: "0.4rem" }} />
+                    <Shield size={22} style={{ color: activeAccentDark, marginBottom: "0.4rem" }} />
                     <h4 
                       contentEditable 
                       suppressContentEditableWarning
@@ -978,7 +988,7 @@ export default function VisualWebBuilder({
                   </div>
 
                   <div style={{ backgroundColor: "#151d2a", border: `1px solid rgba(255,255,255,0.08)`, borderRadius: "10px", padding: "0.85rem" }}>
-                    <Zap size={22} style={{ color: activeAccent, marginBottom: "0.4rem" }} />
+                    <Zap size={22} style={{ color: activeAccentDark, marginBottom: "0.4rem" }} />
                     <h4 
                       contentEditable 
                       suppressContentEditableWarning
@@ -1004,7 +1014,7 @@ export default function VisualWebBuilder({
                   </div>
 
                   <div style={{ backgroundColor: "#151d2a", border: `1px solid rgba(255,255,255,0.08)`, borderRadius: "10px", padding: "0.85rem" }}>
-                    <Car size={22} style={{ color: activeAccent, marginBottom: "0.4rem" }} />
+                    <Car size={22} style={{ color: activeAccentDark, marginBottom: "0.4rem" }} />
                     <h4 
                       contentEditable 
                       suppressContentEditableWarning
@@ -1030,7 +1040,7 @@ export default function VisualWebBuilder({
                   </div>
 
                   <div style={{ backgroundColor: "#151d2a", border: `1px solid rgba(255,255,255,0.08)`, borderRadius: "10px", padding: "0.85rem" }}>
-                    <Award size={22} style={{ color: activeAccent, marginBottom: "0.4rem" }} />
+                    <Award size={22} style={{ color: activeAccentDark, marginBottom: "0.4rem" }} />
                     <h4 
                       contentEditable 
                       suppressContentEditableWarning
@@ -1079,7 +1089,7 @@ export default function VisualWebBuilder({
 
               <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", fontSize: "0.78rem", color: "#cbd5e1" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                  <MapPin size={13} style={{ color: activeAccent }} />
+                  <MapPin size={13} style={{ color: activeAccentDark }} />
                   <span 
                     contentEditable
                     suppressContentEditableWarning
@@ -1093,7 +1103,7 @@ export default function VisualWebBuilder({
                   />
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                  <Clock size={13} style={{ color: activeAccent }} />
+                  <Clock size={13} style={{ color: activeAccentDark }} />
                   <span 
                     contentEditable
                     suppressContentEditableWarning

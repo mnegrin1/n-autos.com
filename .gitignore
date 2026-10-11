@@ -31,6 +31,8 @@ yarn-error.log*
 .pnpm-debug.log*
 .superadmin_calendar_data.json
 .landing_inquiries.json
+.*_cache.json
+
 
 # env files (can opt-in for committing if needed)
 .env*
