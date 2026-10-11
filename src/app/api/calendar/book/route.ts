@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { bookMeetingFromLanding } from "@/actions/superadminCalendarActions";
+import { bookAgencyAppointmentAction } from "@/actions/agendaActions";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,18 +15,51 @@ export async function OPTIONS() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { clientName, clientEmail, clientPhone, agencyName, notes, date, time } = body;
+    const {
+      agencyId,
+      clientName,
+      clientEmail,
+      clientPhone,
+      agencyName,
+      notes,
+      date,
+      time,
+      eventType,
+      vehicleId,
+      vehicleTitle,
+    } = body;
 
-    if (!clientName || !clientEmail || !date || !time) {
+    if (!clientName || !date || !time) {
       return NextResponse.json(
-        { success: false, error: "Nombre, email, fecha y hora son obligatorios." },
+        { success: false, error: "Nombre, fecha y hora son obligatorios." },
         { status: 400, headers: corsHeaders }
       );
     }
 
+    if (agencyId) {
+      const res = await bookAgencyAppointmentAction({
+        agencyId,
+        clientName,
+        clientPhone: clientPhone || "",
+        clientEmail: clientEmail || "",
+        eventType: eventType || "test_drive",
+        vehicleId,
+        vehicleTitle,
+        date,
+        time,
+        notes,
+      });
+
+      if (res.success) {
+        return NextResponse.json(res, { headers: corsHeaders });
+      } else {
+        return NextResponse.json(res, { status: 400, headers: corsHeaders });
+      }
+    }
+
     const res = await bookMeetingFromLanding({
       clientName,
-      clientEmail,
+      clientEmail: clientEmail || "",
       clientPhone,
       agencyName,
       notes,

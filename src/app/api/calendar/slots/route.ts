@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAvailableBookingSlots } from "@/actions/superadminCalendarActions";
+import { getAgencyAvailableSlotsAction } from "@/actions/agendaActions";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,12 +16,18 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const date = searchParams.get("date");
+    const agencyId = searchParams.get("agencyId");
 
     if (!date) {
       return NextResponse.json(
         { success: false, error: "El parámetro 'date' (YYYY-MM-DD) es requerido." },
         { status: 400, headers: corsHeaders }
       );
+    }
+
+    if (agencyId) {
+      const res = await getAgencyAvailableSlotsAction({ agencyId, dateStr: date });
+      return NextResponse.json(res, { headers: corsHeaders });
     }
 
     const res = await getAvailableBookingSlots(date);

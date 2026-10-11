@@ -91,11 +91,11 @@ export default function QuickSearchModal({ isOpen, onClose, onOpenComposeEmail }
     },
     {
       id: "nav-agenda",
-      title: "Agenda / Turnos (Cal.com)",
+      title: "Agenda / Turnos (Google Calendar)",
       category: "Navegación",
       icon: Calendar,
       href: "/admin/agenda",
-      keywords: ["agenda", "calendario", "turnos", "citas", "cal.com", "test drive", "visitas"]
+      keywords: ["agenda", "calendario", "turnos", "citas", "google calendar", "test drive", "visitas"]
     },
     {
       id: "nav-settings",
@@ -123,11 +123,11 @@ export default function QuickSearchModal({ isOpen, onClose, onOpenComposeEmail }
     },
     {
       id: "act-new-appointment",
-      title: "Agendar Turno / Cita (Cal.com)",
+      title: "Agendar Turno / Cita (Google Calendar)",
       category: "Acciones Rápidas",
       icon: Calendar,
       href: "/admin/agenda?action=new",
-      keywords: ["agendar", "turno", "cita", "test drive", "reserva", "cal.com"]
+      keywords: ["agendar", "turno", "cita", "test drive", "reserva", "google calendar"]
     },
     {
       id: "act-compose-email",

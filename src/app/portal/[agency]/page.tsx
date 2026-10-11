@@ -39,6 +39,7 @@ export default async function PortalPage({
   return (
     <PortalShowroomClient 
       initialVehicles={vehicles} 
+      agencyId={agencyId || "00000000-0000-0000-0000-000000000000"}
       agencySlug={agencySlug} 
       agencyName={agency?.name || "Automotora VIP"} 
       whatsappPhone={agency?.whatsapp || "+598 99 123 456"}

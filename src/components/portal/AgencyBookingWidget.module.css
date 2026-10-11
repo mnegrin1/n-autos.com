@@ -1,0 +1,380 @@
+.bookingContainer {
+  background-color: var(--surface-color, #ffffff);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 20px;
+  padding: 2rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+  max-width: 820px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  transition: all 0.3s ease;
+}
+
+.bookingHeader {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--primary, #10b981);
+}
+
+.title {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--text-color, #111827);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 0.95rem;
+  color: var(--text-color, #4b5563);
+  opacity: 0.8;
+  margin: 0;
+  max-width: 580px;
+  margin: 0 auto;
+}
+
+/* SECTION GROUPS */
+.formStep {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.stepTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-color, #111827);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.stepNumber {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: var(--primary, #10b981);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* TIPO DE CITA PILLS */
+.typeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.65rem;
+}
+
+.typeBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.85rem 0.65rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  background-color: var(--bg-color, #f9fafb);
+  color: var(--text-color, #1f2937);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.typeBtn:hover {
+  border-color: var(--primary, #10b981);
+  background-color: rgba(16, 185, 129, 0.04);
+}
+
+.typeBtnActive {
+  border-color: var(--primary, #10b981) !important;
+  background-color: rgba(16, 185, 129, 0.12) !important;
+  color: var(--primary, #10b981) !important;
+  box-shadow: 0 0 0 2px var(--primary, #10b981);
+}
+
+/* DÍAS DISPONIBLES STRIP */
+.daysStrip {
+  display: flex;
+  gap: 0.6rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  scrollbar-width: thin;
+}
+
+.dayCard {
+  min-width: 72px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.75rem 0.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  background-color: var(--bg-color, #f9fafb);
+  color: var(--text-color, #1f2937);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.dayCard:hover {
+  border-color: var(--primary, #10b981);
+  transform: translateY(-2px);
+}
+
+.dayCardActive {
+  background-color: var(--primary, #10b981) !important;
+  border-color: var(--primary, #10b981) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.dayCardWeekday {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  opacity: 0.8;
+}
+
+.dayCardNumber {
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.dayCardMonth {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.75;
+}
+
+/* HORARIOS GRID */
+.slotsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 0.5rem;
+}
+
+.slotBtn {
+  padding: 0.65rem 0.5rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  background-color: var(--bg-color, #f9fafb);
+  color: var(--text-color, #1f2937);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.slotBtn:hover {
+  border-color: var(--primary, #10b981);
+  background-color: rgba(16, 185, 129, 0.05);
+}
+
+.slotBtnActive {
+  background-color: var(--primary, #10b981) !important;
+  border-color: var(--primary, #10b981) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+/* INPUTS DEL FORMULARIO */
+.inputsRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.inputGroup label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-color, #111827);
+}
+
+.inputGroup input,
+.inputGroup select,
+.inputGroup textarea {
+  padding: 0.75rem 0.95rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  background-color: var(--bg-color, #f9fafb);
+  color: var(--text-color, #111827);
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+
+.inputGroup input:focus,
+.inputGroup select:focus,
+.inputGroup textarea:focus {
+  border-color: var(--primary, #10b981);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+/* SUBMIT BUTTON */
+.submitBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  background-color: var(--primary, #10b981);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+  width: 100%;
+}
+
+.submitBtn:hover {
+  filter: brightness(1.08);
+  transform: translateY(-2px);
+}
+
+.submitBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* CONFIRMATION CARD */
+.successCard {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.5rem 0;
+}
+
+.successIconWrapper {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background-color: rgba(16, 185, 129, 0.15);
+  color: var(--primary, #10b981);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.summaryBox {
+  background-color: var(--bg-color, #f9fafb);
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem;
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.summaryRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.1);
+  padding-bottom: 0.5rem;
+}
+
+.summaryRow:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.actionsRow {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+}
+
+.actionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.googleCalBtn {
+  background-color: #ffffff;
+  color: #1f2937;
+  border: 1px solid #d1d5db;
+}
+
+.googleCalBtn:hover {
+  background-color: #f9fafb;
+}
+
+.whatsappBtn {
+  background-color: #25D366;
+  color: #ffffff;
+  border: none;
+}
+
+.whatsappBtn:hover {
+  filter: brightness(1.08);
+}
+
+@media (max-width: 640px) {
+  .bookingContainer {
+    padding: 1.25rem;
+  }
+  .inputsRow {
+    grid-template-columns: 1fr;
+  }
+  .typeGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .actionsRow {
+    flex-direction: column;
+  }
+}

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import styles from "./detail.module.css";
 import { createAutoLead } from "@/actions/autoActions";
-import { MessageSquare, Phone, Mail, User, CheckCircle, Image as ImageIcon, Calculator } from "lucide-react";
+import { MessageSquare, Phone, Mail, User, CheckCircle, Image as ImageIcon, Calculator, Calendar } from "lucide-react";
 import VehicleGallery, { type UnifiedMediaItem } from "./VehicleGallery";
 import FinancingCalculatorModal from "@/components/FinancingCalculatorModal";
 
@@ -243,6 +243,30 @@ export default function VehicleDetailClient({ vehicle, agencyName, whatsappPhone
             >
               <Calculator size={16} /> Simular Financiación Bancaria (BCU)
             </button>
+
+            <a
+              href="../#agendar"
+              style={{
+                marginTop: "0.6rem",
+                width: "100%",
+                padding: "0.65rem 1rem",
+                borderRadius: "10px",
+                border: "1px solid var(--primary, #10b981)",
+                backgroundColor: "rgba(16, 185, 129, 0.12)",
+                color: "var(--primary, #10b981)",
+                fontWeight: 700,
+                fontSize: "0.88rem",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.5rem",
+                textDecoration: "none",
+                transition: "all 0.2s ease"
+              }}
+            >
+              <Calendar size={16} /> Agendar Test Drive / Visita
+            </a>
           </div>
 
           {vehicle.status === "vendido" ? (

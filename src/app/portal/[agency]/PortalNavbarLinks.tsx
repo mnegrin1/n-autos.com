@@ -25,6 +25,7 @@ export default function PortalNavbarLinks({
   const homeHref = basePath ? `${basePath}` : "/";
   const catalogHref = `${basePath}/catalogo`;
   const aboutHref = `${homeHref}#nosotros`;
+  const bookingHref = `${homeHref}#agendar`;
   const contactHref = `${homeHref}#contacto`;
 
   const isCatalogActive = pathname.endsWith("/catalogo");
@@ -36,6 +37,9 @@ export default function PortalNavbarLinks({
       </Link>
       <Link href={catalogHref} className={isCatalogActive ? styles.activeNavLink : undefined}>
         Catálogo
+      </Link>
+      <Link href={bookingHref}>
+        Agendar Cita
       </Link>
       <Link href={aboutHref}>
         Sobre Nosotros

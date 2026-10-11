@@ -60,8 +60,8 @@ export const DEFAULT_FEATURES: FeatureDefinition[] = [
   },
   {
     id: "agenda",
-    name: "Agenda Electrónica (Cal.com)",
-    description: "Gestión de citas, visitas al showroom, entregas de vehículos y test drives con Cal.com.",
+    name: "Agenda Electrónica & Turnos (Google Calendar & Web)",
+    description: "Gestión de citas, visitas al showroom, entregas de vehículos y test drives con Google Calendar y reservas web.",
     path: "/admin/agenda",
     category: "Operaciones",
     enabledGlobally: true

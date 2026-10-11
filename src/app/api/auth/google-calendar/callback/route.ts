@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { saveSuperadminGoogleAuthAsync } from "@/lib/superadminCalendarStore";
 import { syncGoogleEventsAction } from "@/actions/superadminCalendarActions";
+import { saveAgencyGoogleAuthAsync } from "@/lib/agencyCalendarStore";
+import { syncAgencyGoogleEventsAction } from "@/actions/agendaActions";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   const error = searchParams.get("error");
+  const state = searchParams.get("state") || "superadmin";
+
+  const isAgency = state.startsWith("agency_");
+  const agencyId = isAgency ? state.replace("agency_", "") : "";
+  const redirectTarget = isAgency ? "/admin/agenda" : "/superadmin/calendar";
 
   if (error || !code) {
     return NextResponse.redirect(
-      new URL(`/superadmin/calendar?error=${error || "no_code"}`, request.url)
+      new URL(`${redirectTarget}?error=${error || "no_code"}`, request.url)
     );
   }
 
@@ -18,7 +25,7 @@ export async function GET(request: NextRequest) {
 
   if (!clientId || !clientSecret) {
     return NextResponse.redirect(
-      new URL("/superadmin/calendar?error=google_credentials_missing", request.url)
+      new URL(`${redirectTarget}?error=google_credentials_missing`, request.url)
     );
   }
 
@@ -44,7 +51,7 @@ export async function GET(request: NextRequest) {
       console.error("Error exchanging code for Google Calendar token:", tokenData);
       return NextResponse.redirect(
         new URL(
-          `/superadmin/calendar?error=${encodeURIComponent(tokenData.error_description || tokenData.error || "token_error")}`,
+          `${redirectTarget}?error=${encodeURIComponent(tokenData.error_description || tokenData.error || "token_error")}`,
           request.url
         )
       );
@@ -64,36 +71,64 @@ export async function GET(request: NextRequest) {
       console.warn("No se pudo obtener el email de Google userinfo:", e);
     }
 
-    // Guardar tokens y estado en el store persistente del Superadmin (Supabase auto_integrations)
-    await saveSuperadminGoogleAuthAsync({
-      connected: true,
-      email: userEmail,
-      accessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token,
-      tokenExpiry: Date.now() + (tokenData.expires_in || 3600) * 1000,
-    });
-
-    // Sincronizar automáticamente eventos de Google Calendar de inmediato
     let importedCount = 0;
-    try {
-      const syncRes = await syncGoogleEventsAction();
-      if (syncRes.success && typeof syncRes.count === "number") {
-        importedCount = syncRes.count;
-      }
-    } catch (syncErr) {
-      console.warn("Aviso en auto-sincronización tras conectar Google:", syncErr);
-    }
 
-    return NextResponse.redirect(
-      new URL(
-        `/superadmin/calendar?success=google_connected&synced=true&count=${importedCount}`,
-        request.url
-      )
-    );
+    if (isAgency) {
+      // Guardar tokens en el store de la Agencia
+      await saveAgencyGoogleAuthAsync(agencyId, {
+        connected: true,
+        email: userEmail,
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token,
+        tokenExpiry: Date.now() + (tokenData.expires_in || 3600) * 1000,
+      });
+
+      // Sincronizar automáticamente eventos de Google Calendar para la agencia
+      try {
+        const syncRes = await syncAgencyGoogleEventsAction(agencyId);
+        if (syncRes.success && typeof syncRes.count === "number") {
+          importedCount = syncRes.count;
+        }
+      } catch (syncErr) {
+        console.warn("Aviso en auto-sincronización tras conectar Google para la agencia:", syncErr);
+      }
+
+      return NextResponse.redirect(
+        new URL(
+          `/admin/agenda?success=google_connected&synced=true&count=${importedCount}`,
+          request.url
+        )
+      );
+    } else {
+      // Superadmin
+      await saveSuperadminGoogleAuthAsync({
+        connected: true,
+        email: userEmail,
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token,
+        tokenExpiry: Date.now() + (tokenData.expires_in || 3600) * 1000,
+      });
+
+      try {
+        const syncRes = await syncGoogleEventsAction();
+        if (syncRes.success && typeof syncRes.count === "number") {
+          importedCount = syncRes.count;
+        }
+      } catch (syncErr) {
+        console.warn("Aviso en auto-sincronización tras conectar Google:", syncErr);
+      }
+
+      return NextResponse.redirect(
+        new URL(
+          `/superadmin/calendar?success=google_connected&synced=true&count=${importedCount}`,
+          request.url
+        )
+      );
+    }
   } catch (err: any) {
     console.error("Error en callback de Google Calendar:", err);
     return NextResponse.redirect(
-      new URL("/superadmin/calendar?error=auth_exception", request.url)
+      new URL(`${redirectTarget}?error=auth_exception`, request.url)
     );
   }
 }

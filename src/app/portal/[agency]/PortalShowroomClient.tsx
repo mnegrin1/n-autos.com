@@ -4,7 +4,8 @@ import { useState } from "react";
 import styles from "./home.module.css";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, Fuel, Shield, Zap, Award, ArrowRight, Phone, MessageSquare, Clock, MapPin, CheckCircle2, Car, Mail, Sparkles, SlidersHorizontal } from "lucide-react";
+import { Search, Fuel, Shield, Zap, Award, ArrowRight, Phone, MessageSquare, Clock, MapPin, CheckCircle2, Car, Mail, Sparkles, SlidersHorizontal, Calendar } from "lucide-react";
+import AgencyBookingWidget from "@/components/portal/AgencyBookingWidget";
 
 interface Vehicle {
   id: string;
@@ -23,6 +24,7 @@ interface Vehicle {
 
 interface PortalShowroomClientProps {
   initialVehicles: Vehicle[];
+  agencyId?: string;
   agencySlug: string;
   agencyName: string;
   whatsappPhone?: string;
@@ -55,6 +57,7 @@ interface PortalShowroomClientProps {
 
 export default function PortalShowroomClient({ 
   initialVehicles, 
+  agencyId = "00000000-0000-0000-0000-000000000000",
   agencySlug, 
   agencyName, 
   whatsappPhone = "+598 99 123 456",
@@ -210,6 +213,9 @@ export default function PortalShowroomClient({
             <Link href={catalogHref} className={styles.heroBtnPrimary}>
               <Car size={18} /> Ver Catálogo
             </Link>
+            <a href="#agendar" className={styles.heroBtnSecondary}>
+              <Calendar size={16} /> Agendar Cita
+            </a>
             <a href="#contacto" className={styles.heroBtnSecondary}>
               <Phone size={16} /> Contacto
             </a>
@@ -495,6 +501,23 @@ export default function PortalShowroomClient({
             />
           </div>
         </div>
+      </section>
+
+      {/* Sección de Agendamiento Online Inteligente (Google Calendar & Horarios) */}
+      <section id="agendar" style={{ padding: "3rem 1.5rem", maxWidth: "1280px", margin: "0 auto", width: "100%" }}>
+        <AgencyBookingWidget
+          agencyId={agencyId}
+          agencySlug={agencySlug}
+          agencyName={agencyName}
+          whatsappPhone={whatsappPhone}
+          locationAddress={locationAddress}
+          vehicles={initialVehicles.map(v => ({
+            id: String(v.id),
+            brand: v.brand,
+            model: v.model,
+            year: Number(v.year) || new Date().getFullYear(),
+          }))}
+        />
       </section>
 
       {/* Dedicated Inquiry Form Section (A continuación de Contacto & Ubicación) */}
