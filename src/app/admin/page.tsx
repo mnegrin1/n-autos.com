@@ -4,12 +4,13 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getCurrentUser } from "@/actions/authActions";
 import { getVehicles, getAutoLeads, getInboxConversations } from "@/actions/autoActions";
 import styles from "./dashboard.module.css";
-import DashboardGrid, { DashboardMetricsData } from "@/components/DashboardGrid";
+import DashboardGrid, { DashboardMetricsData, DashboardActivityItem } from "@/components/DashboardGrid";
 
-// Helper to parse dates/times safely
+// Helper para parsear fechas de forma segura en leads, vehículos y eventos
 function parseActivityDate(item: any): Date {
-  if (item.created_at) return new Date(item.created_at);
-  const timeStr = item.time || "";
+  if (item?.created_at) return new Date(item.created_at);
+  if (item?.updated_at) return new Date(item.updated_at);
+  const timeStr = item?.time || "";
   const now = Date.now();
   if (timeStr.toLowerCase().includes("ahora")) return new Date(now);
   if (timeStr.toLowerCase().includes("h")) {
@@ -28,258 +29,125 @@ export default async function AutoAdminDashboard() {
   const isDemoUser = !currentUser || currentUser.email === "mauricio@automotora.com";
   const agencyId = currentUser?.agency_id || (isDemoUser ? "00000000-0000-0000-0000-000000000000" : null);
 
-  const [vehicles, leads, eventsRes, broadcastsRes, inbox] = await Promise.all([
+  const [vehicles, leads, eventsRes, inbox] = await Promise.all([
     agencyId ? getVehicles(agencyId) : Promise.resolve([]),
     getAutoLeads(agencyId),
     (supabaseAdmin.from("events") as any).select("*").eq("agency_id", agencyId),
-    (supabaseAdmin.from("email_broadcasts") as any).select("*").eq("agency_id", agencyId),
-    getInboxConversations(agencyId),
+    getInboxConversations(agencyId || undefined),
   ]);
 
   const events = eventsRes?.data || [];
-  const broadcasts = broadcastsRes?.data || [];
 
-  // Operative KPIs
-  const stockCount = vehicles.filter((v: any) => v.status === "disponible").length;
-  const newLeadsCount = leads.filter((l: any) => l.status === "nuevo").length;
-  const activeLeadsCount = leads.filter((l: any) => l.status !== "cerrado").length;
-  const reservedCount = vehicles.filter((v: any) => v.status === "reservado").length;
-  const soldCount = vehicles.filter((v: any) => v.status === "vendido").length;
-  const eventsCount = events.length;
-
-  // Emails Sent Calculation (Broadcasts sent + Inbox email messages)
-  const broadcastEmailsSent = broadcasts.reduce((acc: number, b: any) => acc + (Number(b.sent_count) || 0), 0);
-  
-  let inboxEmailSent = 0;
-  inbox.forEach((conv: any) => {
-    if (conv.channel === "email" && Array.isArray(conv.messages)) {
-      conv.messages.forEach((msg: any) => {
-        if (msg.sender !== "lead") {
-          inboxEmailSent++;
-        }
-      });
-    }
-  });
-  const totalEmailsSent = broadcastEmailsSent + inboxEmailSent;
-
-  // Leads chart points (last 7 days)
+  // Puntos de los últimos 7 días
   const last7Days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - i);
     return d;
   }).reverse();
 
-  const leadsByDay = last7Days.map(day => {
+  // 1. Leads en el tiempo (últimos 7 días)
+  const leadsByDay = last7Days.map((day) => {
     const count = leads.filter((lead: any) => {
       const leadDate = parseActivityDate(lead);
       return leadDate.toDateString() === day.toDateString();
     }).length;
     return {
       dateStr: day.toLocaleDateString("es-ES", { weekday: "short", day: "numeric" }),
-      count
+      count,
     };
   });
 
-  // Brand Distribution
-  const brands = vehicles.reduce((acc: Record<string, number>, v: any) => {
-    const brandName = v.brand ? String(v.brand).trim() : "Sin Marca";
-    acc[brandName] = (acc[brandName] || 0) + 1;
-    return acc;
-  }, {});
-
-  const totalVehicles = vehicles.length || 1;
-  const brandList = Object.keys(brands).map(b => ({
-    name: b,
-    count: brands[b],
-    percentage: Math.round((brands[b] / totalVehicles) * 100)
-  })).sort((a, b) => b.count - a.count);
-
-  // Consolidated Activity Feed
-  const vehicleActivities = vehicles.map((v: any) => ({
-    id: `v-${v.id}`,
-    type: "vehicle",
-    text: `Vehículo registrado en inventario: ${v.brand} ${v.model} (${v.year})`,
-    dateIso: parseActivityDate(v).toISOString(),
-    badgeClass: styles.badgeProperty,
-    badgeText: "Vehículo"
-  }));
-
-  const leadActivities = leads.map((l: any) => ({
-    id: `l-${l.id}`,
-    type: "lead",
-    text: `Nuevo interesado recibido: "${l.name}" por "${l.vehicle || 'Consulta General'}"`,
-    dateIso: parseActivityDate(l).toISOString(),
-    badgeClass: styles.badgeLead,
-    badgeText: "Interesado"
-  }));
-
-  const eventActivities = events.map((e: any) => ({
-    id: `e-${e.id}`,
-    type: "event",
-    text: `Test Drive / Reunión agendada: "${e.title}"`,
-    dateIso: parseActivityDate(e).toISOString(),
-    badgeClass: styles.badgeEvent,
-    badgeText: "Agenda"
-  }));
-
-  const broadcastActivities = broadcasts.map((b: any) => ({
-    id: `b-${b.id}`,
-    type: "broadcast",
-    text: `Email Masivo enviado: "${b.subject}" a ${b.sent_count || 0} contactos`,
-    dateIso: parseActivityDate(b).toISOString(),
-    badgeClass: styles.badgeBroadcast,
-    badgeText: "Email"
-  }));
-
-  const recentActivities = [...vehicleActivities, ...leadActivities, ...eventActivities, ...broadcastActivities]
-    .sort((a, b) => new Date(b.dateIso).getTime() - new Date(a.dateIso).getTime())
-    .slice(0, 8);
-
-  // Upcoming Events list
-  const upcomingEvents = events
-    .map((e: any) => ({
-      id: e.id,
-      title: e.title || "Reunión agendada",
-      event_type: e.event_type || "visita",
-      event_date: e.event_date || e.created_at || new Date().toISOString(),
-      description: e.description || "",
-    }))
-    .sort((a: any, b: any) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
-    .slice(0, 5);
-
-  // Recent Consulted Vehicles (top 4 vehicles with queries)
-  const sortedLeads = [...leads].sort(
-    (a: any, b: any) => parseActivityDate(b).getTime() - parseActivityDate(a).getTime()
-  );
-
-  const consultedVehiclesMap = new Map<string, { vehicle: any; latestLead: any; count: number }>();
-
-  sortedLeads.forEach((lead: any) => {
-    let matchedVehicle: any = null;
-    if (lead.vehicle_id) {
-      matchedVehicle = vehicles.find((v: any) => v.id === lead.vehicle_id);
-    }
-    if (!matchedVehicle && lead.vehicle) {
-      const vQuery = String(lead.vehicle).toLowerCase();
-      matchedVehicle = vehicles.find(
-        (v: any) =>
-          `${v.brand} ${v.model}`.toLowerCase().includes(vQuery) ||
-          vQuery.includes(`${v.brand} ${v.model}`.toLowerCase()) ||
-          (v.model && vQuery.includes(String(v.model).toLowerCase()))
-      );
-    }
-    if (matchedVehicle && !consultedVehiclesMap.has(matchedVehicle.id)) {
-      const queryCount = leads.filter(
-        (l: any) =>
-          l.vehicle_id === matchedVehicle.id ||
-          (l.vehicle && matchedVehicle.model && String(l.vehicle).toLowerCase().includes(String(matchedVehicle.model).toLowerCase()))
-      ).length;
-
-      consultedVehiclesMap.set(matchedVehicle.id, {
-        vehicle: matchedVehicle,
-        latestLead: lead,
-        count: queryCount,
-      });
-    }
-  });
-
-  let consultedItems = Array.from(consultedVehiclesMap.values());
-  if (consultedItems.length < 4) {
-    const existingIds = new Set(consultedItems.map((item) => item.vehicle.id));
-    const remaining = vehicles.filter((v: any) => !existingIds.has(v.id));
-    for (const v of remaining) {
-      if (consultedItems.length >= 4) break;
-      consultedItems.push({
-        vehicle: v,
-        latestLead: null,
-        count: 0,
-      });
-    }
-  }
-
-  const recentConsultedVehicles = consultedItems.slice(0, 4).map((item) => {
-    const v = item.vehicle;
+  // 2. Ventas en el tiempo (últimos 7 días)
+  const soldVehicles = vehicles.filter((v: any) => v.status === "vendido");
+  const salesByDay = last7Days.map((day) => {
+    const matched = soldVehicles.filter((v: any) => {
+      const vDate = parseActivityDate(v);
+      return vDate.toDateString() === day.toDateString();
+    });
     return {
-      id: v.id,
-      brand: v.brand || "Marca",
-      model: v.model || "Modelo",
-      year: v.year || new Date().getFullYear(),
-      price: Number(v.price) || 0,
-      currency: v.currency || "$",
-      status: v.status || "disponible",
-      image: Array.isArray(v.images) && v.images.length > 0 ? v.images[0] : null,
-      latestLead: item.latestLead
-        ? {
-            name: item.latestLead.name || "Interesado",
-            message: item.latestLead.message || "Consulta recibida",
-            dateIso: parseActivityDate(item.latestLead).toISOString(),
-            phone: item.latestLead.phone || "",
-          }
-        : null,
-      queryCount: item.count,
+      dateStr: day.toLocaleDateString("es-ES", { weekday: "short", day: "numeric" }),
+      count: matched.length,
+      amount: matched.reduce((acc: number, v: any) => acc + (Number(v.price) || 0), 0),
     };
   });
 
-  // Lead Activities List (top 5 leads)
-  const leadActivitiesList = sortedLeads.slice(0, 5).map((l: any) => ({
-    id: l.id,
-    name: l.name || "Interesado Sin Nombre",
-    email: l.email || "",
-    phone: l.phone || "",
-    vehicleName: l.vehicle || "Consulta General",
-    message: l.message || "Interesado en vehículo.",
-    status: l.status || "nuevo",
+  // 3. Actividad reciente en forma de lista: leads, consultas, agendas y ventas
+  const leadActivities: DashboardActivityItem[] = leads.map((l: any) => ({
+    id: `lead-${l.id}`,
+    type: "lead",
+    title: l.name || "Nuevo interesado",
+    subtitle: l.vehicle ? `Interesado en ${l.vehicle}` : "Consulta general de inventario",
+    message: l.message || undefined,
     dateIso: parseActivityDate(l).toISOString(),
+    badgeText: "Lead",
+    phone: l.phone || undefined,
+    email: l.email || undefined,
+    link: "/admin/crm",
   }));
 
-  // Communication Feed (from inbox conversations or recent leads)
-  let communicationFeedList = inbox.slice(0, 3).map((conv: any) => {
+  const consultationActivities: DashboardActivityItem[] = inbox.map((conv: any) => {
     const lastMsg = Array.isArray(conv.messages) && conv.messages.length > 0
       ? conv.messages[conv.messages.length - 1]
       : null;
+    const msgContent = lastMsg ? (lastMsg.content || lastMsg.text || "") : "";
     return {
-      id: conv.id,
+      id: `conv-${conv.id}`,
+      type: "consulta",
+      title: conv.lead_name || conv.customer_name || "Consulta de cliente",
+      subtitle: conv.vehicle_name ? `Consulta por ${conv.vehicle_name}` : `Canal ${conv.channel || "WhatsApp"}`,
+      message: msgContent || undefined,
+      dateIso: conv.updated_at || conv.created_at || (lastMsg?.timestamp ? new Date(lastMsg.timestamp).toISOString() : new Date().toISOString()),
+      badgeText: "Consulta",
       channel: conv.channel || "whatsapp",
-      senderName: conv.lead_name || conv.customer_name || "Cliente WhatsApp",
-      vehicleName: conv.vehicle_name || conv.vehicle_title || "Vehículo",
-      messageText: lastMsg ? (lastMsg.content || lastMsg.text || "Mensaje recibido") : "Consulta sobre vehículo",
-      timeStr: lastMsg && lastMsg.timestamp
-        ? new Date(lastMsg.timestamp).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })
-        : "11:04 AM",
+      link: "/admin/inbox",
     };
   });
 
-  if (communicationFeedList.length === 0) {
-    communicationFeedList = sortedLeads.slice(0, 2).map((l: any) => ({
-      id: `feed-${l.id}`,
-      channel: "whatsapp",
-      senderName: l.name || "Interesado",
-      vehicleName: l.vehicle || "Vehículo",
-      messageText: l.message || "Hola, me interesa coordinar una visita para ver el vehículo.",
-      timeStr: new Date(parseActivityDate(l)).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }),
-    }));
-  }
+  const agendaActivities: DashboardActivityItem[] = events.map((e: any) => ({
+    id: `event-${e.id}`,
+    type: "agenda",
+    title: e.title || "Cita agendada",
+    subtitle: e.description || (e.event_type === "visita" ? "Visita / Test Drive en concesionario" : "Reunión de asesoramiento"),
+    dateIso: e.event_date || e.created_at || new Date().toISOString(),
+    badgeText: "Agenda",
+    link: "/admin/agenda",
+  }));
+
+  const saleActivities: DashboardActivityItem[] = soldVehicles.map((v: any) => ({
+    id: `sale-${v.id}`,
+    type: "venta",
+    title: `Venta: ${v.brand} ${v.model} (${v.year})`,
+    subtitle: v.price
+      ? `Concretada por ${v.currency || "USD"} ${Number(v.price).toLocaleString("es-UY")}`
+      : "Vehículo entregado y registrado como vendido",
+    dateIso: parseActivityDate(v).toISOString(),
+    badgeText: "Venta",
+    link: "/admin/vehicles",
+  }));
+
+  // Consolidar únicamente las 4 categorías solicitadas: leads, consultas, agendas y ventas
+  const recentActivities: DashboardActivityItem[] = [
+    ...leadActivities,
+    ...consultationActivities,
+    ...agendaActivities,
+    ...saleActivities,
+  ]
+    .sort((a, b) => new Date(b.dateIso).getTime() - new Date(a.dateIso).getTime())
+    .slice(0, 16);
+
+  const totalLeadsCount = leads.length;
+  const totalSoldCount = soldVehicles.length;
 
   const metricsData: DashboardMetricsData = {
-    stockCount,
-    newLeadsCount,
-    activeLeadsCount,
-    totalEmailsSent,
-    reservedCount,
-    soldCount,
-    eventsCount,
     leadsByDay,
-    brandList,
+    salesByDay,
+    totalLeadsCount,
+    totalSoldCount,
     recentActivities,
-    upcomingEvents,
-    recentConsultedVehicles,
-    leadActivitiesList,
-    communicationFeedList,
   };
 
   return (
     <div className={styles.dashboardContainer}>
-      {/* Dynamic Dashboard Grid with Widget Selection & Reordering */}
       <DashboardGrid data={metricsData} />
     </div>
   );
