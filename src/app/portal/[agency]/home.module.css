@@ -194,8 +194,8 @@
   background-color: #ffffff !important;
 }
 :global(.visitorLightMode) .submitFormBtn {
-  background-color: var(--primary, #10b981) !important;
-  color: #ffffff !important;
+  background-color: var(--portal-primary, #10b981) !important;
+  color: var(--portal-primary-contrast, #ffffff) !important;
 }
 :global(.visitorLightMode) .footer {
   background-color: #f1f5f9 !important;
@@ -780,8 +780,8 @@
 }
 
 .resetFiltersBtn {
-  background-color: var(--primary, #10b981);
-  color: white;
+  background-color: var(--portal-primary, var(--primary, #10b981));
+  color: var(--portal-primary-contrast, #ffffff);
   border: none;
   padding: 0.65rem 1.25rem;
   border-radius: 10px;
