@@ -255,26 +255,7 @@ export default function VehiclesClient({ initialVehicles, initialPublishSold }: 
             <h1 style={{ margin: 0, fontSize: "1.5rem", fontWeight: 800 }}>Inventario de Vehículos</h1>
             <p className="hideOnMobile" style={{ margin: "0.2rem 0 0 0", opacity: 0.7, fontSize: "0.88rem" }}>Gestiona el stock del concesionario de autos en tiempo real.</p>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <button
-              type="button"
-              onClick={() => setShowExcelModal(true)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.4rem",
-                padding: "0.6rem 1.1rem",
-                borderRadius: "8px",
-                border: "1px solid #10b981",
-                backgroundColor: "rgba(16, 185, 129, 0.1)",
-                color: "#10b981",
-                fontWeight: 700,
-                fontSize: "0.88rem",
-                cursor: "pointer",
-              }}
-            >
-              <FileSpreadsheet size={16} /> Importar Excel
-            </button>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }} data-tour="vehicles-actions">
             <button className="btn-primary" style={{ display: "flex", alignItems: "center", gap: "0.25rem", padding: "0.6rem 1.1rem" }} onClick={openNewModal}>
               <Plus size={16} /> Agregar Auto
             </button>

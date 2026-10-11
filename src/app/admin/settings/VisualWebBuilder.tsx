@@ -300,7 +300,9 @@ export default function VisualWebBuilder({
       `}} />
 
       {/* TOP CONTROL BAR: Device Preview & AutoSave Indicator */}
-      <div style={{
+      <div 
+        data-tour="web-config-top"
+        style={{
         backgroundColor: "var(--surface-color)",
         border: "1px solid var(--border-color)",
         borderRadius: "12px",

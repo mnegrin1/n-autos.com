@@ -38,6 +38,7 @@ import SupportModal from "@/components/SupportModal";
 import SessionGuard from "@/components/SessionGuard";
 import ServiceWorkerRegister from "@/components/PWA/ServiceWorkerRegister";
 import MobileBottomNav from "@/components/PWA/MobileBottomNav";
+import OnboardingTour from "@/components/admin/OnboardingTour";
 import { notifySessionEvent, getCurrentClientSession } from "@/lib/sessionHelper";
 import { isFeatureEnabledForUser, subscribeFeatureFlags } from "@/lib/featureFlagsStore";
 import { getTenantSession, subscribeTenantSession, syncTenantSessionForUser, TenantSession } from "@/lib/tenantStore";
@@ -648,7 +649,7 @@ export default function AdminClientLayout({
             {isExpanded && <span>Dashboard</span>}
           </Link>
           {isFeatureEnabledForUser("vehicles", userEmail) && (
-            <Link href="/admin/vehicles" title="Inventario Stock" className={`${styles.navLink} ${pathname.startsWith("/admin/vehicles") ? styles.activeNavLink : ""}`}>
+            <Link href="/admin/vehicles" data-tour="vehicles-nav" title="Inventario Stock" className={`${styles.navLink} ${pathname.startsWith("/admin/vehicles") ? styles.activeNavLink : ""}`}>
               <Car size={18} style={{ flexShrink: 0 }} />
               {isExpanded && <span>Inventario Stock</span>}
             </Link>
@@ -666,7 +667,7 @@ export default function AdminClientLayout({
             </Link>
           )}
           <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", width: "100%" }}>
-            <Link href="/admin/website" title="Página Web" className={`${styles.navLink} ${pathname.startsWith("/admin/website") ? styles.activeNavLink : ""}`} style={{ flex: 1, minWidth: 0 }}>
+            <Link href="/admin/website" data-tour="website-nav" title="Página Web" className={`${styles.navLink} ${pathname.startsWith("/admin/website") ? styles.activeNavLink : ""}`} style={{ flex: 1, minWidth: 0 }}>
               <Globe size={18} style={{ flexShrink: 0 }} />
               {isExpanded && <span>Página Web</span>}
             </Link>
@@ -696,7 +697,7 @@ export default function AdminClientLayout({
             )}
           </div>
           {isFeatureEnabledForUser("crm", userEmail) && (
-            <Link href="/admin/crm" title="Contactos" className={`${styles.navLink} ${pathname.startsWith("/admin/crm") ? styles.activeNavLink : ""}`}>
+            <Link href="/admin/crm" data-tour="crm-nav" title="Contactos" className={`${styles.navLink} ${pathname.startsWith("/admin/crm") ? styles.activeNavLink : ""}`}>
               <Users size={18} style={{ flexShrink: 0 }} />
               {isExpanded && <span>Contactos</span>}
             </Link>
@@ -704,6 +705,7 @@ export default function AdminClientLayout({
           {isFeatureEnabledForUser("agenda", userEmail) && (
             <Link 
               href="/admin/agenda" 
+              data-tour="agenda-nav"
               title="Agenda / Turnos" 
               className={`${styles.navLink} ${pathname.startsWith("/admin/agenda") || pathname.startsWith("/admin/calendar") ? styles.activeNavLink : ""}`}
             >
@@ -723,6 +725,33 @@ export default function AdminClientLayout({
               {isExpanded && <span>Automatizaciones</span>}
             </Link>
           )}
+
+          {/* Botón mínimo para accionar la guía rápida inicial */}
+          <button
+            type="button"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent("open-onboarding-tour"));
+            }}
+            title="Guía Rápida Inicial (Probar tour)"
+            className={styles.navLink}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              width: "100%",
+              textAlign: "left",
+              color: "rgba(255, 255, 255, 0.85)",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              marginTop: "0.25rem",
+              borderTop: "1px dashed rgba(255, 255, 255, 0.08)",
+              paddingTop: "0.6rem"
+            }}
+          >
+            <Sparkles size={18} style={{ flexShrink: 0, color: "#ffffff" }} />
+            {isExpanded && <span style={{ fontWeight: 600 }}>Guía Rápida</span>}
+          </button>
         </nav>
 
         {/* Footer del Sidebar: Tema, Configuración, Usuario y Pin Toggle */}
@@ -841,6 +870,18 @@ export default function AdminClientLayout({
                   >
                     <Settings size={14} /> Configuración
                   </Link>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setShowDropdown(false);
+                      window.dispatchEvent(new CustomEvent("open-onboarding-tour"));
+                    }}
+                    style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.85rem", fontWeight: 600, color: "var(--text-color)", background: "none", border: "none", width: "100%", textAlign: "left", padding: "0.5rem", borderRadius: "6px", cursor: "pointer", transition: "background-color 0.2s" }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--primary-light)"}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                  >
+                    <Sparkles size={14} color="currentColor" /> Ver Guía Inicial
+                  </button>
                   <button 
                     type="button"
                     onClick={() => {
@@ -996,6 +1037,14 @@ export default function AdminClientLayout({
       <SessionGuard 
         currentUserId={userId} 
         currentUserEmail={userEmail} 
+      />
+
+      <OnboardingTour
+        agencyName={agencyBranding.name || tenantSession.agencyName || "Tu Automotora"}
+        subdomain={agencyBranding.subdomain || tenantSession.subdomain || "demo"}
+        userName={displayUserName}
+        userRole={initialUser?.role || "admin"}
+        adminPrefix="/admin"
       />
 
       <ServiceWorkerRegister />

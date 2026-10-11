@@ -486,7 +486,7 @@ export default function CRMClient({ initialLeads, initialAgents, currentUser }: 
             </div>
             <p style={{ marginTop: '0.25rem', opacity: 0.7 }}>Gestión de clientes y seguimiento de embudo en tiempo real.</p>
           </div>
-          <div style={{ display: "flex", gap: "1rem" }}>
+          <div style={{ display: "flex", gap: "1rem" }} data-tour="crm-actions">
             <input 
               type="file" 
               accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" 

@@ -251,11 +251,11 @@ export default function AgendaClient({
             Agenda Electrónica & Turnos
           </h1>
           <p>
-            Agendamiento inteligente de Test Drives, visitas al showroom y entregas de unidades integrado con <strong>Cal.com</strong>.
+            Agendamiento inteligente de visitas al showroom y entregas de unidades integrado con <strong>Cal.com</strong>.
           </p>
         </div>
 
-        <div className={styles.headerActions}>
+        <div className={styles.headerActions} data-tour="agenda-action-bar">
           <button
             type="button"
             onClick={copyPublicLink}
