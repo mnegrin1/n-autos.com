@@ -214,7 +214,7 @@ export default function PortalShowroomClient({
               <Car size={18} /> Ver Catálogo
             </Link>
             <a href="#agendar" className={styles.heroBtnSecondary}>
-              <Calendar size={16} /> Agendar Cita
+              <Calendar size={16} /> Visita al Local
             </a>
             <a href="#contacto" className={styles.heroBtnSecondary}>
               <Phone size={16} /> Contacto

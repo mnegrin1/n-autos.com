@@ -265,7 +265,7 @@ export default function VehicleDetailClient({ vehicle, agencyName, whatsappPhone
                 transition: "all 0.2s ease"
               }}
             >
-              <Calendar size={16} /> Agendar Test Drive / Visita
+              <Calendar size={16} /> Agendar Visita al Local
             </a>
           </div>
 

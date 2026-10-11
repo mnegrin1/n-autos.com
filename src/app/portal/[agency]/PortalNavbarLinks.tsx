@@ -39,7 +39,7 @@ export default function PortalNavbarLinks({
         Catálogo
       </Link>
       <Link href={bookingHref}>
-        Agendar Cita
+        Visita al Local
       </Link>
       <Link href={aboutHref}>
         Sobre Nosotros
